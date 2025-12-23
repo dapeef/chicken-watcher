@@ -1,0 +1,23 @@
+services:
+  hardware-agent:
+    build: ./hardware-agent
+#    privileged: true
+#    depends_on:
+#      - db
+#
+#  db:
+#    image: postgres:16
+#    volumes:
+#      - pgdata:/var/lib/postgresql/data
+#    environment:
+#      POSTGRES_PASSWORD: ${DB_PASSWORD}
+#
+#  web:
+#    build: ./web
+#    ports:
+#      - "80:3000"
+#    depends_on:
+#      - db
+#
+#volumes:
+#  pgdata:
