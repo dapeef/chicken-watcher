@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "psycopg[binary]>=3.3.2",
+    "sqlalchemy>=2.0.45",
+]
 
 [project.scripts]
 hardware-agent = "hardware_agent.main:main"
