@@ -1,0 +1,11 @@
+services:
+  hardware-agent:
+    volumes:
+      # Allows docker container to see local files
+      # This means that we don't need to rebuild in order for the container to get new sourcecode
+      - ./hardware-agent/src:/app/src
+
+  db:
+    ports:
+      # Exposes the DB on a port on the host machine to allow debugging
+      - "5432:5432"
