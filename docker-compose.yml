@@ -11,8 +11,8 @@ services:
 
   db:
     image: postgres:16
-#    volumes:
-#      - pgdata:/var/lib/postgresql/data
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER" ]
       interval: 5s
@@ -29,5 +29,5 @@ services:
 #    depends_on:
 #      - db
 
-#volumes:
-#  pgdata:
+volumes:
+  pgdata:
