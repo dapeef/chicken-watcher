@@ -5,3 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
+
+[project.scripts]
+hardware-agent = "hardware_agent.main:main"
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+]

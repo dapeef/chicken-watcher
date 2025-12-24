@@ -46,4 +46,4 @@ USER nonroot
 
 WORKDIR /app
 
-CMD  ["uv", "run", "main.py"]
+CMD  ["uv", "run", "hardware-agent"]
