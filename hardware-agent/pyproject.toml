@@ -11,6 +11,7 @@ dependencies = [
 
 [project.scripts]
 hardware-agent = "hardware_agent.main:main"
+seed-dev = "hardware_agent.db.seed_dev:main"
 
 [tool.uv]
 package = true

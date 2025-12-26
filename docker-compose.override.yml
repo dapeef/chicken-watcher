@@ -14,8 +14,9 @@ services:
           path: ./hardware-agent/pyproject.toml
         - action: rebuild
           path: ./hardware-agent/uv.lock
+    command: >
+      sh -c "uv run seed-dev && uv run hardware-agent"
 
   db:
     ports:
-      # Exposes the DB on a port on the host machine to allow debugging
       - "5432:5432"

@@ -13,7 +13,7 @@ def main() -> None:
     for i in range(10):
         time.sleep(1)
         # print(f"Creating egg {i}...")
-        insert_egg(i)
+        insert_egg(chicken_id=1)
 
     print(f"Just inserted {i + 1} eggs")
 
