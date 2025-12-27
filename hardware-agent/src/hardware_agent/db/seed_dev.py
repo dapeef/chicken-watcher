@@ -18,8 +18,8 @@ def main() -> None:
 
 
 def seed_db() -> None:
-    insert_chicken("Scramble")
-    insert_chicken("Omelette")
+    insert_chicken("Scramble", tag_string="abc")
+    insert_chicken("Omelette", tag_string="123")
 
     insert_egg(2)
 

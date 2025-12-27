@@ -1,6 +1,7 @@
 import uuid
 
 from datetime import datetime, UTC
+from sqlalchemy.sql.expression import select
 
 from .core import engine
 from .schema import eggs, chickens
@@ -16,6 +17,22 @@ def insert_egg(chicken_id: int, laid_at: datetime | None = None) -> None:
     # automatic transaction (commit/rollback) with begin()
     with engine.begin() as conn:
         conn.execute(stmt)
+
+
+def get_last_eggs(limit: int = 20) -> list[dict]:
+    """
+    Return a list of dicts (for JSON serialization in the dashboard).
+    """
+    from sqlalchemy import select, desc
+
+    stmt = (
+        select(eggs.c.id, eggs.c.chicken_id, eggs.c.laid_at)
+        .order_by(desc(eggs.c.id))
+        .limit(limit)
+    )
+    with engine.connect() as conn:
+        result = conn.execute(stmt)
+        return [dict(row._mapping) for row in result]
 
 
 def insert_chicken(
@@ -43,17 +60,9 @@ def insert_chicken(
         conn.execute(stmt)
 
 
-def get_last_eggs(limit: int = 20) -> list[dict]:
-    """
-    Return a list of dicts (for JSON serialization in the dashboard).
-    """
-    from sqlalchemy import select, desc
+def get_chicken_id_by_tag(tag_string: str) -> int | None:
+    stmt = select(chickens.c.id).where(chickens.c.tag_string == tag_string)
 
-    stmt = (
-        select(eggs.c.id, eggs.c.chicken_id, eggs.c.laid_at)
-        .order_by(desc(eggs.c.id))
-        .limit(limit)
-    )
     with engine.connect() as conn:
-        result = conn.execute(stmt)
-        return [dict(row._mapping) for row in result]
+        result = conn.execute(stmt).scalar()
+        return result

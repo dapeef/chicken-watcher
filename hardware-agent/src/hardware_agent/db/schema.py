@@ -7,7 +7,7 @@ eggs = Table(
     "eggs",
     metadata,
     Column("id", BigInteger, primary_key=True, autoincrement=True),
-    Column("chicken_id", BigInteger, ForeignKey("chickens.id")),
+    Column("chicken_id", BigInteger, ForeignKey("chickens.id"), nullable=False),
     Column(
         "laid_at", DateTime(timezone=True), server_default=text("now()"), nullable=False
     ),
