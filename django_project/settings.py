@@ -31,7 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    "eggs.apps.EggsConfig",
+    "chicken_watcher.apps.ChickenWatcherConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
