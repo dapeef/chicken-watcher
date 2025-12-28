@@ -23,9 +23,9 @@ class Command(BaseCommand):
         parser.add_argument('--mode', type=str, help="Mode")
 
     def handle(self, *args, **options):
-        self.stdout.write('seeding data...')
+        self.stdout.write('Seeding data...')
         run_seed(options['mode'])
-        self.stdout.write('done.')
+        self.stdout.write('Data seeding complete.')
 
 
 def clear_data():
@@ -41,8 +41,8 @@ def populate_data():
     """Populates Chicken and NestingBox"""
     logger.info("Populating Chicken and NestingBox")
 
-    Chicken.objects.create(name='Isla', date_of_birth=datetime.date(2020, 1, 1), tag_string="abc")
-    Chicken.objects.create(name='Omelette', date_of_birth=datetime.date(2020, 1, 1), date_of_death=datetime.date(2025, 1, 1), tag_string="abc")
+    Chicken.objects.create(name='Isla', date_of_birth=datetime.date(2020, 1, 1), tag_string="0D007FE20B")
+    Chicken.objects.create(name='Omelette', date_of_birth=datetime.date(2020, 1, 1), date_of_death=datetime.date(2025, 1, 1), tag_string="0D007FFEFE")
 
     NestingBox.objects.create(name='left')
     NestingBox.objects.create(name='right')

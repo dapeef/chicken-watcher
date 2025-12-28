@@ -5,7 +5,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_project.settings")
 django.setup()
 
 # Must be below `django.setup()` for the imports to work correctly
-from chicken_watcher.models import Egg, Chicken, NestingBox  # noqa: E402
+from web_app.models import Egg, Chicken, NestingBox  # noqa: E402
 
 
 def main():

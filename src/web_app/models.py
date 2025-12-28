@@ -33,7 +33,7 @@ class Egg(models.Model):
 class NestingBoxPresence(models.Model):
     chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
     nesting_box = models.ForeignKey(NestingBox, on_delete=models.CASCADE)
-    present_at = models.DateTimeField()
+    present_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f"{self.chicken.name}, in {self.nesting_box.name} box at {self.present_at}"
