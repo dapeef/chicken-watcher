@@ -2,7 +2,7 @@ import datetime
 
 from django.core.management.base import BaseCommand
 
-from web_app.models import Chicken, NestingBox, Egg, NestingBoxVisit
+from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence
 
 import logging
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def clear_data():
     Chicken.objects.all().delete()
     NestingBox.objects.all().delete()
     Egg.objects.all().delete()
-    NestingBoxVisit.objects.all().delete()
+    NestingBoxPresence.objects.all().delete()
 
 
 def populate_data():
