@@ -1,3 +1,5 @@
+import time
+
 import serial
 from serial.tools import list_ports
 
@@ -37,6 +39,9 @@ def main():
 
     with open_reader() as ser:
         print(f"Listening on {PORT} ({BAUD} baud) …  Ctrl-C to quit")
+
+        ser.rts = False
+
         while True:
             frame = recv_frame(ser)
             if not frame:
@@ -44,7 +49,12 @@ def main():
 
             tag    = frame[:-1].decode()  # last byte is a checksum
 
-            print("Card:", tag)
+            print("Card:", tag, time.time())
+
+            # Reset reader so that it can read the same tag repeatedly
+            ser.rts = True
+            time.sleep(.1)
+            ser.rts = False
 
 if __name__ == "__main__":
     try:
