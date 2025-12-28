@@ -75,7 +75,6 @@ WSGI_APPLICATION = "django_project.wsgi.application"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-
     # ------------- Formatters ------------------------------------------------
     "formatters": {
         "verbose": {
@@ -87,7 +86,6 @@ LOGGING = {
             "style": "{",
         },
     },
-
     # ------------- Handlers --------------------------------------------------
     "handlers": {
         # Console ‒ everything (DEBUG and up)
@@ -107,14 +105,13 @@ LOGGING = {
             "encoding": "utf-8",
         },
     },
-
     # ------------- Loggers ---------------------------------------------------
     # Add/override individual Django or third-party loggers here if desired.
     # By default we attach our two handlers to the root logger so every message
     # bubbles up there.
     "root": {
         "handlers": ["console", "file"],
-        "level": "DEBUG",          # let DEBUG reach the console handler
+        "level": "DEBUG",  # let DEBUG reach the console handler
     },
 }
 

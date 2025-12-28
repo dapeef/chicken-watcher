@@ -6,50 +6,109 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Chicken',
+            name="Chicken",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=200)),
-                ('date_of_birth', models.DateField()),
-                ('date_of_death', models.DateField(blank=True, null=True)),
-                ('tag_string', models.CharField(max_length=200)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=200)),
+                ("date_of_birth", models.DateField()),
+                ("date_of_death", models.DateField(blank=True, null=True)),
+                ("tag_string", models.CharField(max_length=200)),
             ],
         ),
         migrations.CreateModel(
-            name='NestingBox',
+            name="NestingBox",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=200)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=200)),
             ],
         ),
         migrations.CreateModel(
-            name='Egg',
+            name="Egg",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('laid_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('chicken', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.chicken')),
-                ('nesting_box', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.nestingbox')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("laid_at", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "chicken",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="web_app.chicken",
+                    ),
+                ),
+                (
+                    "nesting_box",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="web_app.nestingbox",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='NestingBoxVisit',
+            name="NestingBoxVisit",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('started_at', models.DateTimeField()),
-                ('ended_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('chicken', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.chicken')),
-                ('nesting_box', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.nestingbox')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("started_at", models.DateTimeField()),
+                ("ended_at", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "chicken",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="web_app.chicken",
+                    ),
+                ),
+                (
+                    "nesting_box",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="web_app.nestingbox",
+                    ),
+                ),
             ],
             options={
-                'constraints': [models.CheckConstraint(condition=models.Q(('started_at__lte', models.F('ended_at'))), name='started_before_ended')],
+                "constraints": [
+                    models.CheckConstraint(
+                        condition=models.Q(("started_at__lte", models.F("ended_at"))),
+                        name="started_before_ended",
+                    )
+                ],
             },
         ),
     ]

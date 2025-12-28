@@ -5,15 +5,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('web_app', '0002_nestingboxpresence_and_more'),
+        ("web_app", "0002_nestingboxpresence_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='nestingboxpresence',
-            name='present_at',
+            model_name="nestingboxpresence",
+            name="present_at",
             field=models.DateTimeField(default=django.utils.timezone.now),
         ),
     ]

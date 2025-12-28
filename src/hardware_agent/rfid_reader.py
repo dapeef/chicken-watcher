@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 
 START_BYTE, END_BYTE = 0x02, 0x03
-MIN_RESET_INTERVAL = 0.1 # Seconds
+MIN_RESET_INTERVAL = 0.1  # Seconds
 
 
 class RFIDReader:
@@ -87,7 +87,9 @@ class RFIDReader:
                     time.sleep(max(MIN_RESET_INTERVAL, self.reset_interval))
                     self.serial_conn.rts = False
 
-    def start_reading(self, callback: Callable[[str, str], None], reset_interval: float = 1):
+    def start_reading(
+        self, callback: Callable[[str, str], None], reset_interval: float = 1
+    ):
         self.callback = callback
         self.reset_interval = reset_interval
 

@@ -5,34 +5,45 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('web_app', '0001_initial'),
+        ("web_app", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='NestingBoxPresence',
+            name="NestingBoxPresence",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('present_at', models.DateTimeField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("present_at", models.DateTimeField()),
             ],
         ),
         migrations.RemoveConstraint(
-            model_name='nestingboxvisit',
-            name='started_before_ended',
+            model_name="nestingboxvisit",
+            name="started_before_ended",
         ),
         migrations.AddField(
-            model_name='nestingboxpresence',
-            name='chicken',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.chicken'),
+            model_name="nestingboxpresence",
+            name="chicken",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="web_app.chicken"
+            ),
         ),
         migrations.AddField(
-            model_name='nestingboxpresence',
-            name='nesting_box',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.nestingbox'),
+            model_name="nestingboxpresence",
+            name="nesting_box",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="web_app.nestingbox"
+            ),
         ),
         migrations.DeleteModel(
-            name='NestingBoxVisit',
+            name="NestingBoxVisit",
         ),
     ]

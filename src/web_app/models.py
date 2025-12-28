@@ -1,7 +1,5 @@
 from django.db import models
 from django.utils import timezone
-from django.core.exceptions import ValidationError
-from django.db.models import Q, F, CheckConstraint
 
 
 class Chicken(models.Model):
@@ -36,4 +34,6 @@ class NestingBoxPresence(models.Model):
     present_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return f"{self.chicken.name}, in {self.nesting_box.name} box at {self.present_at}"
+        return (
+            f"{self.chicken.name}, in {self.nesting_box.name} box at {self.present_at}"
+        )
