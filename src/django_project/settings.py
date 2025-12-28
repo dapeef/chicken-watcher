@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -68,6 +69,54 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "django_project.wsgi.application"
+
+
+# --- Logging ---
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    # ------------- Formatters ------------------------------------------------
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname:8s} {name} | {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname:8s} {message}",
+            "style": "{",
+        },
+    },
+
+    # ------------- Handlers --------------------------------------------------
+    "handlers": {
+        # Console ‒ everything (DEBUG and up)
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "simple",
+        },
+        # File ‒ INFO and up
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "INFO",
+            "formatter": "verbose",
+            "filename": os.path.join(BASE_DIR, "logs", "django.log"),
+            "maxBytes": 1024 * 1024 * 10,  # 10 MiB
+            "backupCount": 5,
+            "encoding": "utf-8",
+        },
+    },
+
+    # ------------- Loggers ---------------------------------------------------
+    # Add/override individual Django or third-party loggers here if desired.
+    # By default we attach our two handlers to the root logger so every message
+    # bubbles up there.
+    "root": {
+        "handlers": ["console", "file"],
+        "level": "DEBUG",          # let DEBUG reach the console handler
+    },
+}
 
 
 # Database
