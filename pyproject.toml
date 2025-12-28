@@ -10,7 +10,6 @@ dependencies = [
 ]
 
 [project.scripts]
-hardware-agent = "hardware_agent.service:main"
 list-ports = "hardware_agent.rfid_reader:RFIDReader.list_ports"
 
 [tool.uv]

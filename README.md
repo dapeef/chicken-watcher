@@ -20,6 +20,12 @@ export RFID_SERIAL_PORT_LEFT=/dev/tty.usbserial-BG01PVA3
 export RFID_SERIAL_PORT_RIGHT=/dev/...
 ```
 
+Run the hardware agent using:
+
+```shell
+uv run manage.py run_hardware_agent
+```
+
 To run the project, run the following command. This will spin up the database and the python hardware script.
 
 ```shell

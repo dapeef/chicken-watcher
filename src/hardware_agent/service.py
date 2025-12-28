@@ -3,13 +3,6 @@ import time
 
 from hardware_agent.rfid_reader import RFIDReader
 
-
-import django
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_project.settings")
-django.setup()
-
-# Must be below `django.setup()` for the imports to work correctly
 from web_app.models import NestingBoxPresence, NestingBox, Chicken  # noqa: E402
 
 
@@ -21,7 +14,7 @@ def handle_tag_read(name: str, tag: str):
     NestingBoxPresence.objects.create(nesting_box=nesting_box, chicken=chicken)
 
 
-def main():
+def run_agent():
     rfid_reader = RFIDReader("left", os.environ.get("RFID_SERIAL_PORT_LEFT"))
 
     rfid_reader.connect()
@@ -33,4 +26,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_agent()
