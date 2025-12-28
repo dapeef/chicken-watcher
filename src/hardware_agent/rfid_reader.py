@@ -1,7 +1,13 @@
 import serial
+from serial.tools import list_ports
+
 import time
 import threading
 from typing import Callable, Optional
+
+
+START_BYTE, END_BYTE = 0x02, 0x03
+MIN_RESET_INTERVAL = 0.1 # Seconds
 
 
 class RFIDReader:
@@ -14,16 +20,17 @@ class RFIDReader:
         self.running = False
         self.thread = None
         self.callback = None
-        self.debounce_time = 1.0
-        self.last_tag = None
-        self.last_time = 0
+        self.reset_interval = 1
 
     def connect(self) -> bool:
         try:
             self.serial_conn = serial.Serial(
                 port=self.port,
                 baudrate=self.baudrate,
-                timeout=self.timeout
+                timeout=self.timeout,
+                bytesize=serial.EIGHTBITS,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
             )
             print(f"[{self.name}] Connected to RFID reader on {self.port}")
             return True
@@ -36,38 +43,54 @@ class RFIDReader:
             return None
 
         try:
-            self.serial_conn.reset_input_buffer()
-            data = self.serial_conn.readline()
+            frame = self.recv_frame()
+            if not frame:
+                return None  # just a timeout
 
-            if data:
-                tag_id = data.decode('utf-8').strip()
-                return tag_id
-            return None
+            tag = frame[:-1].decode()  # last byte is a checksum
+
+            return tag
 
         except Exception as e:
             print(f"[{self.name}] Error reading tag: {e}")
             return None
 
+    def recv_frame(self):
+        """read one STX … ETX frame, return payload (bytes) or None on timeout"""
+        # throw away bytes until we see STX
+        while True:
+            b = self.serial_conn.read(1)
+            if not b:  # timeout
+                return None
+            if b[0] == START_BYTE:
+                break
+
+        payload = self.serial_conn.read_until(bytes([END_BYTE]))
+        if not payload or payload[-1] != END_BYTE:
+            return None  # timed-out inside the frame
+        return payload[:-1]  # strip ETX
+
     def _read_loop(self):
         print(f"[{self.name}] Started listening for RFID tags...")
 
         while self.running:
-            tag_id = self.read_tag()
-            current_time = time.time()
+            self.serial_conn.rts = False
 
-            if tag_id and (tag_id != self.last_tag or
-                           current_time - self.last_time > self.debounce_time):
-                print(f"[{self.name}] Tag detected: {tag_id}")
-                self.last_tag = tag_id
-                self.last_time = current_time
+            while True:
+                tag = self.read_tag()
 
-                if self.callback:
-                    self.callback(self.name, tag_id)
+                if tag:
+                    self.callback(self.name, tag)
 
-            time.sleep(0.1)
+                    # Reset reader so that it can read the same tag repeatedly
+                    self.serial_conn.rts = True
+                    time.sleep(max(MIN_RESET_INTERVAL, self.reset_interval))
+                    self.serial_conn.rts = False
 
-    def start_reading(self, callback: Callable[[str, str], None]):
+    def start_reading(self, callback: Callable[[str, str], None], reset_interval: float = 1):
         self.callback = callback
+        self.reset_interval = reset_interval
+
         self.running = True
         self.thread = threading.Thread(target=self._read_loop, daemon=True)
         self.thread.start()
@@ -82,3 +105,10 @@ class RFIDReader:
         if self.serial_conn and self.serial_conn.is_open:
             self.serial_conn.close()
             print(f"[{self.name}] Disconnected from {self.port}")
+
+    @staticmethod
+    def list_ports() -> None:
+        print("Ports:")
+        for p in list_ports.comports():
+            print(" ", p.device, p.description)
+        print()

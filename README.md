@@ -6,10 +6,18 @@ This is a system which will run on a Raspberry Pi and track which chicken lays w
 
 ## Dev
 
-Seed the db using:
+Seed the DB using:
 
 ```shell
 uv run manage.py seed --mode=refresh
+```
+
+Set the RFID readers' ports as environment variables. When deployed, these are set in the `.env` file and are set
+by `docker_compose.yml`:
+
+```shell
+export RFID_SERIAL_PORT_LEFT=/dev/tty.usbserial-BG01PVA3
+export RFID_SERIAL_PORT_RIGHT=/dev/...
 ```
 
 To run the project, run the following command. This will spin up the database and the python hardware script.

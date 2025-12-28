@@ -1,63 +1,20 @@
+import os
 import time
 
-import serial
-from serial.tools import list_ports
+from hardware_agent.rfid_reader import RFIDReader
 
-PORT = "/dev/tty.usbserial-BG01PVA3"   # use the tty.* variant if cu.* is silent
-BAUD = 9600                            # confirmed by miniterm
-STX, ETX = 0x02, 0x03
-
-def open_reader():
-    return serial.Serial(
-        PORT, BAUD,
-        bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        timeout=0.2
-    )
-
-def recv_frame(ser):
-    """read one STX … ETX frame, return payload (bytes) or None on timeout"""
-    # throw away bytes until we see STX
-    while True:
-        b = ser.read(1)
-        if not b:            # timeout
-            return None
-        if b[0] == STX:
-            break
-
-    payload = ser.read_until(bytes([ETX]))
-    if not payload or payload[-1] != ETX:
-        return None          # timed-out inside the frame
-    return payload[:-1]      # strip ETX
+def handle_tag_read(name: str, tag: str):
+    print(name, tag)
 
 def main():
-    print("Ports:")
-    for p in list_ports.comports():
-        print(" ", p.device, p.description)
-    print()
+    rfid_reader = RFIDReader("left", os.environ.get("RFID_SERIAL_PORT_LEFT"))
 
-    with open_reader() as ser:
-        print(f"Listening on {PORT} ({BAUD} baud) …  Ctrl-C to quit")
+    rfid_reader.connect()
 
-        ser.rts = False
+    rfid_reader.start_reading(handle_tag_read)
 
-        while True:
-            frame = recv_frame(ser)
-            if not frame:
-                continue                  # just a timeout
-
-            tag    = frame[:-1].decode()  # last byte is a checksum
-
-            print("Card:", tag, time.time())
-
-            # Reset reader so that it can read the same tag repeatedly
-            ser.rts = True
-            time.sleep(.1)
-            ser.rts = False
+    while True:
+        time.sleep(1)
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass
+    main()
