@@ -6,6 +6,12 @@ This is a system which will run on a Raspberry Pi and track which chicken lays w
 
 ## Dev
 
+Seed the db using:
+
+```shell
+uv run manage.py seed --mode=refresh
+```
+
 To run the project, run the following command. This will spin up the database and the python hardware script.
 
 ```shell
