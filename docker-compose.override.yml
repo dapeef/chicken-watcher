@@ -1,22 +1,22 @@
-services:
-  hardware-agent:
-    develop:
-      watch:
-        - action: sync+restart
-          path: ./hardware-agent/src
-          target: /app/src
-          ignore:
-            - "**/__pycache__"
-            - "**/*.pyc"
-            - "**/*.egg-info"
-            - "**/*.venv"
-        - action: rebuild
-          path: ./hardware-agent/pyproject.toml
-        - action: rebuild
-          path: ./hardware-agent/uv.lock
-    command: >
-      sh -c "uv run seed-dev && uv run hardware-agent"
-
-  db:
-    ports:
-      - "5432:5432"
+#services:
+#  hardware-agent:
+#    develop:
+#      watch:
+#        - action: sync+restart
+#          path: ./hardware-agent/src
+#          target: /app/src
+#          ignore:
+#            - "**/__pycache__"
+#            - "**/*.pyc"
+#            - "**/*.egg-info"
+#            - "**/*.venv"
+#        - action: rebuild
+#          path: ./hardware-agent/pyproject.toml
+#        - action: rebuild
+#          path: ./hardware-agent/uv.lock
+#    command: >
+#      sh -c "uv run seed-dev && uv run hardware-agent"
+#
+#  db:
+#    ports:
+#      - "5432:5432"
