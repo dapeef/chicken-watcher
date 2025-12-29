@@ -6,10 +6,12 @@ This is a system which will run on a Raspberry Pi and track which chicken lays w
 
 ## Dev
 
+### Running locally
+
 Seed the DB using:
 
 ```shell
-uv run manage.py seed --mode=refresh
+uv run manage.py seed
 ```
 
 Set the RFID readers' ports as environment variables. When deployed, these are set in the `.env` file and are set
@@ -26,7 +28,10 @@ Run the hardware agent using:
 uv run manage.py run_hardware_agent
 ```
 
-To run the project, run the following command. This will spin up the database and the python hardware script.
+### Using `docker compose`
+
+To run the project, run the following command. This will spin up the database, the python hardware script,
+and the python web app.
 
 ```shell
 docker compose up --watch --build

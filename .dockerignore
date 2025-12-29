@@ -1,5 +1,5 @@
-.venv
-db.sqlite3
-*.egg-info
-logs
-.env
+**/.venv/
+**/*.egg-info/
+**/logs/
+**/.env
+**/db.sqlite3
