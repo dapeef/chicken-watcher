@@ -1,0 +1,145 @@
+{% extends "web_app/base.html" %}
+{% block title %}{{ hen.name }} | Coop{% endblock %}
+{% load humanize %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'chicken_list' %}">&larr; back to list</a>
+
+<div class="row g-4">
+
+  <!-- left column: profile -->
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title">{{ hen.name }}</h3>
+        <dl class="row small">
+          <dt class="col-5">Tag</dt><dd class="col-7">{{ hen.tag_string }}</dd>
+          <dt class="col-5">Date of birth</dt><dd class="col-7">{{ hen.date_of_birth }}</dd>
+          {% if hen.date_of_death %}
+            <dt class="col-5">Date of death</dt><dd class="col-7">{{ hen.date_of_death }}</dd>
+          {% endif %}
+          <dt class="col-5">Age</dt><dd class="col-7">{{ hen.age|intcomma }} days</dd>
+        </dl>
+
+        <hr>
+        <h6>Production</h6>
+        <ul class="list-unstyled small mb-0">
+          <li>Total eggs: <strong>{{ stats.total }}</strong></li>
+          <li>Last 30 d: <strong>{{ stats.last30 }}</strong></li>
+          <li>Last egg: <strong>{{ stats.last|date:"Y-m-d H:i" }}</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- right column: tabs -->
+  <div class="col-md-8">
+    <ul class="nav nav-tabs" id="henTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="eggs-tab" data-bs-toggle="tab"
+                data-bs-target="#eggs" type="button" role="tab">Egg output</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="nest-tab" data-bs-toggle="tab"
+                data-bs-target="#nest" type="button" role="tab">Nesting behaviour</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="raw-tab" data-bs-toggle="tab"
+                data-bs-target="#raw" type="button" role="tab">Raw events</button>
+      </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-3 bg-white shadow-sm"
+         id="henTabsContent">
+
+      <!-- egg chart -->
+      <div class="tab-pane fade show active" id="eggs" role="tabpanel">
+        <canvas id="eggChart" height="120"></canvas>
+      </div>
+
+      <!-- nesting behaviour -->
+      <div class="tab-pane fade" id="nest" role="tabpanel">
+        <h6>Last 24&nbsp;hours</h6>
+        {% if presence_events %}
+          <ul class="list-group list-group-flush small">
+            {% for ev in presence_events %}
+              <li class="list-group-item">
+                {{ ev.present_at|date:"H:i" }} — in {{ ev.nesting_box.name }}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">No presence detected.</p>
+        {% endif %}
+      </div>
+
+      <!-- raw events -->
+      <div class="tab-pane fade" id="raw" role="tabpanel">
+        <table class="table table-sm small">
+          <thead><tr><th>Eggs (latest&nbsp;20)</th><th>Time</th><th>Box</th></tr></thead>
+          <tbody>
+          {% for egg in hen.egg_set.all|dictsortreversed:"laid_at"|slice:":20" %}
+            <tr>
+              <td>Egg</td>
+              <td>{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ egg.nesting_box.name }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="text-muted">No eggs yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const ctx = document.getElementById("eggChart");
+  if (!ctx) return;
+
+  const labels  = {{ chart_labels|safe }};
+  const daily   = {{ chart_daily|safe }};
+  const rolling = {{ chart_rolling|safe }};
+
+  new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Eggs per day",
+          data: daily,
+          backgroundColor: "rgba(0,123,255,0.4)",
+          borderColor: "rgba(0,123,255,1)",
+          borderWidth: 1
+        },
+        {
+          label: "10-day rolling avg",
+          data: rolling,
+          type: "line",
+          borderColor: "rgba(220,53,69,1)",
+          fill: false,
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      scales: {
+        x: { ticks: { maxTicksLimit: 8 } },
+        y: { beginAtZero: true, precision: 0 }
+      },
+      plugins: {
+        legend: { position: "bottom" }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

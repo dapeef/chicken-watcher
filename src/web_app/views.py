@@ -1,7 +1,8 @@
-from datetime import timedelta
+import json
+from datetime import timedelta, date
 
 from django.utils import timezone
-from django.views.generic import TemplateView, ListView
+from django.views.generic import TemplateView, ListView, DetailView
 from .models import Egg, Chicken, NestingBoxPresence
 from django.db.models import Count, Max, Q
 
@@ -89,6 +90,76 @@ class ChickenListView(ListView):
             ("eggs_total", "Eggs total"),
             ("last_egg", "Last egg"),
         ]
+        return ctx
+
+class ChickenDetailView(DetailView):
+    model = Chicken
+    template_name = "web_app/chicken_detail.html"
+    context_object_name = "hen"
+
+    DAYS_BACK = 60           # how many days to plot
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        hen = self.object
+
+        # ------------------------------------------------------------
+        # 1) Egg-per-day series + 10-day rolling mean
+        # ------------------------------------------------------------
+        today = date.today()
+        start = today - timedelta(days=self.DAYS_BACK - 1)
+
+        eggs = (
+            Egg.objects
+            .filter(chicken=hen, laid_at__date__gte=start)
+            .values("laid_at__date")
+            .annotate(cnt=Count("id"))
+        )
+        counts_by_day = {row["laid_at__date"]: row["cnt"] for row in eggs}
+
+        labels, daily, rolling = [], [], []
+        window = 10
+        buf = []
+
+        for i in range(self.DAYS_BACK):
+            d = start + timedelta(days=i)
+            labels.append(d.isoformat())
+            c = counts_by_day.get(d, 0)
+            daily.append(c)
+            buf.append(c)
+            if len(buf) > window:
+                buf.pop(0)
+            rolling.append(round(sum(buf) / len(buf), 2))
+
+        ctx["chart_labels"] = json.dumps(labels)
+        ctx["chart_daily"] = json.dumps(daily)
+        ctx["chart_rolling"] = json.dumps(rolling)
+
+        # ------------------------------------------------------------
+        # 2) Nesting-box presence last 24 h
+        # ------------------------------------------------------------
+        now = timezone.localtime()
+        since = now - timedelta(hours=24)
+        presence = (
+            NestingBoxPresence.objects
+            .filter(chicken=hen, present_at__gte=since)
+            .select_related("nesting_box")
+            .order_by("present_at")
+        )
+        ctx["presence_events"] = presence
+
+        # ------------------------------------------------------------
+        # 3) Quick stats
+        # ------------------------------------------------------------
+        stats = (
+            Egg.objects.filter(chicken=hen)
+            .aggregate(
+                total=Count("id"),
+                last=Max("laid_at"),
+                last30=Count("id", filter=Q(laid_at__gte=timezone.now() - timedelta(days=30))),
+            )
+        )
+        ctx["stats"] = stats
         return ctx
 
 class NestingBoxListView(TemplateView):
