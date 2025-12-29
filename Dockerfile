@@ -14,14 +14,15 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 
+COPY pyproject.toml uv.lock ./
+
 # Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project
 
 # Copy over the source files
-COPY . /app
+COPY ./src ./src
+COPY manage.py ./
 
 # Rebuild to include source files; helps Docker with cache hits
 RUN --mount=type=cache,target=/root/.cache/uv \
