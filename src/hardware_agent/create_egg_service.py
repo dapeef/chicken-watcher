@@ -1,14 +1,9 @@
-import os
-import django
+import time
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_project.settings")
-django.setup()
-
-# Must be below `django.setup()` for the imports to work correctly
-from web_app.models import Egg, Chicken, NestingBox  # noqa: E402
+from web_app.models import Egg, Chicken, NestingBox
 
 
-def main():
+def create_some_eggs():
     nesting_box = NestingBox.objects.all().first()
     chicken = Chicken.objects.all().first()
 
@@ -16,6 +11,8 @@ def main():
         print(f"Creating egg number {i + 1}")
         Egg.objects.create(chicken=chicken, nesting_box=nesting_box)
 
+        time.sleep(0.5)
+
 
 if __name__ == "__main__":
-    main()
+    create_some_eggs()

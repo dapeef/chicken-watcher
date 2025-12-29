@@ -4,11 +4,14 @@ services:
     entrypoint: []
     command: ["uv", "run", "manage.py", "run_hardware_agent"]
 #    privileged: true
+#    devices:
+#      - "/dev/ttyUSB0:/dev/ttyUSB0"
     environment:
       - DJANGO_ENV=prod
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
+    restart: unless-stopped
     depends_on:
       - db
 
