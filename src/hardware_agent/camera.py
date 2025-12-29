@@ -1,7 +1,7 @@
 import cv2
 import time
 import threading
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, Union
 import numpy as np
 
 
@@ -15,12 +15,12 @@ class USBCamera:
     def __init__(
         self,
         name: str,
-        device_index: int = 0,
+        device: Union[int, str] = 0,
         resolution: Tuple[int, int] = (1920, 1080),
         fps: int = 30,
     ):
         self.name = name
-        self.device_index = device_index
+        self.device = device
         self.resolution = resolution
         self.fps = fps
 
@@ -32,9 +32,13 @@ class USBCamera:
         self._frame_interval = 1.0 / fps
 
     def connect(self) -> bool:
-        self.cap = cv2.VideoCapture(self.device_index, cv2.CAP_ANY)
+        # Pick the proper backend: on Linux force V4L2 for strings,
+        # otherwise leave CAP_ANY so OpenCV can guess for integers.
+        backend = cv2.CAP_V4L2 if isinstance(self.device, str) else cv2.CAP_ANY
+        self.cap = cv2.VideoCapture(self.device, backend)
+
         if not self.cap.isOpened():
-            print(f"[{self.name}] Could not open camera #{self.device_index}")
+            print(f"[{self.name}] Could not open camera #{self.device}")
             return False
 
         w, h = self.resolution
@@ -43,7 +47,7 @@ class USBCamera:
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
 
         print(
-            f"[{self.name}] Connected to camera #{self.device_index} "
+            f"[{self.name}] Connected to camera #{self.device} "
             f"({int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))}×"
             f"{int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))} @ "
             f"{self.cap.get(cv2.CAP_PROP_FPS):.1f} fps)"
@@ -54,7 +58,7 @@ class USBCamera:
         self.stop_capturing()
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
-            print(f"[{self.name}] Disconnected camera #{self.device_index}")
+            print(f"[{self.name}] Disconnected camera #{self.device}")
 
     def read_frame(self):
         if not self.cap or not self.cap.isOpened():

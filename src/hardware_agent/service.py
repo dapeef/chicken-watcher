@@ -1,3 +1,4 @@
+import os
 import pathlib
 from datetime import datetime
 import time
@@ -5,7 +6,8 @@ import time
 import cv2
 from django.core.files.base import ContentFile
 
-
+from hardware_agent.camera import USBCamera
+from .rfid_reader import RFIDReader
 from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxImage
 
 
@@ -51,26 +53,24 @@ def save_frame_to_db(cam_name: str, frame):
     # 4) create the DB row
     NestingBoxImage.objects.create(image=django_file)
 
-    print(f"{cam_name} frame saved as {filename}")
+    print(f"{cam_name} frame saved to db as {filename}")
 
 
 def run_agent():
-    # rfid_reader = RFIDReader("left", os.environ.get("RFID_SERIAL_PORT_LEFT"))
-    # rfid_reader.connect()
-    # rfid_reader.start_reading(handle_tag_read)
-    #
-    # camera = USBCamera("cam", device_index=0, fps=1)
-    # camera.connect()
-    # camera.start_capturing(save_frame)
+    rfid_reader = RFIDReader("left", os.environ.get("RFID_SERIAL_PORT_LEFT"))
+    rfid_reader.connect()
+    rfid_reader.start_reading(handle_tag_read)
+
+    rfid_reader = RFIDReader("right", os.environ.get("RFID_SERIAL_PORT_RIGHT"))
+    rfid_reader.connect()
+    rfid_reader.start_reading(handle_tag_read)
+
+    camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE"), fps=1)
+    camera.connect()
+    camera.start_capturing(save_frame_to_db)
 
     # # Just to test the db connection
     # create_some_eggs()
-
-    # To test the image creation
-    dummy_image = cv2.imread("./src/dummy_image.JPG")
-    save_frame_to_db("dummy_image", dummy_image)
-
-    handle_tag_read("arst", "arst")
 
     while True:
         time.sleep(1)

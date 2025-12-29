@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 list-ports = "hardware_agent.rfid_reader:RFIDReader.list_ports"
+list-cameras = "hardware_agent.camera:USBCamera.list_devices"
 
 [tool.uv]
 package = true
