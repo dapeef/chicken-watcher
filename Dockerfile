@@ -45,11 +45,15 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Don't buffer python logs; print them immediately
 ENV PYTHONUNBUFFERED=1
 
+# copy & make the entrypoint executable
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Use the non-root user to run our application
 USER nonroot
 
 WORKDIR /app
 
-RUN uv run manage.py migrate
+ENTRYPOINT  ["docker-entrypoint.sh"]
 
-CMD  ["uv", "run", "manage.py", "run_hardware_agent"]
+CMD  ["uv", "run", "uvicorn", "django_project.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

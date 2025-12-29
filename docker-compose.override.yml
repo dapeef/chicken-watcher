@@ -1,4 +1,4 @@
-#services:
+services:
 #  hardware-agent:
 #    develop:
 #      watch:
@@ -16,7 +16,7 @@
 #          path: ./hardware-agent/uv.lock
 #    command: >
 #      sh -c "uv run seed-dev && uv run hardware-agent"
-#
-#  db:
-#    ports:
-#      - "5432:5432"
+
+  db:
+    ports:
+      - "5432:5432"
