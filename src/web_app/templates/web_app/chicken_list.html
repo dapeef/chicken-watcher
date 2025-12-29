@@ -1,0 +1,42 @@
+{% extends "web_app/base.html" %}
+{% block title %}Chickens | Coop{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Chickens</h1>
+
+<div class="table-responsive">
+<table class="table table-sm table-hover align-middle">
+  <thead>
+    <tr>
+      {# loop over the header definitions #}
+      {% for col, label in headers %}
+        {% if sort == col %}
+          <th><a href="?sort=-{{ col }}">{{ label }} ▲</a></th>
+        {% elif sort == '-'|add:col %}
+          <th><a href="?sort={{ col }}">{{ label }} ▼</a></th>
+        {% else %}
+          <th><a href="?sort={{ col }}">{{ label }}</a></th>
+        {% endif %}
+      {% endfor %}
+    </tr>
+  </thead>
+
+  <tbody>
+  {% for hen in object_list %}
+    <tr onclick="location.href='{% url 'chicken_detail' hen.id %}'"
+        style="cursor:pointer">
+      <td>{{ hen.name }}</td>
+      <td>{{ hen.tag_string }}</td>
+      <td>{{ hen.date_of_birth }}</td>
+      <td>{{ hen.date_of_death|default:'—' }}</td>
+      <td>{{ hen.eggs_per_day|floatformat:2 }}</td>
+      <td>{{ hen.eggs_total }}</td>
+      <td>{{ hen.last_egg|date:"Y-m-d H:i" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="8" class="text-muted text-center">No chickens yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
