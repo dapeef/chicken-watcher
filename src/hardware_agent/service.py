@@ -22,8 +22,8 @@ def run_agent():
 
     rfid_reader.start_reading(handle_tag_read)
 
-    # Just to test the db connection
-    create_some_eggs()
+    # # Just to test the db connection
+    # create_some_eggs()
 
     while True:
         time.sleep(1)
