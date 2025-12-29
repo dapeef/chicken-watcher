@@ -61,6 +61,18 @@ def populate_data():
         name="Isla", date_of_birth=datetime.date(2025, 2, 1), tag_string="0D007FE20B"
     )
     Chicken.objects.create(
+        name="Scramble", date_of_birth=datetime.date(2025, 8, 1), tag_string="0D007FE20C"
+    )
+    Chicken.objects.create(
+        name="Eigg", date_of_birth=datetime.date(2025, 9, 1), tag_string="0D007FE20D"
+    )
+    Chicken.objects.create(
+        name="Twiglet", date_of_birth=datetime.date(2025, 8, 5), tag_string="0D007FE20E"
+    )
+    Chicken.objects.create(
+        name="Hoppy", date_of_birth=datetime.date(2025, 9, 10), tag_string="0D007FE20F"
+    )
+    Chicken.objects.create(
         name="Omelette",
         date_of_birth=datetime.date(2025, 1, 1),
         date_of_death=datetime.date(2025, 10, 1),

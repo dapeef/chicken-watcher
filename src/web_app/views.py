@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
 
 from django.utils import timezone
 from django.views.generic import TemplateView, ListView, DetailView
@@ -165,5 +165,86 @@ class ChickenDetailView(DetailView):
 class NestingBoxListView(TemplateView):
     pass
 
-class EggAnalyticsView(TemplateView):
-    pass
+class EggProductionView(TemplateView):
+    template_name = "web_app/egg_production.html"
+
+    DEFAULT_WINDOW = 30
+    DEFAULT_SPAN   = 60    # fallback when no date filter supplied
+
+    def _parse_date(self, txt: str | None) -> date | None:
+        if not txt:
+            return None
+        try:
+            return datetime.strptime(txt, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        # ------------ read GET params ------------
+        window = int(self.request.GET.get("w", self.DEFAULT_WINDOW))
+        if window not in (1, 3, 7, 10, 30, 90):
+            window = self.DEFAULT_WINDOW
+
+        end   = self._parse_date(self.request.GET.get("end")) or date.today()
+        start = self._parse_date(self.request.GET.get("start"))
+        if not start or start >= end:
+            start = end - timedelta(days=self.DEFAULT_SPAN - 1)
+
+        days = (end - start).days + 1
+        date_labels = [start + timedelta(days=i) for i in range(days)]
+
+        # ------------ aggregate eggs ------------
+        eggs = (
+            Egg.objects
+            .filter(laid_at__date__range=(start, end))
+            .values("chicken_id", "chicken__name", "laid_at__date")
+            .annotate(cnt=Count("id"))
+        )
+
+        # build mapping: {hen_id: {date: cnt}}
+        per_hen = {}
+        for row in eggs:
+            per_hen.setdefault(row["chicken_id"], {
+                "name": row["chicken__name"],
+                "counts": {}
+            })["counts"][row["laid_at__date"]] = row["cnt"]
+
+        # ------------ build Chart.js datasets ------------
+        palette = [
+            "#0d6efd", "#198754", "#dc3545", "#fd7e14", "#20c997",
+            "#6f42c1", "#0dcaf0", "#ffc107", "#6610f2", "#d63384",
+        ]
+
+        datasets = []
+        for idx, (hen_id, info) in enumerate(per_hen.items()):
+            counts = [info["counts"].get(d, 0) for d in date_labels]
+
+            # rolling average
+            roll, buf = [], []
+            for c in counts:
+                buf.append(c)
+                if len(buf) > window:
+                    buf.pop(0)
+                roll.append(round(sum(buf) / len(buf), 2))
+
+            color = palette[idx % len(palette)]
+            datasets.append({
+                "label": info["name"],
+                "data": roll,
+                "borderColor": color,
+                "backgroundColor": color,
+                "tension": 0.3,
+                "pointRadius": 0,
+            })
+
+        ctx.update({
+            "labels_json": json.dumps([d.isoformat() for d in date_labels]),
+            "datasets_json": json.dumps(datasets),
+            "window": window,
+            "start": start.isoformat(),
+            "end":   end.isoformat(),
+            "window_choices": (1, 3, 7, 10, 30, 90),
+        })
+        return ctx
