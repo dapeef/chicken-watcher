@@ -18,6 +18,9 @@ class NestingBox(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name_plural = "nesting boxes"
+
 
 class Egg(models.Model):
     chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
