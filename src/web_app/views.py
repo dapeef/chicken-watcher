@@ -10,21 +10,24 @@ from django.db.models import Count, Max, Q
 
 
 def rolling_average(data: List[float], window: int) -> List[float]:
-    before_window = ceil(window / 2) - 1
-    after_window = floor(window / 2)
+    window_after = floor(window / 2)
 
-    buf = data[: after_window + 1]
+    start = ceil(window / 2) - 1
+    end = len(data) - window_after - 1
+
+    buf = data[:window]
 
     rolling_avg = []
 
     for i, d in enumerate(data):
-        if i + after_window < len(data):
-            buf.append(data[i + after_window])
-
-        if i - before_window >= 0:
+        if start <= i < end:
             buf.pop(0)
+            buf.append(data[i + window_after])
 
-        rolling_avg.append(sum(buf) / len(buf))
+            rolling_avg.append(sum(buf) / len(buf))
+
+        else:
+            rolling_avg.append(None)
 
     return rolling_avg
 
