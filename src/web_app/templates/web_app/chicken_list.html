@@ -26,12 +26,11 @@
     <tr onclick="location.href='{% url 'chicken_detail' hen.id %}'"
         style="cursor:pointer">
       <td>{{ hen.name }}</td>
-      <td>{{ hen.tag_string }}</td>
-      <td>{{ hen.date_of_birth }}</td>
-      <td>{{ hen.date_of_death|default:'—' }}</td>
       <td>{{ hen.eggs_per_day|floatformat:2 }}</td>
       <td>{{ hen.eggs_total }}</td>
       <td>{{ hen.last_egg|date:"Y-m-d H:i" }}</td>
+      <td>{{ hen.date_of_birth }}</td>
+      <td>{{ hen.date_of_death|default:'—' }}</td>
     </tr>
   {% empty %}
     <tr><td colspan="8" class="text-muted text-center">No chickens yet.</td></tr>
