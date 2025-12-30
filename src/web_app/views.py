@@ -24,14 +24,13 @@ class DashboardView(TemplateView):
             Chicken.objects.filter(egg__in=eggs_today_qs).distinct().order_by("name")
         )
 
-        # naive “who is inside right now” – last presence record per box
         latest_presence = (
             NestingBoxPresence.objects
             .filter(present_at__gte=today_start)
             .order_by("nesting_box_id", "-present_at")
             .distinct("nesting_box_id")
         )
-        ctx["current_presence"] = latest_presence
+        ctx["latest_presence"] = latest_presence
 
         ctx["latest_events"] = (
             Egg.objects.filter(laid_at__gte=today_start)

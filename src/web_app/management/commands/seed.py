@@ -42,6 +42,7 @@ def clear_data():
 
 TZ = timezone.get_current_timezone()
 
+
 def populate_data():
     """Populates Chicken and NestingBox"""
 
@@ -104,9 +105,13 @@ def populate_data():
                     tzinfo=TZ
                 )
 
-                start_time = random_date(
-                    day_start + datetime.timedelta(hours=6),
+                earliest_egg = day_start + datetime.timedelta(hours=6)
+                latest_egg = min(
                     day_start + datetime.timedelta(hours=20),
+                    timezone.localtime()
+                )
+                start_time = random_date(
+                    earliest_egg, latest_egg
                 )
 
                 seconds_in_box = randint(10, 5 * 60)  # Between 10 secs and 5 mins
