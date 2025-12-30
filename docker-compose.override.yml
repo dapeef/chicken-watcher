@@ -1,18 +1,18 @@
 services:
-  hardware-agent:
-    develop:
-      watch:
-        - action: sync+restart
-          path: ./src
-          target: /app/src
-          ignore:
-            - "**/__pycache__"
-            - "**/*.pyc"
-            - "**/*.egg-info"
-        - action: rebuild
-          path: ./hardware-agent/pyproject.toml
-        - action: rebuild
-          path: ./hardware-agent/uv.lock
+#  hardware-agent:
+#    develop:
+#      watch:
+#        - action: sync+restart
+#          path: ./src
+#          target: /app/src
+#          ignore:
+#            - "**/__pycache__"
+#            - "**/*.pyc"
+#            - "**/*.egg-info"
+#        - action: rebuild
+#          path: ./hardware-agent/pyproject.toml
+#        - action: rebuild
+#          path: ./hardware-agent/uv.lock
 
   web-app:
     develop:
