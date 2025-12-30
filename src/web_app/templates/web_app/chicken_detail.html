@@ -17,12 +17,12 @@
       <div class="card-body">
         <h3 class="card-title">{{ hen.name }}</h3>
         <dl class="row small">
-          <dt class="col-5">Tag</dt><dd class="col-7">{{ hen.tag_string }}</dd>
           <dt class="col-5">Date of birth</dt><dd class="col-7">{{ hen.date_of_birth }}</dd>
           {% if hen.date_of_death %}
             <dt class="col-5">Date of death</dt><dd class="col-7">{{ hen.date_of_death }}</dd>
           {% endif %}
           <dt class="col-5">Age</dt><dd class="col-7">{{ hen.age|intcomma }} days</dd>
+          <dt class="col-5">Tag</dt><dd class="col-7">{{ hen.tag_string }}</dd>
         </dl>
 
         <hr>

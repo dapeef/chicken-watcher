@@ -80,7 +80,7 @@ class ChickenDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        hen = self.object
+        chicken = self.object
 
         # ------------------------------------------------------------
         # 1) Egg-per-day series + 10-day rolling mean
@@ -90,7 +90,7 @@ class ChickenDetailView(DetailView):
 
         eggs = (
             Egg.objects
-            .filter(chicken=hen, laid_at__date__gte=start)
+            .filter(chicken=chicken, laid_at__date__gte=start)
             .values("laid_at__date")
             .annotate(cnt=Count("id"))
         )
@@ -121,7 +121,7 @@ class ChickenDetailView(DetailView):
         since = now - timedelta(hours=24)
         presence = (
             NestingBoxPresence.objects
-            .filter(chicken=hen, present_at__gte=since)
+            .filter(chicken=chicken, present_at__gte=since)
             .select_related("nesting_box")
             .order_by("present_at")
         )
@@ -131,7 +131,7 @@ class ChickenDetailView(DetailView):
         # 3) Quick stats
         # ------------------------------------------------------------
         stats = (
-            Egg.objects.filter(chicken=hen)
+            Egg.objects.filter(chicken=chicken)
             .aggregate(
                 total=Count("id"),
                 last=Max("laid_at"),
