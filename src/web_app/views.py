@@ -8,11 +8,15 @@ from django.views.generic import TemplateView, ListView, DetailView
 from .models import Egg, Chicken, NestingBoxPresence
 from django.db.models import Count, Max, Q
 
+LEFT = "left"
+RIGHT = "right"
+CENTER = "center"
 
-def rolling_average(data: List[float], window: int) -> List[float]:
+def rolling_average(data: List[float], window: int, alignment: str=CENTER) -> List[float]:
+    window_before = ceil(window / 2) - 1
     window_after = floor(window / 2)
 
-    start = ceil(window / 2) - 1
+    start = window_before
     end = len(data) - window_after - 1
 
     buf = data[:window]
@@ -20,14 +24,26 @@ def rolling_average(data: List[float], window: int) -> List[float]:
     rolling_avg = []
 
     for i, d in enumerate(data):
-        if start <= i < end:
-            buf.pop(0)
-            buf.append(data[i + window_after])
-
+        if start <= i <= end:
             rolling_avg.append(sum(buf) / len(buf))
+
+            buf.pop(0)
+            if i + window_after + 1 < len(data):
+                buf.append(data[i + window_after + 1])
+
 
         else:
             rolling_avg.append(None)
+
+    match alignment:
+        case "left":
+            rolling_avg = rolling_avg[start:] + [None] * window_before
+        case "right":
+            rolling_avg = [None] * window_after + rolling_avg[:end + 1]
+        case "center":
+            pass
+        case _:
+            raise Exception(f"Unknown rolling average alignment: {alignment}")
 
     return rolling_avg
 
@@ -122,7 +138,7 @@ class ChickenDetailView(DetailView):
         counts_by_day = {row["laid_at__date"]: row["cnt"] for row in eggs}
 
         labels, daily = [], []
-        window = 10
+        window = 3
 
         for i in range(self.DAYS_BACK):
             d = start + timedelta(days=i)
@@ -130,7 +146,7 @@ class ChickenDetailView(DetailView):
             c = counts_by_day.get(d, 0)
             daily.append(c)
 
-        rolling = rolling_average(daily, window)
+        rolling = rolling_average(daily, window, LEFT)
 
         ctx["chart_labels"] = json.dumps(labels)
         ctx["chart_daily"] = json.dumps(daily)
