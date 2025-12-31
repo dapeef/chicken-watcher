@@ -2,6 +2,9 @@
 
 from .base import *  # noqa: F403
 
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
+
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 

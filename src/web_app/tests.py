@@ -50,5 +50,19 @@ class RollingAverageTests(SimpleTestCase):
     def test_none_padding(self):
         data = [None, 1, 2, 3, 4, 5, None, 5, 4, 3, 2, 1, None]
         window = 3
-        expected = [None, None, 2.0, 3.0, 4.0, None, None, None, 4.0, 3.0, 2.0, None, None]
+        expected = [
+            None,
+            None,
+            2.0,
+            3.0,
+            4.0,
+            None,
+            None,
+            None,
+            4.0,
+            3.0,
+            2.0,
+            None,
+            None,
+        ]
         self.assertListAlmostEqual(rolling_average(data, window), expected)

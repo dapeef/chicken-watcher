@@ -74,3 +74,11 @@ class NestingBoxPresence(models.Model):
         return (
             f"{self.chicken.name}, in {self.nesting_box.name} box at {self.present_at}"
         )
+
+
+class NestingBoxImage(models.Model):
+    created_at = models.DateTimeField(default=timezone.now)
+    image = models.ImageField(upload_to="nesting_box_images")
+
+    def __str__(self):
+        return f"Image taken at {self.created_at}"

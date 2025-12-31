@@ -10,7 +10,7 @@ ENV UV_LINK_MODE=copy
 # for an example.
 ENV UV_PYTHON_DOWNLOADS=0
 ## Omit development dependencies
-#ENV UV_NO_DEV=1
+ENV UV_NO_DEV=1
 
 WORKDIR /app
 
@@ -32,12 +32,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ### Runtime ###
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS runtime
 
-# Setup a non-root user
-RUN groupadd --system --gid 999 nonroot \
- && useradd --system --gid 999 --uid 999 --create-home nonroot
+# --- system packages -----------------
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libgl1           \
+        libglib2.0-0     \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the application from the builder
-COPY --from=builder --chown=nonroot:nonroot /app /app
+COPY --from=builder /app /app
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
@@ -45,11 +48,9 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Don't buffer python logs; print them immediately
 ENV PYTHONUNBUFFERED=1
 
-# Use the non-root user to run our application
-USER nonroot
-
 WORKDIR /app
 
 CMD  ["bash", "-c", "\
       uv run manage.py migrate --no-input && \
+      uv run python manage.py collectstatic --no-input --clear && \
       uv run uvicorn django_project.asgi:application --host 0.0.0.0 --port 8000 --workers 1"]
