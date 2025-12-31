@@ -7,5 +7,5 @@ __pycache__
 
 logs
 
-src/static
-src/media
+static
+media
