@@ -21,7 +21,10 @@ def rolling_average(
 
     for i, d in enumerate(data):
         if start <= i <= end:
-            rolling_avg.append(sum(buf) / len(buf))
+            if None in buf:
+                rolling_avg.append(None)
+            else:
+                rolling_avg.append(sum(buf) / len(buf))
 
             buf.pop(0)
             if i + window_after + 1 < len(data):

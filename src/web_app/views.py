@@ -6,7 +6,7 @@ from django.views.generic import TemplateView, ListView, DetailView
 from .models import Egg, Chicken, NestingBoxPresence
 from django.db.models import Count, Max, Q
 
-from .utils import rolling_average
+from .utils import rolling_average, RIGHT
 
 
 class DashboardView(TemplateView):
@@ -169,13 +169,17 @@ class EggProductionView(TemplateView):
         start = self._parse_date(self.request.GET.get("start"))
         if not start or start >= end:
             start = end - timedelta(days=self.DEFAULT_SPAN - 1)
+        data_start = start - timedelta(days=window)
 
         days = (end - start).days + 1
         date_labels = [start + timedelta(days=i) for i in range(days)]
+        data_date_labels = [
+            data_start + timedelta(days=i) for i in range(days + window)
+        ]
 
         # ------------ aggregate eggs ------------
         eggs = (
-            Egg.objects.filter(laid_at__date__range=(start, end))
+            Egg.objects.filter(laid_at__date__range=(data_start, end))
             .values("chicken_id", "chicken__name", "laid_at__date")
             .annotate(cnt=Count("id"))
         )
@@ -188,38 +192,25 @@ class EggProductionView(TemplateView):
             )["counts"][row["laid_at__date"]] = row["cnt"]
 
         # ------------ build Chart.js datasets ------------
-        palette = [
-            "#0d6efd",
-            "#198754",
-            "#dc3545",
-            "#fd7e14",
-            "#20c997",
-            "#6f42c1",
-            "#0dcaf0",
-            "#ffc107",
-            "#6610f2",
-            "#d63384",
-        ]
-
         datasets = []
         for idx, (hen_id, info) in enumerate(per_hen.items()):
-            counts = [info["counts"].get(d, 0) for d in date_labels]
+            dod = Chicken.objects.get(id=hen_id).date_of_death
+            dob = Chicken.objects.get(id=hen_id).date_of_birth
+            counts = [
+                info["counts"].get(d, 0)
+                if dob <= d <= (dod or datetime.today().date())
+                else None
+                for d in data_date_labels
+            ]
 
-            # rolling average
-            roll, buf = [], []
-            for c in counts:
-                buf.append(c)
-                if len(buf) > window:
-                    buf.pop(0)
-                roll.append(round(sum(buf) / len(buf), 2))
+            rolling = rolling_average(counts, window, RIGHT)
 
-            color = palette[idx % len(palette)]
+            rolling = rolling[window:]
+
             datasets.append(
                 {
                     "label": info["name"],
-                    "data": roll,
-                    "borderColor": color,
-                    "backgroundColor": color,
+                    "data": rolling,
                     "tension": 0.3,
                     "pointRadius": 0,
                 }
