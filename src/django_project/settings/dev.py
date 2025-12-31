@@ -1,4 +1,6 @@
-from .base import *
+# ruff: noqa: F405
+
+from .base import *  # noqa: F403
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
