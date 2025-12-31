@@ -4,6 +4,7 @@ import threading
 from typing import Callable, Optional, Tuple
 import numpy as np
 
+
 class USBCamera:
     """
     Thread-friendly wrapper around an OpenCV VideoCapture device.
@@ -23,7 +24,7 @@ class USBCamera:
         self.resolution = resolution
         self.fps = fps
 
-        self.cap = None               # cv2.VideoCapture instance
+        self.cap = None  # cv2.VideoCapture instance
         self.running = False
         self.thread: Optional[threading.Thread] = None
         self.callback: Optional[Callable[[str, "np.ndarray"], None]] = None
@@ -41,10 +42,12 @@ class USBCamera:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
 
-        print(f"[{self.name}] Connected to camera #{self.device_index} "
-              f"({int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))}×"
-              f"{int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))} @ "
-              f"{self.cap.get(cv2.CAP_PROP_FPS):.1f} fps)")
+        print(
+            f"[{self.name}] Connected to camera #{self.device_index} "
+            f"({int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))}×"
+            f"{int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))} @ "
+            f"{self.cap.get(cv2.CAP_PROP_FPS):.1f} fps)"
+        )
         return True
 
     def disconnect(self):

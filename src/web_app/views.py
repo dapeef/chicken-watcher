@@ -1,10 +1,32 @@
 import json
 from datetime import timedelta, date, datetime
+from math import floor, ceil
+from typing import List
 
 from django.utils import timezone
 from django.views.generic import TemplateView, ListView, DetailView
 from .models import Egg, Chicken, NestingBoxPresence
 from django.db.models import Count, Max, Q
+
+
+def rolling_average(data: List[float], window: int) -> List[float]:
+    before_window = ceil(window / 2) - 1
+    after_window = floor(window / 2)
+
+    buf = data[: after_window + 1]
+
+    rolling_avg = []
+
+    for i, d in enumerate(data):
+        if i + after_window < len(data):
+            buf.append(data[i + after_window])
+
+        if i - before_window >= 0:
+            buf.pop(0)
+
+        rolling_avg.append(sum(buf) / len(buf))
+
+    return rolling_avg
 
 
 class DashboardView(TemplateView):
@@ -25,8 +47,7 @@ class DashboardView(TemplateView):
         )
 
         latest_presence = (
-            NestingBoxPresence.objects
-            .filter(present_at__gte=today_start)
+            NestingBoxPresence.objects.filter(present_at__gte=today_start)
             .order_by("nesting_box_id", "-present_at")
             .distinct("nesting_box_id")
         )
@@ -39,6 +60,7 @@ class DashboardView(TemplateView):
         )
         return ctx
 
+
 class ChickenListView(ListView):
     model = Chicken
     template_name = "web_app/chicken_list.html"
@@ -50,7 +72,7 @@ class ChickenListView(ListView):
                 eggs_total=Count("egg"),
                 last_egg=Max("egg__laid_at"),
             )
-            .select_related()   # nothing to prefetch here but keeps pattern
+            .select_related()  # nothing to prefetch here but keeps pattern
         )
 
         sort_param = self.request.GET.get("sort", "name")
@@ -71,12 +93,13 @@ class ChickenListView(ListView):
         ]
         return ctx
 
+
 class ChickenDetailView(DetailView):
     model = Chicken
     template_name = "web_app/chicken_detail.html"
     context_object_name = "hen"
 
-    DAYS_BACK = 60           # how many days to plot
+    DAYS_BACK = 60  # how many days to plot
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -89,26 +112,22 @@ class ChickenDetailView(DetailView):
         start = today - timedelta(days=self.DAYS_BACK - 1)
 
         eggs = (
-            Egg.objects
-            .filter(chicken=chicken, laid_at__date__gte=start)
+            Egg.objects.filter(chicken=chicken, laid_at__date__gte=start)
             .values("laid_at__date")
             .annotate(cnt=Count("id"))
         )
         counts_by_day = {row["laid_at__date"]: row["cnt"] for row in eggs}
 
-        labels, daily, rolling = [], [], []
+        labels, daily = [], []
         window = 10
-        buf = []
 
         for i in range(self.DAYS_BACK):
             d = start + timedelta(days=i)
             labels.append(d.isoformat())
             c = counts_by_day.get(d, 0)
             daily.append(c)
-            buf.append(c)
-            if len(buf) > window:
-                buf.pop(0)
-            rolling.append(round(sum(buf) / len(buf), 2))
+
+        rolling = rolling_average(daily, window)
 
         ctx["chart_labels"] = json.dumps(labels)
         ctx["chart_daily"] = json.dumps(daily)
@@ -120,8 +139,7 @@ class ChickenDetailView(DetailView):
         now = timezone.localtime()
         since = now - timedelta(hours=24)
         presence = (
-            NestingBoxPresence.objects
-            .filter(chicken=chicken, present_at__gte=since)
+            NestingBoxPresence.objects.filter(chicken=chicken, present_at__gte=since)
             .select_related("nesting_box")
             .order_by("present_at")
         )
@@ -130,25 +148,26 @@ class ChickenDetailView(DetailView):
         # ------------------------------------------------------------
         # 3) Quick stats
         # ------------------------------------------------------------
-        stats = (
-            Egg.objects.filter(chicken=chicken)
-            .aggregate(
-                total=Count("id"),
-                last=Max("laid_at"),
-                last30=Count("id", filter=Q(laid_at__gte=timezone.now() - timedelta(days=30))),
-            )
+        stats = Egg.objects.filter(chicken=chicken).aggregate(
+            total=Count("id"),
+            last=Max("laid_at"),
+            last30=Count(
+                "id", filter=Q(laid_at__gte=timezone.now() - timedelta(days=30))
+            ),
         )
         ctx["stats"] = stats
         return ctx
 
+
 class NestingBoxListView(TemplateView):
     pass
+
 
 class EggProductionView(TemplateView):
     template_name = "web_app/egg_production.html"
 
     DEFAULT_WINDOW = 30
-    DEFAULT_SPAN   = 60    # fallback when no date filter supplied
+    DEFAULT_SPAN = 60  # fallback when no date filter supplied
 
     def _parse_date(self, txt: str | None) -> date | None:
         if not txt:
@@ -166,7 +185,7 @@ class EggProductionView(TemplateView):
         if window not in (1, 3, 7, 10, 30, 90):
             window = self.DEFAULT_WINDOW
 
-        end   = self._parse_date(self.request.GET.get("end")) or date.today()
+        end = self._parse_date(self.request.GET.get("end")) or date.today()
         start = self._parse_date(self.request.GET.get("start"))
         if not start or start >= end:
             start = end - timedelta(days=self.DEFAULT_SPAN - 1)
@@ -176,8 +195,7 @@ class EggProductionView(TemplateView):
 
         # ------------ aggregate eggs ------------
         eggs = (
-            Egg.objects
-            .filter(laid_at__date__range=(start, end))
+            Egg.objects.filter(laid_at__date__range=(start, end))
             .values("chicken_id", "chicken__name", "laid_at__date")
             .annotate(cnt=Count("id"))
         )
@@ -185,15 +203,22 @@ class EggProductionView(TemplateView):
         # build mapping: {hen_id: {date: cnt}}
         per_hen = {}
         for row in eggs:
-            per_hen.setdefault(row["chicken_id"], {
-                "name": row["chicken__name"],
-                "counts": {}
-            })["counts"][row["laid_at__date"]] = row["cnt"]
+            per_hen.setdefault(
+                row["chicken_id"], {"name": row["chicken__name"], "counts": {}}
+            )["counts"][row["laid_at__date"]] = row["cnt"]
 
         # ------------ build Chart.js datasets ------------
         palette = [
-            "#0d6efd", "#198754", "#dc3545", "#fd7e14", "#20c997",
-            "#6f42c1", "#0dcaf0", "#ffc107", "#6610f2", "#d63384",
+            "#0d6efd",
+            "#198754",
+            "#dc3545",
+            "#fd7e14",
+            "#20c997",
+            "#6f42c1",
+            "#0dcaf0",
+            "#ffc107",
+            "#6610f2",
+            "#d63384",
         ]
 
         datasets = []
@@ -209,21 +234,25 @@ class EggProductionView(TemplateView):
                 roll.append(round(sum(buf) / len(buf), 2))
 
             color = palette[idx % len(palette)]
-            datasets.append({
-                "label": info["name"],
-                "data": roll,
-                "borderColor": color,
-                "backgroundColor": color,
-                "tension": 0.3,
-                "pointRadius": 0,
-            })
+            datasets.append(
+                {
+                    "label": info["name"],
+                    "data": roll,
+                    "borderColor": color,
+                    "backgroundColor": color,
+                    "tension": 0.3,
+                    "pointRadius": 0,
+                }
+            )
 
-        ctx.update({
-            "labels_json": json.dumps([d.isoformat() for d in date_labels]),
-            "datasets_json": json.dumps(datasets),
-            "window": window,
-            "start": start.isoformat(),
-            "end":   end.isoformat(),
-            "window_choices": (1, 3, 7, 10, 30, 90),
-        })
+        ctx.update(
+            {
+                "labels_json": json.dumps([d.isoformat() for d in date_labels]),
+                "datasets_json": json.dumps(datasets),
+                "window": window,
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "window_choices": (1, 3, 7, 10, 30, 90),
+            }
+        )
         return ctx

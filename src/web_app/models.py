@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models import Count, ExpressionWrapper, FloatField, Value, Q
 from django.utils import timezone
 
+
 class ChickenQuerySet(models.QuerySet):
     """
     Extra query helpers; returned via Chicken.objects.
@@ -20,10 +21,12 @@ class ChickenQuerySet(models.QuerySet):
         return self.annotate(
             eggs_window=Count("egg", filter=Q(egg__laid_at__gte=window_start)),
             eggs_per_day=ExpressionWrapper(
-                Count("egg", filter=Q(egg__laid_at__gte=window_start)) / Value(float(days)),
+                Count("egg", filter=Q(egg__laid_at__gte=window_start))
+                / Value(float(days)),
                 output_field=FloatField(),
             ),
         )
+
 
 class Chicken(models.Model):
     name = models.CharField(max_length=200)

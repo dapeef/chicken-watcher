@@ -46,7 +46,9 @@ TZ = timezone.get_current_timezone()
 def populate_data():
     """Populates Chicken and NestingBox"""
 
-    def random_date(start: datetime.datetime, end: datetime.datetime) -> datetime.datetime:
+    def random_date(
+        start: datetime.datetime, end: datetime.datetime
+    ) -> datetime.datetime:
         """
         This function will return a random datetime between two datetime objects.
         """
@@ -62,7 +64,9 @@ def populate_data():
         name="Isla", date_of_birth=datetime.date(2025, 2, 1), tag_string="0D007FE20B"
     )
     Chicken.objects.create(
-        name="Scramble", date_of_birth=datetime.date(2025, 8, 1), tag_string="0D007FE20C"
+        name="Scramble",
+        date_of_birth=datetime.date(2025, 8, 1),
+        tag_string="0D007FE20C",
     )
     Chicken.objects.create(
         name="Eigg", date_of_birth=datetime.date(2025, 9, 1), tag_string="0D007FE20D"
@@ -99,20 +103,14 @@ def populate_data():
                 day = first_day + datetime.timedelta(days=i)
 
                 day_start = datetime.datetime(
-                    year=day.year,
-                    month=day.month,
-                    day=day.day,
-                    tzinfo=TZ
+                    year=day.year, month=day.month, day=day.day, tzinfo=TZ
                 )
 
                 earliest_egg = day_start + datetime.timedelta(hours=6)
                 latest_egg = min(
-                    day_start + datetime.timedelta(hours=20),
-                    timezone.localtime()
+                    day_start + datetime.timedelta(hours=20), timezone.localtime()
                 )
-                start_time = random_date(
-                    earliest_egg, latest_egg
-                )
+                start_time = random_date(earliest_egg, latest_egg)
 
                 seconds_in_box = randint(10, 5 * 60)  # Between 10 secs and 5 mins
 
@@ -125,9 +123,13 @@ def populate_data():
                         chicken=chicken,
                     )
 
-                egg_time = start_time + datetime.timedelta(seconds=seconds_in_box - 5)  # Egg laid 5s before departure
+                egg_time = start_time + datetime.timedelta(
+                    seconds=seconds_in_box - 5
+                )  # Egg laid 5s before departure
 
-                Egg.objects.create(chicken=chicken, laid_at=egg_time, nesting_box=nesting_box)
+                Egg.objects.create(
+                    chicken=chicken, laid_at=egg_time, nesting_box=nesting_box
+                )
 
     logger.info("DB populated")
 

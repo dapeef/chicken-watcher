@@ -4,18 +4,20 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('web_app', '0004_alter_nestingboxpresence_options'),
+        ("web_app", "0004_alter_nestingboxpresence_options"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='nestingbox',
-            options={'verbose_name': 'nesting box', 'verbose_name_plural': 'nesting boxes'},
+            name="nestingbox",
+            options={
+                "verbose_name": "nesting box",
+                "verbose_name_plural": "nesting boxes",
+            },
         ),
         migrations.AlterModelOptions(
-            name='nestingboxpresence',
+            name="nestingboxpresence",
             options={},
         ),
     ]
