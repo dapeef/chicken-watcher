@@ -11,10 +11,14 @@ from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxIm
 
 def handle_tag_read(name: str, tag: str):
     print(f"{name} nesting box detected tag: {tag}")
-    nesting_box = NestingBox.objects.get(name=name)
-    chicken = Chicken.objects.get(tag_string=tag)
+    try:
+        nesting_box = NestingBox.objects.get(name=name)
+        chicken = Chicken.objects.get(tag_string=tag)
 
-    NestingBoxPresence.objects.create(nesting_box=nesting_box, chicken=chicken)
+        NestingBoxPresence.objects.create(nesting_box=nesting_box, chicken=chicken)
+
+    except Chicken.DoesNotExist:
+        print("Error: Tag not found")
 
 
 def save_frame_to_file(cam_name, frame):
@@ -65,6 +69,8 @@ def run_agent():
     # To test the image creation
     dummy_image = cv2.imread("./src/dummy_image.JPG")
     save_frame_to_db("dummy_image", dummy_image)
+
+    handle_tag_read("arst", "arst")
 
     while True:
         time.sleep(1)
