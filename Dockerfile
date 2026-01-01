@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
@@ -11,6 +11,15 @@ ENV UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
 ## Omit development dependencies
 ENV UV_NO_DEV=1
+# Don't buffer python logs; print them immediately
+ENV PYTHONUNBUFFERED=1
+
+# --- system packages to help with image processing -----------------
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libgl1           \
+        libglib2.0-0     \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -27,28 +36,6 @@ COPY manage.py ./
 # Rebuild to include source files; helps Docker with cache hits
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked
-
-
-### Runtime ###
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS runtime
-
-# --- system packages -----------------
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libgl1           \
-        libglib2.0-0     \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy the application from the builder
-COPY --from=builder /app /app
-
-# Place executables in the environment at the front of the path
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Don't buffer python logs; print them immediately
-ENV PYTHONUNBUFFERED=1
-
-WORKDIR /app
 
 CMD  ["bash", "-c", "\
       uv run manage.py migrate --no-input && \
