@@ -2,11 +2,11 @@ services:
   hardware-agent:
     build: .
     command: ["uv", "run", "manage.py", "run_hardware_agent"]
-#    privileged: true
-#    devices:
-#      - "${RFID_SERIAL_PORT_LEFT}:${RFID_SERIAL_PORT_LEFT}"
-#      - "${RFID_SERIAL_PORT_RIGHT}:${RFID_SERIAL_PORT_RIGHT}"
-#      - "${CAMERA_DEVICE}:${CAMERA_DEVICE}"
+    privileged: true
+    devices:
+      - "${RFID_SERIAL_PORT_LEFT}:${RFID_SERIAL_PORT_LEFT}"
+      - "${RFID_SERIAL_PORT_RIGHT}:${RFID_SERIAL_PORT_RIGHT}"
+      - "${CAMERA_DEVICE}:${CAMERA_DEVICE}"
     environment:
       - DJANGO_ENV=prod
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}

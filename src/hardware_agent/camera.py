@@ -15,12 +15,15 @@ class USBCamera:
     def __init__(
         self,
         name: str,
-        device: Union[int, str] = 0,
+        device: str = 0,
         resolution: Tuple[int, int] = (1920, 1080),
         fps: int = 30,
     ):
         self.name = name
-        self.device = device
+        try:
+            self.device = int(device)
+        except ValueError:
+            self.device = device
         self.resolution = resolution
         self.fps = fps
 

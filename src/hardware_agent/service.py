@@ -12,7 +12,7 @@ from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxIm
 
 
 def handle_tag_read(name: str, tag: str):
-    print(f"{name} nesting box detected tag: {tag}")
+    print(f"[{name}] Nesting box detected tag: {tag}")
     try:
         nesting_box = NestingBox.objects.get(name=name)
         chicken = Chicken.objects.get(tag_string=tag)
@@ -20,7 +20,7 @@ def handle_tag_read(name: str, tag: str):
         NestingBoxPresence.objects.create(nesting_box=nesting_box, chicken=chicken)
 
     except Chicken.DoesNotExist:
-        print("Error: Tag not found")
+        print(f"Error: No matching chicken found matching tag: {tag}")
 
 
 def save_frame_to_file(cam_name, frame):
@@ -68,9 +68,6 @@ def run_agent():
     camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE"), fps=1)
     camera.connect()
     camera.start_capturing(save_frame_to_db)
-
-    # # Just to test the db connection
-    # create_some_eggs()
 
     while True:
         time.sleep(1)
