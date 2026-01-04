@@ -12,11 +12,14 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pyserial>=3.5",
     "uvicorn>=0.40.0",
+    # Only install if on a raspberry pi
+    "RPi.GPIO>=0.7 ; sys_platform == 'linux' and platform_machine in 'armv6l armv7l aarch64'"
 ]
 
 [project.scripts]
 list-ports = "hardware_agent.rfid_reader:RFIDReader.list_ports"
 list-cameras = "hardware_agent.camera:USBCamera.list_devices"
+test-pin = "hardware_agent.beam_break_sensor:BeamBreakSensor.test"
 
 [tool.uv]
 package = true
