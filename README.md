@@ -45,8 +45,47 @@ docker compose logs -f hardware-agent
 
 ## Prod
 
-To run in production, we must exclude the `docker-compose.override.yml`:
+To run on the pi, we must exclude the `docker-compose.override.yml`:
 
 ```shell
 docker compose -f docker-compose.yml up -d
 ```
+
+## Setting up the pi
+
+1. Install some utils
+   ```shell
+   sudo apt install micro tree btop
+   ```
+2. Install the docker engine (and docker compose)
+    ```shell
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    sudo usermod -aG docker ${USERNAME}
+    ```
+3. Install `uv`:
+    ```shell
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+4. Clone the repo
+    ```shell
+    git clone ${REPO_URL}
+    ```
+5. Duplicate and populate `.env`
+    ```shell
+    cp .env.example .env
+    micro .env
+    ```
+   1. Device ports can be found using:
+       ```shell
+       ls -l /dev/serial/by-id/
+       uv run list-cameras
+       ```
+6. Spin up the containers
+   ```shell
+   docker compose -f docker-compose.yml up
+   ```
+7. Create a superuser account for the web app
+   ```shell
+   docker compose exec web-app uv run manage.py createsuperuser
+   ```
