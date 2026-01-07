@@ -20,7 +20,7 @@ class RFIDReader:
         self.running = False
         self.thread = None
         self.callback = None
-        self.reset_interval = 1
+        self.reset_interval = 0.1
 
     def connect(self) -> bool:
         try:
@@ -88,7 +88,7 @@ class RFIDReader:
                     self.serial_conn.rts = False
 
     def start_reading(
-        self, callback: Callable[[str, str], None], reset_interval: float = 1
+        self, callback: Callable[[str, str], None], reset_interval: float = 0.1
     ):
         self.callback = callback
         self.reset_interval = reset_interval
