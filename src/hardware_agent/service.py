@@ -65,7 +65,7 @@ def run_agent():
     rfid_reader.connect()
     rfid_reader.start_reading(handle_tag_read)
 
-    camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE"), fps=1)
+    camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE_BY_ID"), fps=1)
     camera.connect()
     camera.start_capturing(save_frame_to_db)
 
