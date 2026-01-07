@@ -4,8 +4,8 @@ services:
     command: ["uv", "run", "manage.py", "run_hardware_agent"]
     privileged: true
     devices:
-      - "${RFID_SERIAL_PORT_LEFT}:${RFID_SERIAL_PORT_LEFT}"
-      - "${RFID_SERIAL_PORT_RIGHT}:${RFID_SERIAL_PORT_RIGHT}"
+      - "${RFID_PORT_REAL_1}"
+      - "${RFID_PORT_REAL_2}"
       - "${CAMERA_DEVICE}:${CAMERA_DEVICE}"
     environment:
       - DJANGO_ENV=prod
@@ -14,11 +14,13 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - MEDIA_ROOT=/app/media
-      - RFID_SERIAL_PORT_LEFT=${RFID_SERIAL_PORT_LEFT}
-      - RFID_SERIAL_PORT_RIGHT=${RFID_SERIAL_PORT_RIGHT}
+      - RFID_PORT_BY_ID_LEFT=${RFID_PORT_BY_ID_LEFT}
+      - RFID_PORT_BY_ID_RIGHT=${RFID_PORT_BY_ID_RIGHT}
       - CAMERA_DEVICE=${CAMERA_DEVICE}
     volumes:
       - media_volume:/app/media
+      - "${RFID_PORT_BY_ID_LEFT}:${RFID_PORT_BY_ID_LEFT}:ro"
+      - "${RFID_PORT_BY_ID_RIGHT}:${RFID_PORT_BY_ID_RIGHT}:ro"
     restart: unless-stopped
     depends_on:
       - db

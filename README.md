@@ -18,8 +18,8 @@ Set the RFID readers' ports as environment variables. When deployed, these are s
 by `docker_compose.yml`:
 
 ```shell
-export RFID_SERIAL_PORT_LEFT=/dev/tty.usbserial-BG01PVA3
-export RFID_SERIAL_PORT_RIGHT=/dev/...
+export RFID_PORT_BY_ID_LEFT=/dev/tty.usbserial-BG01PVA3
+export RFID_PORT_BY_ID_RIGHT=/dev/...
 ```
 
 Run the hardware agent using:

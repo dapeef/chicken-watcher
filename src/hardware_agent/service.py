@@ -57,11 +57,11 @@ def save_frame_to_db(cam_name: str, frame):
 
 
 def run_agent():
-    rfid_reader = RFIDReader("left", os.environ.get("RFID_SERIAL_PORT_LEFT"))
+    rfid_reader = RFIDReader("left", os.environ.get("RFID_PORT_BY_ID_LEFT"))
     rfid_reader.connect()
     rfid_reader.start_reading(handle_tag_read)
 
-    rfid_reader = RFIDReader("right", os.environ.get("RFID_SERIAL_PORT_RIGHT"))
+    rfid_reader = RFIDReader("right", os.environ.get("RFID_PORT_BY_ID_RIGHT"))
     rfid_reader.connect()
     rfid_reader.start_reading(handle_tag_read)
 
