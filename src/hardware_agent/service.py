@@ -5,10 +5,12 @@ import time
 
 import cv2
 from django.core.files.base import ContentFile
+from django.db import transaction
 
+from hardware_agent.beam_break_sensor import BeamBreakSensor
 from hardware_agent.camera import USBCamera
 from .rfid_reader import RFIDReader
-from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxImage
+from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxImage, Egg
 
 
 def handle_tag_read(name: str, tag: str):
@@ -56,6 +58,25 @@ def save_frame_to_db(cam_name: str, frame):
     print(f"{cam_name} frame saved to db as {filename}")
 
 
+@transaction.atomic
+def handle_beam_break(name: str) -> None:
+    print(f"[{name}] Beam break detected")
+
+    nesting_box = NestingBox.objects.get(name=name)
+
+    # 2) Find the most recent presence for that box
+    presence = (
+        NestingBoxPresence.objects.filter(nesting_box=nesting_box)
+        .select_related("chicken")
+        .order_by("present_at")
+        .last()
+    )
+    if presence is None:
+        raise ValueError(f"No NestingBoxPresence found for box '{name}'")
+
+    Egg.objects.create(nesting_box=nesting_box, chicken=presence.chicken)
+
+
 def run_agent():
     rfid_reader = RFIDReader("left", os.environ.get("RFID_PORT_BY_ID_LEFT"))
     rfid_reader.connect()
@@ -68,6 +89,12 @@ def run_agent():
     camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE_BY_ID"), fps=1)
     camera.connect()
     camera.start_capturing(save_frame_to_db)
+
+    beam_break_left = BeamBreakSensor(
+        "left", int(os.environ.get("BEAM_BREAK_GPIO_LEFT"))
+    )
+    beam_break_left.connect()
+    beam_break_left.start_monitoring(handle_beam_break)
 
     while True:
         time.sleep(1)
