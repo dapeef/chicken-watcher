@@ -32,14 +32,14 @@ COPY pyproject.toml uv.lock ./
 
 # Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-     uv sync --no-install-project --locked
+     uv sync --no-install-project
 
 # Copy over the source files
 COPY ./src ./src
 COPY manage.py ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
+    uv sync
 
 CMD  ["bash", "-c", "\
       uv run manage.py migrate --no-input && \

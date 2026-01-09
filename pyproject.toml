@@ -7,13 +7,14 @@ requires-python = ">=3.13"
 dependencies = [
     "django>=6.0",
     "dotenv>=0.9.9",
+    "gpiozero>=2.0.1",
+    # Only install rpi-lgpio on the Raspberry Pi
+    "rpi-lgpio; platform_system == 'Linux' and (platform_machine == 'armv7l' or platform_machine == 'aarch64')",
     "opencv-python>=4.12.0.88",
     "pillow>=12.0.0",
     "psycopg2-binary>=2.9.11",
     "pyserial>=3.5",
     "uvicorn>=0.40.0",
-    # Only install if on a raspberry pi
-#    "RPi.GPIO>=0.7 ; sys_platform == 'linux' and platform_machine in 'armv6l armv7l aarch64'"
 ]
 
 [project.scripts]
