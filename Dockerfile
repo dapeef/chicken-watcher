@@ -4,7 +4,7 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgl1 libglib2.0-0     \
-        python3-pigpio python3-rpi.gpio \
+#        python3-pigpio python3-rpi.gpio \
     && rm -rf /var/lib/apt/lists/*
 
 ## Pull images from piwheels to save building them on the pi
