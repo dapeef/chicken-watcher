@@ -3,14 +3,14 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 # --- system packages to help with image processing -----------------
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libgl1           \
-        libglib2.0-0     \
+        libgl1 libglib2.0-0     \
+        python3-pigpio python3-rpi.gpio \
     && rm -rf /var/lib/apt/lists/*
 
 ## Pull images from piwheels to save building them on the pi
 #ENV UV_EXTRA_INDEX_URL=https://www.piwheels.org/simple
-ENV UV_INDEX=https://www.piwheels.org/simple
-ENV UV_INDEX_STRATEGY=unsafe-best-match
+#ENV UV_INDEX=https://www.piwheels.org/simple
+#ENV UV_INDEX_STRATEGY=unsafe-best-match
 
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1

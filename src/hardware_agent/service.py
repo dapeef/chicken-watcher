@@ -1,15 +1,13 @@
 import os
 import pathlib
+import signal
 from datetime import datetime
-import time
 
 import cv2
 from django.core.files.base import ContentFile
 from django.db import transaction
 
-from hardware_agent.beam_break_sensor import BeamBreakSensor
-from hardware_agent.camera import USBCamera
-from .rfid_reader import RFIDReader
+from hardware_agent.beam_break_sensor import BeamSensor
 from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxImage, Egg
 
 
@@ -64,7 +62,7 @@ def handle_beam_break(name: str) -> None:
 
     nesting_box = NestingBox.objects.get(name=name)
 
-    # 2) Find the most recent presence for that box
+    # Find the most recent presence for that box
     presence = (
         NestingBoxPresence.objects.filter(nesting_box=nesting_box)
         .select_related("chicken")
@@ -78,26 +76,29 @@ def handle_beam_break(name: str) -> None:
 
 
 def run_agent():
-    rfid_reader = RFIDReader("left", os.environ.get("RFID_PORT_BY_ID_LEFT"))
-    rfid_reader.connect()
-    rfid_reader.start_reading(handle_tag_read)
+    # rfid_reader = RFIDReader("left", os.environ.get("RFID_PORT_BY_ID_LEFT"))
+    # rfid_reader.connect()
+    # rfid_reader.start_reading(handle_tag_read)
+    #
+    # rfid_reader = RFIDReader("right", os.environ.get("RFID_PORT_BY_ID_RIGHT"))
+    # rfid_reader.connect()
+    # rfid_reader.start_reading(handle_tag_read)
+    #
+    # camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE_BY_ID"), fps=1)
+    # camera.connect()
+    # camera.start_capturing(save_frame_to_db)
 
-    rfid_reader = RFIDReader("right", os.environ.get("RFID_PORT_BY_ID_RIGHT"))
-    rfid_reader.connect()
-    rfid_reader.start_reading(handle_tag_read)
+    print("starting service")
 
-    camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE_BY_ID"), fps=1)
-    camera.connect()
-    camera.start_capturing(save_frame_to_db)
-
-    beam_break_left = BeamBreakSensor(
-        "left", int(os.environ.get("BEAM_BREAK_GPIO_LEFT"))
-    )
+    beam_break_left = BeamSensor("left", int(os.environ.get("BEAM_BREAK_GPIO_LEFT")))
     beam_break_left.connect()
-    beam_break_left.start_monitoring(handle_beam_break)
+    beam_break_left.start_reading(handle_beam_break)
 
-    while True:
-        time.sleep(1)
+    beam_break_right = BeamSensor("right", int(os.environ.get("BEAM_BREAK_GPIO_RIGHT")))
+    beam_break_right.connect()
+    beam_break_right.start_reading(handle_beam_break)
+
+    signal.pause()
 
 
 if __name__ == "__main__":
