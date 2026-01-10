@@ -66,7 +66,9 @@ class Egg(models.Model):
     laid_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return f"{self.chicken.name}, at {self.laid_at}"
+        chicken = self.chicken.name if self.chicken else "Unknown chicken"
+        box = self.nesting_box.name if self.nesting_box else "unknown"
+        return f"{chicken} in {box} box at {self.laid_at:%Y-%m-%d %H:%M}"
 
 
 class NestingBoxPresence(models.Model):

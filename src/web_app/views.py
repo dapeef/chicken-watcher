@@ -2,9 +2,11 @@ import json
 from datetime import timedelta, date, datetime
 
 from django import db
-from django.db import NotSupportedError
+from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import TemplateView, ListView, DetailView
+from django.views.generic import TemplateView, ListView, DetailView, CreateView
+
+from .forms import EggForm
 from .models import Egg, Chicken, NestingBoxPresence
 from django.db.models import Count, Max, Q
 
@@ -32,7 +34,7 @@ class DashboardView(TemplateView):
             latest_presence = (
                 NestingBoxPresence.objects.filter(present_at__gte=today_start)
                 .order_by("nesting_box_id", "-present_at")
-                .distinct("nesting_box_id") # Sqlite doesn't support this
+                .distinct("nesting_box_id")  # Sqlite doesn't support this
             )
         else:
             latest_presence = []
@@ -234,3 +236,10 @@ class EggProductionView(TemplateView):
             }
         )
         return ctx
+
+
+class EggCreateView(CreateView):
+    model = Egg
+    form_class = EggForm
+    template_name = "web_app/egg_form.html"
+    success_url = reverse_lazy("egg_list")

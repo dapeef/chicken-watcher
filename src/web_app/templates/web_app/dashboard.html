@@ -1,4 +1,4 @@
-{% extends "web_app/base.html" %}
+{% extends "base.html" %}
 {% block title %}Today | Coop{% endblock %}
 
 {% block content %}
@@ -22,6 +22,8 @@
     <div class="card shadow-sm">
       <div class="card-body">
         <h5 class="card-title">Who has already laid?</h5>
+        <a href="{% url 'egg_create' %}">Manually add egg</a>
+
         {% if laid_chickens %}
           <ul class="list-inline mb-0">
             {% for hen in laid_chickens %}

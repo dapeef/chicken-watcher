@@ -10,4 +10,5 @@ urlpatterns = [
     ),
     path("boxes/", views.NestingBoxListView.as_view(), name="box_list"),
     path("eggs/", views.EggProductionView.as_view(), name="egg_production"),
+    path("eggs/new/", views.EggCreateView.as_view(), name="egg_create")
 ]
