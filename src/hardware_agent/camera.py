@@ -1,7 +1,7 @@
 import cv2
 import time
 import threading
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Optional, Tuple
 import numpy as np
 
 

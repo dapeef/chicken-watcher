@@ -170,10 +170,6 @@ class ChickenDetailView(DetailView):
         return ctx
 
 
-class NestingBoxListView(TemplateView):
-    pass
-
-
 class EggProductionView(TemplateView):
     template_name = "web_app/egg_production.html"
 
