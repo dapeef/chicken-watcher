@@ -180,6 +180,7 @@ class EggProductionView(TemplateView):
         # ------------ aggregate eggs ------------
         eggs = (
             Egg.objects.filter(laid_at__date__range=(data_start, end))
+            .exclude(chicken=None)
             .values("chicken_id", "chicken__name", "laid_at__date")
             .annotate(cnt=Count("id"))
         )

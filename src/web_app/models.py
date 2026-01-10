@@ -57,8 +57,12 @@ class NestingBox(models.Model):
 
 
 class Egg(models.Model):
-    chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
-    nesting_box = models.ForeignKey(NestingBox, on_delete=models.CASCADE)
+    chicken = models.ForeignKey(
+        Chicken, on_delete=models.CASCADE, null=True, blank=True
+    )
+    nesting_box = models.ForeignKey(
+        NestingBox, on_delete=models.CASCADE, null=True, blank=True
+    )
     laid_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
