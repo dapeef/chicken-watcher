@@ -1,6 +1,8 @@
 import json
 from datetime import timedelta, date, datetime
 
+from django import db
+from django.db import NotSupportedError
 from django.utils import timezone
 from django.views.generic import TemplateView, ListView, DetailView
 from .models import Egg, Chicken, NestingBoxPresence
@@ -26,11 +28,15 @@ class DashboardView(TemplateView):
             Chicken.objects.filter(egg__in=eggs_today_qs).distinct().order_by("name")
         )
 
-        latest_presence = (
-            NestingBoxPresence.objects.filter(present_at__gte=today_start)
-            .order_by("nesting_box_id", "-present_at")
-            .distinct("nesting_box_id")
-        )
+        if db.connection.vendor == "postgresql":
+            latest_presence = (
+                NestingBoxPresence.objects.filter(present_at__gte=today_start)
+                .order_by("nesting_box_id", "-present_at")
+                .distinct("nesting_box_id") # Sqlite doesn't support this
+            )
+        else:
+            latest_presence = []
+
         ctx["latest_presence"] = latest_presence
 
         ctx["latest_events"] = (
