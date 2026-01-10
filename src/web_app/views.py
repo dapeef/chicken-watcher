@@ -82,6 +82,29 @@ class ChickenListView(ListView):
         return ctx
 
 
+class EggListView(ListView):
+    model = Egg
+    template_name = "web_app/egg_list.html"
+
+    def get_queryset(self):
+        qs = Egg.objects
+
+        sort_param = self.request.GET.get("sort", "-laid_at")
+        qs = qs.order_by(sort_param)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["sort"] = self.request.GET.get("sort", "-laid_at")
+        ctx["headers"] = [
+            ("chicken", "Chicken"),
+            ("nesting_box", "Nesting box"),
+            ("laid_at", "Laid at"),
+        ]
+        return ctx
+
+
 class ChickenDetailView(DetailView):
     model = Chicken
     template_name = "web_app/chicken_detail.html"
