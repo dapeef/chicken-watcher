@@ -6,6 +6,7 @@ from datetime import datetime
 import cv2
 from django.core.files.base import ContentFile
 from django.db import transaction
+from gpiozero.pins.lgpio import LGPIOFactory
 
 from hardware_agent.beam_break_sensor import BeamSensor
 from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxImage, Egg
@@ -90,11 +91,13 @@ def run_agent():
 
     print("starting service")
 
-    beam_break_left = BeamSensor("left", int(os.environ.get("BEAM_BREAK_GPIO_LEFT")))
+    pin_factory = LGPIOFactory(chip=0)
+
+    beam_break_left = BeamSensor("left", int(os.environ.get("BEAM_BREAK_GPIO_LEFT")), pin_factory=pin_factory)
     beam_break_left.connect()
     beam_break_left.start_reading(handle_beam_break)
 
-    beam_break_right = BeamSensor("right", int(os.environ.get("BEAM_BREAK_GPIO_RIGHT")))
+    beam_break_right = BeamSensor("right", int(os.environ.get("BEAM_BREAK_GPIO_RIGHT")), pin_factory=pin_factory)
     beam_break_right.connect()
     beam_break_right.start_reading(handle_beam_break)
 

@@ -3,9 +3,24 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 # --- system packages to help with image processing -----------------
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libgl1 libglib2.0-0     \
-#        python3-pigpio python3-rpi.gpio \
+        libgl1 libglib2.0-0                    \
+        swig python3-dev build-essential       \
+        wget                                   \
     && rm -rf /var/lib/apt/lists/*
+
+# Install lgpio C library from source
+RUN wget https://github.com/joan2937/lg/archive/master.zip -O lg.zip && \
+    apt-get update && apt-get install -y unzip && \
+    unzip lg.zip && \
+    cd lg-master && \
+    make && \
+    make install && \
+    ldconfig && \
+    cd .. && \
+    rm -rf lg-master lg.zip && \
+    apt-get remove -y unzip wget && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 ## Pull images from piwheels to save building them on the pi
 #ENV UV_EXTRA_INDEX_URL=https://www.piwheels.org/simple
@@ -43,5 +58,5 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 CMD  ["bash", "-c", "\
       uv run manage.py migrate --no-input && \
-      uv run python manage.py collectstatic --no-input --clear && \
+      uv run manage.py collectstatic --no-input --clear && \
       uv run uvicorn django_project.asgi:application --host 0.0.0.0 --port 8000 --workers 1"]

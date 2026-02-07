@@ -8,13 +8,14 @@ dependencies = [
     "django>=6.0",
     "dotenv>=0.9.9",
     "gpiozero>=2.0.1",
-    # Only install rpi-lgpio on the Raspberry Pi
-    "pigpio; platform_system == 'Linux' and (platform_machine == 'armv7l' or platform_machine == 'aarch64')",
     "opencv-python>=4.12.0.88",
     "pillow>=12.0.0",
     "psycopg2-binary>=2.9.11",
     "pyserial>=3.5",
     "uvicorn>=0.40.0",
+    "swig>=4.4.1",
+    # Only install lgpio on the Raspberry Pi
+    "lgpio>=0.2.2.0; platform_system == 'Linux' and (platform_machine == 'armv7l' or platform_machine == 'aarch64')",
 ]
 
 [project.scripts]

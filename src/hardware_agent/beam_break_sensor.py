@@ -2,6 +2,7 @@ from typing import Callable, Optional
 
 from gpiozero import DigitalInputDevice
 from gpiozero.exc import GPIOZeroError
+from gpiozero.pins.lgpio import LGPIOFactory
 
 
 class BeamSensor:
@@ -11,15 +12,17 @@ class BeamSensor:
         pin: int,
         *,
         pull_up: bool = True,
-        bounce_time: float = 1,
+        bounce_time: float | None = None,
+        pin_factory: LGPIOFactory | None = None,
     ):
         self.name = name
         self.pin = pin
         self.pull_up = pull_up
         self.bounce_time = bounce_time
+        self.pin_factory = pin_factory
 
         self.device: Optional[DigitalInputDevice] = None
-        self.callback: Optional[Callable[[str, bool], None]] = None
+        self.callback: Optional[Callable[[str], None]] = None
 
     def connect(self) -> bool:
         """Initialise gpiozero device. Returns True on success."""
@@ -28,6 +31,7 @@ class BeamSensor:
                 self.pin,
                 pull_up=self.pull_up,
                 bounce_time=self.bounce_time,
+                pin_factory=self.pin_factory,
             )
             print(f"[{self.name}] Connected to beam sensor on GPIO {self.pin}")
             return True
@@ -49,14 +53,14 @@ class BeamSensor:
 
         callback arguments:
             name   – sensor name
-            broken – True  → beam broken  (falling edge with pull-up)
-                      False → beam intact   (rising edge with pull-up)
+            broken – True  → beam broken (falling edge with pull-up)
+                     False → beam intact (rising edge with pull-up)
         """
         if not self.device:
             raise RuntimeError("Call connect() successfully before start_reading().")
 
         self.callback = callback
-        self.device.when_activated = self.callback  # falling edge; beam broken
+        self.device.when_activated = lambda: self.callback(self.name)  # falling edge; beam broken
         print(f"[{self.name}] Started listening for beam events…")
 
     def stop_reading(self) -> None:
