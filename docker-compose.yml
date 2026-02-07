@@ -2,7 +2,7 @@ services:
   hardware-agent:
     build: .
     command: ["uv", "run", "manage.py", "run_hardware_agent"]
-    privileged: true
+    privileged: true # TODO: Remove privileged mode and fix device permissions
     devices:
       - ${RFID_PORT_REAL_1}
       - ${RFID_PORT_REAL_2}
