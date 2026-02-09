@@ -89,8 +89,6 @@ def run_agent():
     # camera.connect()
     # camera.start_capturing(save_frame_to_db)
 
-    print("starting service")
-
     pin_factory = LGPIOFactory(chip=0)
 
     beam_break_left = BeamSensor("left", int(os.environ.get("BEAM_BREAK_GPIO_LEFT")), pin_factory=pin_factory)
@@ -100,6 +98,8 @@ def run_agent():
     beam_break_right = BeamSensor("right", int(os.environ.get("BEAM_BREAK_GPIO_RIGHT")), pin_factory=pin_factory)
     beam_break_right.connect()
     beam_break_right.start_reading(handle_beam_break)
+
+    print("All sensors initialised")
 
     signal.pause()
 
