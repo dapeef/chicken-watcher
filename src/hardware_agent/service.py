@@ -20,6 +20,8 @@ def handle_tag_read(name: str, tag: str):
 
         NestingBoxPresence.objects.create(nesting_box=nesting_box, chicken=chicken)
 
+        print(f"[{name}] Chicken {chicken.name} (tag: {tag}) added to nesting box")
+
     except Chicken.DoesNotExist:
         print(f"Error: No matching chicken found matching tag: {tag}")
 
