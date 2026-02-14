@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView, ListView, DetailView, CreateView
 
 from .forms import EggForm
-from .models import Egg, Chicken, NestingBoxPresence
+from .models import Egg, Chicken, NestingBoxPresence, HardwareSensor
 from django.db.models import Count, Max, Q
 
 from .utils import rolling_average, RIGHT
@@ -46,6 +46,7 @@ class DashboardView(TemplateView):
             .select_related("chicken", "nesting_box")
             .order_by("-laid_at")[:10]
         )
+        ctx["sensors"] = HardwareSensor.objects.all().order_by("name")
         return ctx
 
 
