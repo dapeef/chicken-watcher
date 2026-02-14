@@ -22,9 +22,49 @@
   </div>
 
   <!-- Latest Nesting Box Image -->
-  <div class="col-12" hx-get="{% url 'partial_latest_image' %}" hx-trigger="every 1s">
+  <div class="col-12" id="image-container">
     {% include 'web_app/partials/_latest_image.html' %}
   </div>
+
+  <script>
+    function updateDashboardImage() {
+      fetch("{% url 'partial_latest_image' %}")
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newImg = doc.querySelector('#dashboard-image');
+          const newTs = doc.querySelector('#image-timestamp');
+          
+          const currentImg = document.querySelector('#dashboard-image');
+          const currentTs = document.querySelector('#image-timestamp');
+
+          if (newImg && currentImg) {
+            if (currentImg.src !== newImg.src) {
+              // Preload to avoid flicker
+              const tempImg = new Image();
+              tempImg.onload = () => {
+                currentImg.src = newImg.src;
+                if (newTs && currentTs) {
+                  currentTs.innerText = newTs.innerText;
+                }
+              };
+              tempImg.src = newImg.src;
+            } else if (newTs && currentTs) {
+              // Only update timestamp if image is same
+              currentTs.innerText = newTs.innerText;
+            }
+          } else if (!currentImg && newImg) {
+            // If image was missing but now exists, just swap the whole container once
+            document.querySelector('#image-container').innerHTML = html;
+          }
+        })
+        .catch(err => console.error("Error updating image:", err));
+    }
+
+    // Run every second for the image
+    setInterval(updateDashboardImage, 1000);
+  </script>
 
   <!-- Boxes currently occupied -->
   <div class="col-12" hx-get="{% url 'partial_latest_presence' %}" hx-trigger="every 5s">

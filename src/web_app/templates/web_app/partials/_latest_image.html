@@ -1,9 +1,9 @@
-<div class="card shadow-sm overflow-hidden">
+<div class="card shadow-sm overflow-hidden" id="latest-image-card">
   {% if latest_image %}
-    <img src="{{ latest_image.image.url }}" class="w-100" alt="Latest nesting box activity">
+    <img id="dashboard-image" src="{{ latest_image.image.url }}" class="w-100" alt="Latest nesting box activity">
     <div class="card-body">
       <h5 class="card-title">Latest Nesting Box Image</h5>
-      <p class="text-muted mb-0 small">Captured {{ latest_image.created_at|timesince }} ago</p>
+      <p id="image-timestamp" class="text-muted mb-0 small">Captured {{ latest_image.created_at|timesince }} ago</p>
     </div>
   {% else %}
     <div class="card-body">
