@@ -1,0 +1,18 @@
+<div class="card shadow-sm h-100">
+  <div class="card-body">
+    <h5 class="card-title">Who has already laid?</h5>
+    <a href="{% url 'egg_create' %}" class="small">Manually add egg</a>
+
+    {% if laid_chickens %}
+      <ul class="list-inline mb-0">
+        {% for hen in laid_chickens %}
+          <li class="list-inline-item">
+            <a href="{% url 'chicken_detail' hen.id %}">{{ hen.name }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted mb-0">No eggs yet 💤</p>
+    {% endif %}
+  </div>
+</div>

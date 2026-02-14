@@ -1,0 +1,14 @@
+<div class="card shadow-sm overflow-hidden">
+  {% if latest_image %}
+    <img src="{{ latest_image.image.url }}" class="w-100" alt="Latest nesting box activity">
+    <div class="card-body">
+      <h5 class="card-title">Latest Nesting Box Image</h5>
+      <p class="text-muted mb-0 small">Captured {{ latest_image.created_at|timesince }} ago</p>
+    </div>
+  {% else %}
+    <div class="card-body">
+      <h5 class="card-title">Latest Nesting Box Image</h5>
+      <p class="text-muted mb-0">No images available yet.</p>
+    </div>
+  {% endif %}
+</div>

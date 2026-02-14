@@ -1,0 +1,23 @@
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Most recently in a nesting box</h5>
+    {% if latest_presence %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 small">
+          <thead><tr><th>Chicken</th><th>Box</th><th>Departed</th></tr></thead>
+          <tbody>
+          {% for p in latest_presence %}
+            <tr>
+              <td>{{ p.chicken.name }}</td>
+              <td>{{ p.nesting_box.name }}</td>
+              <td>{{ p.present_at|timesince }} ago</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">No-hen has been in a nesting box yet today.</p>
+    {% endif %}
+  </div>
+</div>

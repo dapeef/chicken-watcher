@@ -1,0 +1,16 @@
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Latest events</h5>
+    <ul class="list-group list-group-flush">
+      {% for egg in latest_events %}
+        <li class="list-group-item">
+          <strong>{{ egg.chicken.name }}</strong> laid an egg in
+          <strong>{{ egg.nesting_box.name }}</strong>
+          <span class="text-muted">— {{ egg.laid_at|timesince }} ago</span>
+        </li>
+      {% empty %}
+        <li class="list-group-item text-muted">Nothing yet today.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>

@@ -1,0 +1,29 @@
+<div class="card shadow-sm h-100">
+  <div class="card-body">
+    <h5 class="card-title">Hardware Status</h5>
+    {% if sensors %}
+      <ul class="list-unstyled mb-0 small">
+        {% for sensor in sensors %}
+          <li class="mb-1">
+            <span class="badge {% if sensor.is_connected %}bg-success{% else %}bg-danger{% endif %}">
+              {{ sensor.is_connected|yesno:"Online,Offline" }}
+            </span>
+            <strong>{{ sensor.name }}</strong>
+            {% if sensor.last_event_at %}
+              <div class="text-muted" style="font-size: 0.8em">
+                Last activity: {{ sensor.last_event_at|timesince }} ago
+              </div>
+            {% endif %}
+            {% if not sensor.is_connected and sensor.status_message %}
+              <div class="text-danger" style="font-size: 0.8em">
+                {{ sensor.status_message }}
+              </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted mb-0">No sensors.</p>
+    {% endif %}
+  </div>
+</div>
