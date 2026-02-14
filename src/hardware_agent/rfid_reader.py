@@ -1,6 +1,5 @@
-import threading
 import time
-from typing import Callable, Optional
+from typing import Optional
 
 import serial
 from serial.tools import list_ports
@@ -47,7 +46,7 @@ class RFIDReader(BaseSensor):
         if self.serial_conn and self.serial_conn.is_open:
             try:
                 self.serial_conn.close()
-            except:
+            except Exception:
                 pass
             print(f"[{self.name}] Disconnected from {self.port}")
         self.serial_conn = None

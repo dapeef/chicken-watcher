@@ -1,10 +1,8 @@
-import threading
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from gpiozero import DigitalInputDevice
 from gpiozero.exc import GPIOZeroError
-from gpiozero.pins.lgpio import LGPIOFactory
 
 from hardware_agent.base import BaseSensor
 
@@ -47,7 +45,7 @@ class BeamSensor(BaseSensor):
         if self.device:
             try:
                 self.device.close()
-            except:
+            except Exception:
                 pass
             print(f"[{self.name}] Disconnected from GPIO {self.pin}")
         self.device = None

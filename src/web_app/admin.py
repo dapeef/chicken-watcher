@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Chicken, NestingBox, Egg, NestingBoxPresence, NestingBoxImage, HardwareSensor
+from .models import (
+    Chicken,
+    NestingBox,
+    Egg,
+    NestingBoxPresence,
+    NestingBoxImage,
+    HardwareSensor,
+)
 
 admin.site.register(Chicken)
 admin.site.register(NestingBox)

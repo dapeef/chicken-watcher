@@ -91,11 +91,17 @@ class NestingBoxImage(models.Model):
 
 
 class HardwareSensor(models.Model):
-    name = models.CharField(max_length=100, unique=True)  # e.g., "left_rfid", "main_camera"
+    name = models.CharField(
+        max_length=100, unique=True
+    )  # e.g., "left_rfid", "main_camera"
     is_connected = models.BooleanField(default=False)
-    last_event_at = models.DateTimeField(null=True, blank=True)  # Last time a tag/beam was detected
+    last_event_at = models.DateTimeField(
+        null=True, blank=True
+    )  # Last time a tag/beam was detected
     last_seen_at = models.DateTimeField(auto_now=True)  # Last heartbeat from the agent
-    status_message = models.TextField(blank=True)  # Error messages (e.g., "Permission Denied")
+    status_message = models.TextField(
+        blank=True
+    )  # Error messages (e.g., "Permission Denied")
 
     def __str__(self):
         status = "Online" if self.is_connected else "Offline"

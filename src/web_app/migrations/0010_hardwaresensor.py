@@ -4,21 +4,28 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('web_app', '0009_alter_egg_chicken_alter_egg_nesting_box'),
+        ("web_app", "0009_alter_egg_chicken_alter_egg_nesting_box"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='HardwareSensor',
+            name="HardwareSensor",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, unique=True)),
-                ('is_connected', models.BooleanField(default=False)),
-                ('last_event_at', models.DateTimeField(blank=True, null=True)),
-                ('last_seen_at', models.DateTimeField(auto_now=True)),
-                ('status_message', models.TextField(blank=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100, unique=True)),
+                ("is_connected", models.BooleanField(default=False)),
+                ("last_event_at", models.DateTimeField(blank=True, null=True)),
+                ("last_seen_at", models.DateTimeField(auto_now=True)),
+                ("status_message", models.TextField(blank=True)),
             ],
         ),
     ]

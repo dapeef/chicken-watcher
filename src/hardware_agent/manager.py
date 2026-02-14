@@ -55,7 +55,9 @@ class HardwareManager:
         try:
             pin = int(gpio)
         except (ValueError, TypeError):
-            print(f"[HardwareManager] Skipping beam sensor '{name}': Invalid GPIO '{gpio}'")
+            print(
+                f"[HardwareManager] Skipping beam sensor '{name}': Invalid GPIO '{gpio}'"
+            )
             report_status(f"beam_{name}", False, f"Invalid GPIO: {gpio}")
             return
 

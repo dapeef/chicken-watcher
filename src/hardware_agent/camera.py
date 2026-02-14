@@ -1,9 +1,7 @@
-import threading
 import time
-from typing import Callable, Optional, Tuple
+from typing import Tuple
 
 import cv2
-import numpy as np
 
 from hardware_agent.base import BaseSensor
 
