@@ -1,11 +1,14 @@
-import cv2
-import time
 import threading
+import time
 from typing import Callable, Optional, Tuple
+
+import cv2
 import numpy as np
 
+from hardware_agent.base import BaseSensor
 
-class USBCamera:
+
+class USBCamera(BaseSensor):
     """
     Thread-friendly wrapper around an OpenCV VideoCapture device.
     The callback receives `(camera_name, frame)` where `frame` is a
@@ -19,7 +22,7 @@ class USBCamera:
         resolution: Tuple[int, int] = (1920, 1080),
         fps: int = 30,
     ):
-        self.name = name
+        super().__init__(name)
         try:
             self.device = int(device)
         except ValueError:
@@ -28,12 +31,8 @@ class USBCamera:
         self.fps = fps
 
         self.cap = None  # cv2.VideoCapture instance
-        self.running = False
-        self.thread: Optional[threading.Thread] = None
-        self.callback: Optional[Callable[[str, "np.ndarray"], None]] = None
-        self.status_callback: Optional[Callable[[str, bool, str], None]] = None
-
         self._frame_interval = 1.0 / fps
+        self._next_ts = 0
 
     def connect(self) -> bool:
         # Pick the proper backend: on Linux force V4L2 for strings,
@@ -59,64 +58,34 @@ class USBCamera:
         return True
 
     def disconnect(self):
-        self.stop_capturing()
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
             print(f"[{self.name}] Disconnected camera #{self.device}")
+        self.cap = None
+
+    def is_connected(self) -> bool:
+        return self.cap is not None and self.cap.isOpened()
+
+    def on_connect(self):
+        self._next_ts = time.perf_counter()
+
+    def poll(self):
+        frame = self.read_frame()
+        if frame is not None:
+            if self.callback:
+                self.callback(self.name, frame)
+        else:
+            raise Exception("Failed to read frame")
+
+        # Soft frame-rate limiter
+        self._next_ts += self._frame_interval
+        time.sleep(max(0, self._next_ts - time.perf_counter()))
 
     def read_frame(self):
         if not self.cap or not self.cap.isOpened():
             return None
         ok, frame = self.cap.read()
         return frame if ok else None
-
-    def _capture_loop(self):
-        print(f"[{self.name}] Started capturing…")
-        next_ts = time.perf_counter()
-        while self.running:
-            if not self.cap or not self.cap.isOpened():
-                if self.connect():
-                    if self.status_callback:
-                        self.status_callback(self.name, True)
-                else:
-                    if self.status_callback:
-                        self.status_callback(self.name, False, "Disconnected")
-                    time.sleep(5)
-                    continue
-
-            frame = self.read_frame()
-            if frame is not None:
-                if self.callback:
-                    self.callback(self.name, frame)
-            else:
-                print(f"[{self.name}] Failed to read frame, reconnecting...")
-                if self.status_callback:
-                    self.status_callback(self.name, False, "Failed to read frame")
-                if self.cap:
-                    self.cap.release()
-                self.cap = None
-                time.sleep(5)
-                continue
-
-            # Soft frame-rate limiter
-            next_ts += self._frame_interval
-            time.sleep(max(0, next_ts - time.perf_counter()))
-
-    def start_capturing(
-        self,
-        callback: Callable[[str, "np.ndarray"], None],
-        status_callback: Optional[Callable[[str, bool, str], None]] = None,
-    ):
-        self.callback = callback
-        self.status_callback = status_callback
-        self.running = True
-        self.thread = threading.Thread(target=self._capture_loop, daemon=True)
-        self.thread.start()
-
-    def stop_capturing(self):
-        self.running = False
-        if self.thread:
-            self.thread.join(timeout=2)
 
     @staticmethod
     def list_devices(max_indices: int = 10) -> None:

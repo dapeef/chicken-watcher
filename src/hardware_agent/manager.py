@@ -21,7 +21,7 @@ class HardwareManager:
 
         reader = RFIDReader(name, port)
         self.sensors.append(reader)
-        reader.start_reading(
+        reader.start(
             handle_tag_read,
             status_callback=lambda n, c, m="": report_status(f"rfid_{n}", c, m),
         )
@@ -34,7 +34,7 @@ class HardwareManager:
 
         camera = USBCamera(name, device=device, fps=1)
         self.sensors.append(camera)
-        camera.start_capturing(
+        camera.start(
             handle_camera_frame,
             status_callback=lambda n, c, m="": report_status(f"camera_{n}", c, m),
         )
@@ -61,7 +61,7 @@ class HardwareManager:
 
         beam = BeamSensor(name, pin, pin_factory=pin_factory)
         self.sensors.append(beam)
-        beam.start_reading(
+        beam.start(
             handle_beam_break,
             status_callback=lambda n, c, m="": report_status(f"beam_{n}", c, m),
         )
