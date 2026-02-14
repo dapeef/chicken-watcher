@@ -31,6 +31,7 @@ class USBCamera:
         self.running = False
         self.thread: Optional[threading.Thread] = None
         self.callback: Optional[Callable[[str, "np.ndarray"], None]] = None
+        self.status_callback: Optional[Callable[[str, bool, str], None]] = None
 
         self._frame_interval = 1.0 / fps
 
@@ -73,19 +74,41 @@ class USBCamera:
         print(f"[{self.name}] Started capturing…")
         next_ts = time.perf_counter()
         while self.running:
+            if not self.cap or not self.cap.isOpened():
+                if self.connect():
+                    if self.status_callback:
+                        self.status_callback(self.name, True)
+                else:
+                    if self.status_callback:
+                        self.status_callback(self.name, False, "Disconnected")
+                    time.sleep(5)
+                    continue
+
             frame = self.read_frame()
-            if frame is not None and self.callback:
-                self.callback(self.name, frame)
+            if frame is not None:
+                if self.callback:
+                    self.callback(self.name, frame)
+            else:
+                print(f"[{self.name}] Failed to read frame, reconnecting...")
+                if self.status_callback:
+                    self.status_callback(self.name, False, "Failed to read frame")
+                if self.cap:
+                    self.cap.release()
+                self.cap = None
+                time.sleep(5)
+                continue
 
             # Soft frame-rate limiter
             next_ts += self._frame_interval
             time.sleep(max(0, next_ts - time.perf_counter()))
 
-    def start_capturing(self, callback: Callable[[str, "np.ndarray"], None]):
-        if not self.cap or not self.cap.isOpened():
-            raise RuntimeError("Camera not connected. Call connect() first.")
-
+    def start_capturing(
+        self,
+        callback: Callable[[str, "np.ndarray"], None],
+        status_callback: Optional[Callable[[str, bool, str], None]] = None,
+    ):
         self.callback = callback
+        self.status_callback = status_callback
         self.running = True
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()

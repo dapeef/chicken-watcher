@@ -20,6 +20,7 @@ class RFIDReader:
         self.running = False
         self.thread = None
         self.callback = None
+        self.status_callback = None
         self.reset_interval = 0.1
 
     def connect(self) -> bool:
@@ -74,24 +75,50 @@ class RFIDReader:
         print(f"[{self.name}] Started listening for RFID tags...")
 
         while self.running:
-            self.serial_conn.rts = False
+            if not self.serial_conn or not self.serial_conn.is_open:
+                if self.connect():
+                    if self.status_callback:
+                        self.status_callback(self.name, True)
+                else:
+                    if self.status_callback:
+                        self.status_callback(self.name, False, "Disconnected")
+                    time.sleep(5)
+                    continue
 
-            while True:
-                tag = self.read_tag()
+            try:
+                self.serial_conn.rts = False
 
-                if tag:
-                    self.callback(self.name, tag)
+                while self.running and self.serial_conn and self.serial_conn.is_open:
+                    tag = self.read_tag()
 
-                    # Reset reader so that it can read the same tag repeatedly
-                    self.serial_conn.rts = True
-                    time.sleep(max(MIN_RESET_INTERVAL, self.reset_interval))
-                    self.serial_conn.rts = False
+                    if tag:
+                        self.callback(self.name, tag)
+
+                        # Reset reader so that it can read the same tag repeatedly
+                        self.serial_conn.rts = True
+                        time.sleep(max(MIN_RESET_INTERVAL, self.reset_interval))
+                        self.serial_conn.rts = False
+            except Exception as e:
+                print(f"[{self.name}] Connection lost: {e}")
+                if self.status_callback:
+                    self.status_callback(self.name, False, str(e))
+                if self.serial_conn:
+                    try:
+                        self.serial_conn.close()
+                    except:
+                        pass
+                self.serial_conn = None
+                time.sleep(5)
 
     def start_reading(
-        self, callback: Callable[[str, str], None], reset_interval: float = 0.1
+        self,
+        callback: Callable[[str, str], None],
+        reset_interval: float = 0.1,
+        status_callback: Optional[Callable[[str, bool, str], None]] = None,
     ):
         self.callback = callback
         self.reset_interval = reset_interval
+        self.status_callback = status_callback
 
         self.running = True
         self.thread = threading.Thread(target=self._read_loop, daemon=True)
