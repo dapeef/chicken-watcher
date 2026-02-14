@@ -4,7 +4,7 @@ from random import randrange, randint, choice, random
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence
+from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence, NestingBoxPresencePeriod
 
 import logging
 
@@ -38,6 +38,7 @@ def clear_data():
     NestingBox.objects.all().delete()
     Egg.objects.all().delete()
     NestingBoxPresence.objects.all().delete()
+    NestingBoxPresencePeriod.objects.all().delete()
 
 
 TZ = timezone.get_current_timezone()
@@ -116,11 +117,19 @@ def populate_data():
 
                 nesting_box = choice(list(NestingBox.objects.all()))
 
+                period = NestingBoxPresencePeriod.objects.create(
+                    chicken=chicken,
+                    nesting_box=nesting_box,
+                    started_at=start_time,
+                    ended_at=start_time + datetime.timedelta(seconds=seconds_in_box - 1),
+                )
+
                 for delta_secs in range(seconds_in_box):
                     NestingBoxPresence.objects.create(
                         nesting_box=nesting_box,
                         present_at=start_time + datetime.timedelta(seconds=delta_secs),
                         chicken=chicken,
+                        presence_period=period,
                     )
 
                 egg_time = start_time + datetime.timedelta(

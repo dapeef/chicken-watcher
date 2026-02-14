@@ -71,10 +71,27 @@ class Egg(models.Model):
         return f"{chicken} in {box} box at {self.laid_at:%Y-%m-%d %H:%M}"
 
 
+class NestingBoxPresencePeriod(models.Model):
+    chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
+    nesting_box = models.ForeignKey(NestingBox, on_delete=models.CASCADE)
+    started_at = models.DateTimeField(default=timezone.now)
+    ended_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.chicken.name} in {self.nesting_box.name} ({self.started_at} - {self.ended_at})"
+
+
 class NestingBoxPresence(models.Model):
     chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
     nesting_box = models.ForeignKey(NestingBox, on_delete=models.CASCADE)
     present_at = models.DateTimeField(default=timezone.now)
+    presence_period = models.ForeignKey(
+        NestingBoxPresencePeriod,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="presences",
+    )
 
     def __str__(self):
         return (

@@ -8,7 +8,13 @@ from hardware_agent.handlers import (
     report_event,
     save_frame_to_file,
 )
-from web_app.models import NestingBoxPresence, Egg, NestingBoxImage, HardwareSensor
+from web_app.models import (
+    NestingBoxPresence,
+    Egg,
+    NestingBoxImage,
+    HardwareSensor,
+    NestingBoxPresencePeriod,
+)
 from test.web_app.factories import ChickenFactory, NestingBoxFactory
 
 
@@ -25,10 +31,62 @@ class TestHardwareHandlers:
             chicken=chicken, nesting_box=box
         ).first()
         assert presence is not None
+        assert presence.presence_period is not None
+        assert presence.presence_period.chicken == chicken
+        assert presence.presence_period.nesting_box == box
 
         # Check if sensor status was updated
         sensor = HardwareSensor.objects.get(name="rfid_Box1")
         assert sensor.is_connected is True
+
+    def test_handle_tag_read_extend_period(self, mocker):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        chicken = ChickenFactory(tag_string="12345")
+        box = NestingBoxFactory(name="Box1")
+        HardwareSensor.objects.create(name="rfid_Box1")
+
+        # First read
+        handle_tag_read("Box1", "12345")
+        period1 = NestingBoxPresencePeriod.objects.get()
+        assert period1.started_at == period1.ended_at
+
+        # Second read 30 seconds later (within 60s timeout)
+        future_time = timezone.now() + timedelta(seconds=30)
+        mocker.patch("django.utils.timezone.now", return_value=future_time)
+
+        handle_tag_read("Box1", "12345")
+
+        assert NestingBoxPresencePeriod.objects.count() == 1
+        period = NestingBoxPresencePeriod.objects.get()
+        assert period.ended_at == future_time
+        assert NestingBoxPresence.objects.count() == 2
+        for presence in NestingBoxPresence.objects.all():
+            assert presence.presence_period == period
+
+    def test_handle_tag_read_new_period_after_timeout(self, mocker):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        chicken = ChickenFactory(tag_string="12345")
+        box = NestingBoxFactory(name="Box1")
+        HardwareSensor.objects.create(name="rfid_Box1")
+
+        # First read
+        handle_tag_read("Box1", "12345")
+
+        # Second read 90 seconds later (outside 60s timeout)
+        future_time = timezone.now() + timedelta(seconds=90)
+        mocker.patch("django.utils.timezone.now", return_value=future_time)
+
+        handle_tag_read("Box1", "12345")
+
+        assert NestingBoxPresencePeriod.objects.count() == 2
+        assert NestingBoxPresence.objects.count() == 2
+
+        presences = list(NestingBoxPresence.objects.order_by("present_at"))
+        assert presences[0].presence_period != presences[1].presence_period
 
     def test_handle_tag_read_unknown_chicken(self, mocker):
         NestingBoxFactory(name="Box1")

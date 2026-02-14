@@ -1,5 +1,5 @@
 import pathlib
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import cv2
 from django.core.files.base import ContentFile
@@ -13,6 +13,7 @@ from web_app.models import (
     NestingBoxImage,
     Egg,
     HardwareSensor,
+    NestingBoxPresencePeriod,
 )
 
 
@@ -39,6 +40,10 @@ def report_event(full_name: str):
         print(f"Error reporting event for {full_name}: {e}")
 
 
+NESTING_BOX_PRESENCE_TIMEOUT = 60
+
+
+@transaction.atomic
 def handle_tag_read(name: str, tag: str):
     report_event(f"rfid_{name}")
     print(f"[{name}] Nesting box detected tag: {tag}")
@@ -46,9 +51,38 @@ def handle_tag_read(name: str, tag: str):
         nesting_box = NestingBox.objects.get(name=name)
         chicken = Chicken.objects.get(tag_string=tag)
 
-        NestingBoxPresence.objects.create(nesting_box=nesting_box, chicken=chicken)
+        now = timezone.now()
 
-        print(f"[{name}] Chicken {chicken.name} (tag: {tag}) added to nesting box")
+        # Look for an existing period for this chicken in this box that ended recently
+        recent_period = (
+            NestingBoxPresencePeriod.objects.filter(
+                chicken=chicken,
+                nesting_box=nesting_box,
+                ended_at__gte=now - timedelta(seconds=NESTING_BOX_PRESENCE_TIMEOUT),
+            )
+            .order_by("ended_at")
+            .last()
+        )
+
+        if recent_period:
+            recent_period.ended_at = now
+            recent_period.save()
+            period = recent_period
+        else:
+            period = NestingBoxPresencePeriod.objects.create(
+                chicken=chicken, nesting_box=nesting_box, started_at=now, ended_at=now
+            )
+
+        NestingBoxPresence.objects.create(
+            nesting_box=nesting_box,
+            chicken=chicken,
+            present_at=now,
+            presence_period=period,
+        )
+
+        print(
+            f"[{name}] Chicken {chicken.name} (tag: {tag}) added to nesting box. Period ID: {period.id}"
+        )
 
     except Chicken.DoesNotExist:
         print(f"Error: No matching chicken found matching tag: {tag}")
