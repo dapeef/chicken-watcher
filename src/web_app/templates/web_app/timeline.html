@@ -88,6 +88,7 @@
     let cachedImages = [];
     let objectUrls = [];
     let currentAbortController = null;
+    let lastMouseTime = null;
 
     const loadImages = function(properties, signal) {
         const start = properties.start.toISOString();
@@ -117,6 +118,11 @@
                     blobUrl: null
                 }));
 
+                // Refresh preview if mouse is already over timeline
+                if (lastMouseTime) {
+                    updatePreview(lastMouseTime);
+                }
+
                 // Preload images as blobs to ensure NO network requests during scrubbing
                 cachedImages.forEach(img => {
                     fetch(img.url, { signal })
@@ -126,6 +132,10 @@
                             const bUrl = URL.createObjectURL(blob);
                             img.blobUrl = bUrl;
                             objectUrls.push(bUrl);
+                            // Refresh preview as blobs arrive
+                            if (lastMouseTime) {
+                                updatePreview(lastMouseTime);
+                            }
                         })
                         .catch(err => {
                             if (err.name === 'AbortError') return;
@@ -178,15 +188,30 @@
         
         const targetTime = time.getTime();
         
-        // Find the closest image in our cache
-        let closest = cachedImages[0];
-        let minDiff = Math.abs(targetTime - closest.timestamp);
-        
-        for (let i = 1; i < cachedImages.length; i++) {
-            const diff = Math.abs(targetTime - cachedImages[i].timestamp);
-            if (diff < minDiff) {
-                minDiff = diff;
-                closest = cachedImages[i];
+        let closest = null;
+        let minDiff = Infinity;
+
+        // 1. Try to find the closest LOADED image
+        for (let i = 0; i < cachedImages.length; i++) {
+            if (cachedImages[i].blobUrl) {
+                const diff = Math.abs(targetTime - cachedImages[i].timestamp);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = cachedImages[i];
+                }
+            }
+        }
+
+        // 2. Fallback to absolute closest among ALL images if none are loaded yet
+        if (!closest) {
+            closest = cachedImages[0];
+            minDiff = Math.abs(targetTime - closest.timestamp);
+            for (let i = 1; i < cachedImages.length; i++) {
+                const diff = Math.abs(targetTime - cachedImages[i].timestamp);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = cachedImages[i];
+                }
             }
         }
         
@@ -205,6 +230,15 @@
                 const date = new Date(closest.iso);
                 timestampElement.innerText = `Photo from ${date.toLocaleString()}`;
             }
+
+            // Move the preview line to the exact timestamp of the image
+            const imageDate = new Date(closest.timestamp);
+            if (!previewLineAdded) {
+                timeline.addCustomTime(imageDate, 'preview-line');
+                previewLineAdded = true;
+            } else {
+                timeline.setCustomTime(imageDate, 'preview-line');
+            }
         }
     };
 
@@ -212,12 +246,7 @@
     let previewLineAdded = false;
     timeline.on('mouseMove', function (props) {
         if (props.time) {
-            if (!previewLineAdded) {
-                timeline.addCustomTime(props.time, 'preview-line');
-                previewLineAdded = true;
-            } else {
-                timeline.setCustomTime(props.time, 'preview-line');
-            }
+            lastMouseTime = props.time;
             updatePreview(props.time);
         }
     });
