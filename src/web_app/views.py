@@ -162,7 +162,12 @@ def timeline_data(request):
 def timeline_images(request):
     start_str = request.GET.get("start")
     end_str = request.GET.get("end")
-    n = int(request.GET.get("n", 100))
+    try:
+        n = int(request.GET.get("n", 100))
+        if n < 1:
+            n = 1
+    except (ValueError, TypeError):
+        n = 100
 
     if not start_str or not end_str:
         return JsonResponse([], safe=False)
@@ -215,7 +220,7 @@ def partial_image_at_time(request):
     
     try:
         # Vis.js sends ISO strings, but let's be flexible
-        target_time = datetime.fromisoformat(t_str.replace("Z", "+00:00"))
+        target_time = datetime.fromisoformat(t_str.replace("Z", "+00:00").replace(" ", "+"))
         if timezone.is_naive(target_time):
             target_time = timezone.make_aware(target_time)
     except (ValueError, OverflowError):
