@@ -6,9 +6,6 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 # --- system packages needed for compiling --------------------------
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        # runtime libs well also need later
-#        libgl1 libglib2.0-0                    \
-        # build-time tooling
         build-essential swig python3-dev wget unzip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -48,7 +45,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ########################################
 # 2.  Runtime stage
 ########################################
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS runtime
+FROM python:3.13-slim-bookworm AS runtime
 
 # only the *runtime* Debian libs
 RUN apt-get update && \
@@ -56,8 +53,7 @@ RUN apt-get update && \
         libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-ENV UV_NO_INSTALL=1 \
-    UV_NO_DEV=1 \
+ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src
 
@@ -77,6 +73,6 @@ COPY --from=project-builder /app/manage.py /app/manage.py
 COPY --from=project-builder /app/pyproject.toml /app/uv.lock ./
 
 CMD ["bash", "-c", "\
-      uv run manage.py migrate --no-input && \
-      uv run manage.py collectstatic --no-input --clear && \
-      uv run uvicorn django_project.asgi:application --host 0.0.0.0 --port 8000 --workers 1"]
+      python manage.py migrate --no-input && \
+      python manage.py collectstatic --no-input --clear && \
+      uvicorn django_project.asgi:application --host 0.0.0.0 --port 8000 --workers 1"]

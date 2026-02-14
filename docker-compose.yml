@@ -1,8 +1,8 @@
 services:
   hardware-agent:
     build: .
-    command: ["uv", "run", "manage.py", "run_hardware_agent"]
-    privileged: true # TODO: Remove privileged mode and fix device permissions
+    command: ["python", "manage.py", "run_hardware_agent"]
+    privileged: true
     environment:
       - DJANGO_ENV=prod
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
