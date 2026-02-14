@@ -54,9 +54,8 @@ def timeline_data(request):
         timeline_items.append(
             {
                 "id": f"egg_{egg.id}",
-                "content": f"🥚 {egg.chicken.name if egg.chicken else 'Unknown'}",
+                "content": "🥚",
                 "start": egg.laid_at.isoformat(),
-                "type": "point",
                 "className": "timeline-egg",
                 "group": f"chicken_{egg.chicken_id}" if egg.chicken_id else "unknown",
             }
