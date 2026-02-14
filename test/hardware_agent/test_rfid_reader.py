@@ -1,6 +1,6 @@
-import pytest
 import serial
 from hardware_agent.rfid_reader import RFIDReader
+
 
 class MockSerial:
     def __init__(self, data_to_read=None):
@@ -30,6 +30,7 @@ class MockSerial:
         self.is_open = False
         self.close_called = True
 
+
 def test_rfid_reader_connect_success(mocker):
     mock_serial = mocker.patch("serial.Serial", return_value=MockSerial())
     reader = RFIDReader("test", "/dev/ttyUSB0")
@@ -37,11 +38,13 @@ def test_rfid_reader_connect_success(mocker):
     assert reader.is_connected() is True
     mock_serial.assert_called_once()
 
+
 def test_rfid_reader_connect_fail(mocker):
     mocker.patch("serial.Serial", side_effect=serial.SerialException("Failed"))
     reader = RFIDReader("test", "/dev/ttyUSB0")
     assert reader.connect() is False
     assert reader.is_connected() is False
+
 
 def test_rfid_reader_recv_frame(mocker):
     # Frame: STX (0x02) + "ABC" + ETX (0x03)
@@ -49,11 +52,12 @@ def test_rfid_reader_recv_frame(mocker):
     mock_conn = MockSerial(data)
     reader = RFIDReader("test", "/dev/ttyUSB0")
     reader.serial_conn = mock_conn
-    
+
     frame = reader.recv_frame()
     assert frame == b"ABC"
     # Check that it consumed up to ETX
     assert mock_conn.data_to_read == b"\xaa"
+
 
 def test_rfid_reader_read_tag(mocker):
     # Tag frame including checksum byte before ETX
@@ -64,9 +68,10 @@ def test_rfid_reader_read_tag(mocker):
     data = b"\x02TAG123X\x03"
     reader = RFIDReader("test", "/dev/ttyUSB0")
     reader.serial_conn = MockSerial(data)
-    
+
     tag = reader.read_tag()
     assert tag == "TAG123"
+
 
 def test_rfid_reader_poll(mocker):
     data = b"\x02TAG123X\x03"
@@ -74,11 +79,11 @@ def test_rfid_reader_poll(mocker):
     reader.serial_conn = MockSerial(data)
     callback = mocker.Mock()
     reader.callback = callback
-    
+
     # Mock time.sleep to avoid waiting
     mocker.patch("time.sleep")
-    
+
     reader.poll()
-    
+
     callback.assert_called_once_with("test", "TAG123")
-    assert reader.serial_conn.rts is False # Should have been set to True then False
+    assert reader.serial_conn.rts is False  # Should have been set to True then False

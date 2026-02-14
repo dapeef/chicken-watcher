@@ -3,24 +3,37 @@ import json
 from datetime import timedelta, date
 from django.urls import reverse
 from django.utils import timezone
-from .factories import ChickenFactory, EggFactory, HardwareSensorFactory, NestingBoxFactory, NestingBoxPresenceFactory
+from .factories import (
+    ChickenFactory,
+    EggFactory,
+    HardwareSensorFactory,
+    NestingBoxFactory,
+    NestingBoxPresenceFactory,
+)
 from web_app.models import Egg
+
 
 @pytest.mark.django_db
 class TestViews:
     def test_dashboard_view(self, client):
         c1 = ChickenFactory(name="C1")
         b1 = NestingBoxFactory(name="Box1")
-        b2 = NestingBoxFactory(name="Box2")
-        
+        NestingBoxFactory(name="Box2")
+
         # Create some presences today
-        NestingBoxPresenceFactory(chicken=c1, nesting_box=b1, present_at=timezone.now() - timedelta(minutes=10))
-        p_latest = NestingBoxPresenceFactory(chicken=c1, nesting_box=b1, present_at=timezone.now() - timedelta(minutes=5))
-        
+        NestingBoxPresenceFactory(
+            chicken=c1,
+            nesting_box=b1,
+            present_at=timezone.now() - timedelta(minutes=10),
+        )
+        p_latest = NestingBoxPresenceFactory(
+            chicken=c1, nesting_box=b1, present_at=timezone.now() - timedelta(minutes=5)
+        )
+
         url = reverse("dashboard")
         response = client.get(url)
         assert response.status_code == 200
-        
+
         latest_presence = response.context["latest_presence"]
         # Should contain p_latest for b1
         assert p_latest in latest_presence
@@ -30,20 +43,21 @@ class TestViews:
     def test_egg_production_view_dob_dod_filtering(self, client):
         today = date.today()
         yesterday = today - timedelta(days=1)
-        tomorrow = today + timedelta(days=1)
-        
+
         # Chicken born today
         c1 = ChickenFactory(name="BornToday", date_of_birth=today)
         # Egg "yesterday" (impossible but in DB)
         EggFactory(chicken=c1, laid_at=timezone.now() - timedelta(days=1))
         # Egg today
         EggFactory(chicken=c1, laid_at=timezone.now())
-        
+
         url = reverse("egg_production")
         # Use window=1 to see raw counts after DOB filtering
-        response = client.get(url + f"?start={yesterday.isoformat()}&end={today.isoformat()}&w=1")
+        response = client.get(
+            url + f"?start={yesterday.isoformat()}&end={today.isoformat()}&w=1"
+        )
         datasets = json.loads(response.context["datasets_json"])
-        
+
         # datasets[0] should be for BornToday
         # labels are [yesterday, today]
         # counts should be [None, 1]
@@ -52,13 +66,19 @@ class TestViews:
         assert data[1] == 1
 
         # Test DOD filtering
-        c2 = ChickenFactory(name="DiedYesterday", date_of_birth=yesterday - timedelta(days=10), date_of_death=yesterday)
+        c2 = ChickenFactory(
+            name="DiedYesterday",
+            date_of_birth=yesterday - timedelta(days=10),
+            date_of_death=yesterday,
+        )
         # Egg today (recorded after death)
         EggFactory(chicken=c2, laid_at=timezone.now())
-        
-        response = client.get(url + f"?start={yesterday.isoformat()}&end={today.isoformat()}&w=1")
+
+        response = client.get(
+            url + f"?start={yesterday.isoformat()}&end={today.isoformat()}&w=1"
+        )
         datasets = json.loads(response.context["datasets_json"])
-        
+
         # Find c2 dataset
         c2_data = next(d["data"] for d in datasets if d["label"] == "DiedYesterday")
         # labels: [yesterday, today]
@@ -71,7 +91,7 @@ class TestViews:
         ChickenFactory(name="Bertha")
         ChickenFactory(name="Alice")
         url = reverse("chicken_list")
-        
+
         # Test default sorting (name)
         response = client.get(url)
         assert response.status_code == 200
@@ -91,7 +111,7 @@ class TestViews:
         c2 = ChickenFactory(name="C2")
         EggFactory(chicken=c1, laid_at=timezone.now() - timedelta(hours=1))
         EggFactory(chicken=c2, laid_at=timezone.now())
-        
+
         url = reverse("egg_list")
         response = client.get(url)
         assert response.status_code == 200
@@ -105,11 +125,11 @@ class TestViews:
         chicken = ChickenFactory()
         box = NestingBoxFactory()
         url = reverse("egg_create")
-        
+
         # GET
         response = client.get(url)
         assert response.status_code == 200
-        
+
         # POST valid
         data = {
             "chicken": chicken.pk,
@@ -123,8 +143,12 @@ class TestViews:
     def test_chicken_detail_view(self, client):
         chicken = ChickenFactory()
         # Add some eggs to test stats and charts
-        EggFactory.create_batch(5, chicken=chicken, laid_at=timezone.now() - timedelta(days=1))
-        NestingBoxPresenceFactory(chicken=chicken, present_at=timezone.now() - timedelta(minutes=5))
+        EggFactory.create_batch(
+            5, chicken=chicken, laid_at=timezone.now() - timedelta(days=1)
+        )
+        NestingBoxPresenceFactory(
+            chicken=chicken, present_at=timezone.now() - timedelta(minutes=5)
+        )
 
         url = reverse("chicken_detail", kwargs={"pk": chicken.pk})
         response = client.get(url)
@@ -132,7 +156,7 @@ class TestViews:
         assert response.context["hen"] == chicken
         assert response.context["stats"]["total"] == 5
         assert len(response.context["presence_events"]) == 1
-        
+
         # Check chart data
         assert "chart_labels" in response.context
         assert "chart_daily" in response.context
@@ -142,7 +166,7 @@ class TestViews:
     def test_egg_production_view(self, client):
         chicken = ChickenFactory()
         EggFactory(chicken=chicken, laid_at=timezone.now())
-        
+
         url = reverse("egg_production")
         response = client.get(url)
         assert response.status_code == 200
@@ -157,13 +181,13 @@ class TestViews:
         EggFactory(chicken=chicken, laid_at=timezone.now())
         # One egg 10 days ago
         EggFactory(chicken=chicken, laid_at=timezone.now() - timedelta(days=10))
-        
+
         url = reverse("egg_production")
         # Test window parameter
         response = client.get(url + "?w=7")
         assert response.status_code == 200
         assert response.context["window"] == 7
-        
+
         # Test invalid window (should fallback to 30)
         response = client.get(url + "?w=5")
         assert response.context["window"] == 30
@@ -171,7 +195,9 @@ class TestViews:
         # Test date range
         today = date.today()
         yesterday = today - timedelta(days=1)
-        response = client.get(url + f"?start={yesterday.isoformat()}&end={today.isoformat()}")
+        response = client.get(
+            url + f"?start={yesterday.isoformat()}&end={today.isoformat()}"
+        )
         assert response.status_code == 200
         assert response.context["start"] == yesterday.isoformat()
         assert response.context["end"] == today.isoformat()

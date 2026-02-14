@@ -3,6 +3,7 @@ from django.utils import timezone
 from web_app.forms import EggForm
 from test.web_app.factories import ChickenFactory, NestingBoxFactory
 
+
 @pytest.mark.django_db
 class TestEggForm:
     def test_valid_form(self):

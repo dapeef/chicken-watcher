@@ -2,7 +2,13 @@ import pytest
 from datetime import date, timedelta
 from django.utils import timezone
 from web_app.models import Chicken, NestingBoxPresence
-from .factories import ChickenFactory, EggFactory, NestingBoxFactory, HardwareSensorFactory
+from .factories import (
+    ChickenFactory,
+    EggFactory,
+    NestingBoxFactory,
+    HardwareSensorFactory,
+)
+
 
 @pytest.mark.django_db
 class TestChickenModel:
@@ -21,11 +27,13 @@ class TestChickenModel:
         chicken = ChickenFactory(name="Bertha")
         assert str(chicken) == "Bertha"
 
+
 @pytest.mark.django_db
 class TestNestingBoxModel:
     def test_str(self):
         box = NestingBoxFactory(name="Box A")
         assert str(box) == "Box A"
+
 
 @pytest.mark.django_db
 class TestEggModel:
@@ -41,6 +49,7 @@ class TestEggModel:
         assert "Unknown chicken" in str(egg)
         assert "unknown box" in str(egg)
 
+
 @pytest.mark.django_db
 class TestNestingBoxPresenceModel:
     def test_str(self):
@@ -49,6 +58,7 @@ class TestNestingBoxPresenceModel:
         presence = NestingBoxPresence.objects.create(chicken=chicken, nesting_box=box)
         assert "Bertha" in str(presence)
         assert "Box A" in str(presence)
+
 
 @pytest.mark.django_db
 class TestHardwareSensorModel:
@@ -59,6 +69,7 @@ class TestHardwareSensorModel:
     def test_str_offline(self):
         sensor = HardwareSensorFactory(name="rfid_1", is_connected=False)
         assert str(sensor) == "rfid_1 (Offline)"
+
 
 @pytest.mark.django_db
 class TestChickenQuerySet:
@@ -72,7 +83,7 @@ class TestChickenQuerySet:
 
         # We need to re-query with the manager's with_egg_metrics
         annotated_chicken = Chicken.objects.with_egg_metrics(days=30).get(pk=chicken.pk)
-        
+
         assert annotated_chicken.eggs_window == 3
         # 3 eggs / 30 days = 0.1
         assert annotated_chicken.eggs_per_day == pytest.approx(0.1)

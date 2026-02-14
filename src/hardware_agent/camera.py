@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Tuple, Optional
+from typing import Tuple
 
 import cv2
 
@@ -77,7 +77,9 @@ class USBCamera(BaseSensor):
         self._latest_frame = None
         # Start a background thread to keep the camera buffer fresh.
         # This prevents the ~6 second lag often seen with OpenCV's default buffering.
-        thread = threading.Thread(target=self._reader, name=f"CameraReader-{self.name}", daemon=True)
+        thread = threading.Thread(
+            target=self._reader, name=f"CameraReader-{self.name}", daemon=True
+        )
         thread.start()
 
     def _reader(self):

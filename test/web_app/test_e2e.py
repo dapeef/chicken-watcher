@@ -4,6 +4,7 @@ from django.utils import timezone
 from .factories import ChickenFactory, NestingBoxFactory, HardwareSensorFactory
 from web_app.models import Egg
 
+
 @pytest.mark.django_db
 class TestE2E:
     """
@@ -18,7 +19,7 @@ class TestE2E:
         # Set up some data to ensure things are rendered
         chicken = ChickenFactory(name="Bertha")
         HardwareSensorFactory(name="rfid_left", is_connected=True)
-        
+
         # 1. Dashboard
         response = client.get(reverse("dashboard"))
         assert response.status_code == 200
@@ -59,21 +60,21 @@ class TestE2E:
         """
         chicken = ChickenFactory(name="Alice")
         box = NestingBoxFactory(name="North Nest")
-        
+
         # 1. Start at the Egg List and verify it's empty
         url_list = reverse("egg_list")
         response = client.get(url_list)
         assert b"Alice" not in response.content
         assert Egg.objects.count() == 0
-        
+
         # 2. Find and click the 'Create new egg' link
-        # (We simulate the 'click' by getting the URL from the response content 
+        # (We simulate the 'click' by getting the URL from the response content
         # or knowing it via reverse, and then visiting it)
         url_create = reverse("egg_create")
         response = client.get(url_create)
         assert response.status_code == 200
         assert b"Create Egg" in response.content or b"egg" in response.content.lower()
-        
+
         # 3. Fill and submit the form
         now = timezone.localtime()
         data = {
@@ -83,12 +84,12 @@ class TestE2E:
         }
         # follow=True simulates the redirect back to the list
         response = client.post(url_create, data, follow=True)
-        
+
         # 4. Verify we are back on the list and the egg is there
         assert response.status_code == 200
         assert b"Alice" in response.content
         assert b"North Nest" in response.content
-        
+
         # 5. Verify the record exists in the database
         assert Egg.objects.count() == 1
         new_egg = Egg.objects.first()
@@ -102,8 +103,8 @@ class TestE2E:
         # Dashboard with no data
         response = client.get(reverse("dashboard"))
         assert response.status_code == 200
-        assert b"0" in response.content # 0 eggs today
-        
+        assert b"0" in response.content  # 0 eggs today
+
         # Chicken list empty
         response = client.get(reverse("chicken_list"))
         assert b"No chickens yet." in response.content
