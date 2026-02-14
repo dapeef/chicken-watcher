@@ -77,17 +77,12 @@ class RFIDReader(BaseSensor):
         if not self.serial_conn or not self.serial_conn.is_open:
             return None
 
-        try:
-            frame = self.recv_frame()
-            if not frame:
-                return None  # just a timeout
+        frame = self.recv_frame()
+        if not frame:
+            return None  # just a timeout
 
-            tag = frame[:-1].decode()  # last byte is a checksum
-            return tag
-
-        except Exception as e:
-            print(f"[{self.name}] Error reading tag: {e}")
-            return None
+        tag = frame[:-1].decode()  # last byte is a checksum
+        return tag
 
     def recv_frame(self):
         """read one STX … ETX frame, return payload (bytes) or None on timeout"""
