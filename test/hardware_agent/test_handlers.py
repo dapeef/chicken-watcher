@@ -88,6 +88,37 @@ class TestHardwareHandlers:
         presences = list(NestingBoxPresence.objects.order_by("present_at"))
         assert presences[0].presence_period != presences[1].presence_period
 
+    def test_handle_tag_read_do_not_extend_if_seen_elsewhere(self, mocker):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        chicken = ChickenFactory(tag_string="12345")
+        box1 = NestingBoxFactory(name="Box1")
+        box2 = NestingBoxFactory(name="Box2")
+        HardwareSensor.objects.create(name="rfid_Box1")
+        HardwareSensor.objects.create(name="rfid_Box2")
+
+        t0 = timezone.now()
+
+        # 1. Spotted in Box 1
+        mocker.patch("django.utils.timezone.now", return_value=t0)
+        handle_tag_read("Box1", "12345")
+
+        # 2. Spotted in Box 2 after 10 seconds
+        t1 = t0 + timedelta(seconds=10)
+        mocker.patch("django.utils.timezone.now", return_value=t1)
+        handle_tag_read("Box2", "12345")
+
+        # 3. Spotted in Box 1 again after another 10 seconds (total 20s from first Box 1 read)
+        t2 = t1 + timedelta(seconds=10)
+        mocker.patch("django.utils.timezone.now", return_value=t2)
+        handle_tag_read("Box1", "12345")
+
+        periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by("started_at")
+        assert periods.count() == 2
+        assert periods[0].ended_at == t0
+        assert periods[1].started_at == t2
+
     def test_handle_tag_read_unknown_chicken(self, mocker):
         NestingBoxFactory(name="Box1")
         # Should not raise exception, just print error

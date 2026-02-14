@@ -65,6 +65,17 @@ def handle_tag_read(name: str, tag: str):
         )
 
         if recent_period:
+            # Check if there is a more recent period in a different box
+            if (
+                NestingBoxPresencePeriod.objects.filter(
+                    chicken=chicken, ended_at__gt=recent_period.ended_at
+                )
+                .exclude(nesting_box=nesting_box)
+                .exists()
+            ):
+                recent_period = None
+
+        if recent_period:
             recent_period.ended_at = now
             recent_period.save()
             period = recent_period
