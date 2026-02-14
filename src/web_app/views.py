@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView, ListView, DetailView, CreateView
 from django.shortcuts import render
 
+from django.http import JsonResponse
 from .forms import EggForm
 from .models import Egg, Chicken, NestingBoxPresence, HardwareSensor, NestingBoxImage
 from django.db.models import Count, Max, Q
@@ -100,6 +101,91 @@ def partial_latest_presence(request):
 def partial_latest_events(request):
     return render(
         request, "web_app/partials/_latest_events.html", get_dashboard_context()
+    )
+
+
+class TimelineView(TemplateView):
+    template_name = "web_app/timeline.html"
+
+
+def timeline_data(request):
+    start_str = request.GET.get("start")
+    end_str = request.GET.get("end")
+
+    if not start_str or not end_str:
+        return JsonResponse([], safe=False)
+
+    try:
+        start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+        if timezone.is_naive(start):
+            start = timezone.make_aware(start)
+        end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+        if timezone.is_naive(end):
+            end = timezone.make_aware(end)
+    except (ValueError, TypeError):
+        return JsonResponse([], safe=False)
+
+    eggs = Egg.objects.filter(laid_at__range=(start, end)).select_related(
+        "chicken", "nesting_box"
+    )
+    presences = NestingBoxPresence.objects.filter(
+        present_at__range=(start, end)
+    ).select_related("chicken", "nesting_box")
+
+    timeline_items = []
+
+    for egg in eggs:
+        timeline_items.append(
+            {
+                "id": f"egg_{egg.id}",
+                "content": f"🥚 {egg.chicken.name if egg.chicken else 'Unknown'}",
+                "start": egg.laid_at.isoformat(),
+                "type": "point",
+                "className": "timeline-egg",
+            }
+        )
+
+    for p in presences:
+        timeline_items.append(
+            {
+                "id": f"presence_{p.id}",
+                "content": f"🐔 {p.chicken.name} in {p.nesting_box.name}",
+                "start": p.present_at.isoformat(),
+                "type": "point",
+                "className": "timeline-presence",
+            }
+        )
+
+    return JsonResponse(timeline_items, safe=False)
+
+
+def partial_image_at_time(request):
+    t_str = request.GET.get("t")
+    if not t_str:
+        return render(request, "web_app/partials/_latest_image.html", {"latest_image": None})
+    
+    try:
+        # Vis.js sends ISO strings, but let's be flexible
+        target_time = datetime.fromisoformat(t_str.replace("Z", "+00:00"))
+        if timezone.is_naive(target_time):
+            target_time = timezone.make_aware(target_time)
+    except (ValueError, OverflowError):
+        return render(request, "web_app/partials/_latest_image.html", {"latest_image": None})
+
+    # Find the image closest to this time
+    # For simplicity, we find the latest image created BEFORE or AT this time
+    closest_image = NestingBoxImage.objects.filter(
+        created_at__lte=target_time
+    ).order_by("-created_at").first()
+    
+    # If none before, maybe one just after?
+    if not closest_image:
+        closest_image = NestingBoxImage.objects.filter(
+            created_at__gte=target_time
+        ).order_by("created_at").first()
+
+    return render(
+        request, "web_app/partials/_latest_image.html", {"latest_image": closest_image}
     )
 
 

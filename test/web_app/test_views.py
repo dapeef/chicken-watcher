@@ -222,3 +222,37 @@ class TestViews:
             url = reverse(p)
             response = client.get(url)
             assert response.status_code == 200
+
+    def test_timeline_view(self, client):
+        url = reverse("timeline")
+        response = client.get(url)
+        assert response.status_code == 200
+
+    def test_timeline_data(self, client):
+        url = reverse("timeline_data")
+        # Test without params
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response.json() == []
+
+        # Test with params
+        start = "2026-02-14T00:00:00Z"
+        end = "2026-02-14T23:59:59Z"
+        response = client.get(f"{url}?start={start}&end={end}")
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+
+        # Test with naive strings
+        start = "2026-02-14T00:00:00"
+        end = "2026-02-14T23:59:59"
+        response = client.get(f"{url}?start={start}&end={end}")
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+
+    def test_partial_image_at_time(self, client):
+        url = reverse("partial_image_at_time")
+        response = client.get(url)
+        assert response.status_code == 200
+
+        response = client.get(url + "?t=2026-02-14T14:00:00")
+        assert response.status_code == 200

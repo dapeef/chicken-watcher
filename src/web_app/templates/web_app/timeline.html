@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Timeline - Coop{% endblock %}
+
+{% block extra_head %}
+<script type="text/javascript" src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
+<link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+
+<style>
+    #visualization {
+        width: 100%;
+        height: 400px;
+        border: 1px solid lightgray;
+    }
+    #camera-preview {
+        min-height: 500px;
+    }
+    .timeline-egg {
+        background-color: #fff3cd;
+        border-color: #ffeeba;
+    }
+    .timeline-presence {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+    .vis-custom-time.preview-line {
+        background-color: #0d6efd;
+        width: 3px;
+        pointer-events: none;
+        z-index: 10;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1>Event Timeline</h1>
+        <p class="text-muted">Hover over the timeline to see camera footage from that time.</p>
+        <div id="visualization"></div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12" id="camera-preview">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Camera Preview</h5>
+                <p class="text-center py-5 bg-light mb-0">Hover over timeline to load image</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    const container = document.getElementById('visualization');
+    const items = new vis.DataSet([]);
+
+    const options = {
+        height: '400px',
+        stack: true,
+        showCurrentTime: true,
+        zoomMin: 1000 * 60, // 1 minute
+    };
+
+    const timeline = new vis.Timeline(container, items, options);
+
+    // Default range: today 00:00 to 23:59
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    timeline.setWindow(startOfDay, endOfDay);
+
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    const loadData = debounce(function(properties) {
+        const start = properties.start.toISOString();
+        const end = properties.end.toISOString();
+        const url = `{% url 'timeline_data' %}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                // Use update to avoid duplicates and only add new items
+                items.update(data);
+            });
+    }, 300);
+
+    timeline.on('rangechanged', loadData);
+    
+    // Initial load
+    loadData({
+        start: startOfDay,
+        end: endOfDay
+    });
+
+    const updatePreview = debounce(function(timeIso) {
+        const url = `{% url 'partial_image_at_time' %}?t=${encodeURIComponent(timeIso)}`;
+        
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('camera-preview').innerHTML = html;
+        });
+    }, 100);
+
+    // Use the vis-timeline mouseMove event for better stability
+    let previewLineAdded = false;
+    timeline.on('mouseMove', function (props) {
+        if (props.time) {
+            if (!previewLineAdded) {
+                timeline.addCustomTime(props.time, 'preview-line');
+                previewLineAdded = true;
+            } else {
+                timeline.setCustomTime(props.time, 'preview-line');
+            }
+            updatePreview(props.time.toISOString());
+        }
+    });
+</script>
+{% endblock %}
