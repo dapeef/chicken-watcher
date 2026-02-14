@@ -19,9 +19,30 @@
         background-color: #fff3cd;
         border-color: #ffeeba;
     }
-    .timeline-presence {
+    .timeline-period.box-left {
         background-color: #d1ecf1;
         border-color: #bee5eb;
+    }
+    .timeline-period.box-right {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+    }
+    .timeline-presence-dot.vis-point {
+        background: none;
+        border: none;
+    }
+    .timeline-presence-dot.box-left .vis-dot {
+        border-width: 3px;
+        border-radius: 3px;
+        border-color: #0d6efd;
+    }
+    .timeline-presence-dot.box-right .vis-dot {
+        border-width: 3px;
+        border-radius: 3px;
+        border-color: #198754;
+    }
+    .timeline-presence-dot .vis-item-content {
+        padding: 0;
     }
     .vis-custom-time.preview-line {
         background-color: #0d6efd;
@@ -56,6 +77,12 @@
 <script type="text/javascript">
     const container = document.getElementById('visualization');
     const items = new vis.DataSet([]);
+    const groups = new vis.DataSet([
+        {% for chicken in chickens %}
+        { id: 'chicken_{{ chicken.id }}', content: '{{ chicken.name }}', stack: false },
+        {% endfor %}
+        { id: 'unknown', content: 'Unknown', stack: true }
+    ]);
 
     const options = {
         height: '400px',
@@ -64,13 +91,14 @@
         zoomMin: 1000 * 60, // 1 minute
     };
 
-    const timeline = new vis.Timeline(container, items, options);
+    const timeline = new vis.Timeline(container, items, groups, options);
 
-    // Default range: today 00:00 to 23:59
+    // Default range: today 00:00 to 00:00 tomorrow
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+    endOfDay.setHours(0, 0, 0, 0);
     timeline.setWindow(startOfDay, endOfDay);
 
     function debounce(func, wait) {
@@ -123,7 +151,7 @@
                     updatePreview(lastMouseTime);
                 }
 
-                // Prioritize loading images closest to the mouse (or center of view)
+                // Prioritize loading images closest to the  ouse (or center of view)
                 const startMs = properties.start.getTime();
                 const endMs = properties.end.getTime();
                 const centerMs = (startMs + endMs) / 2;
@@ -168,6 +196,21 @@
 
         const start = properties.start.toISOString();
         const end = properties.end.toISOString();
+
+        // Check zoom level and remove dots if too far out
+        const durationMs = properties.end.getTime() - properties.start.getTime();
+        const threeMinsMs = 3 * 60 * 1000;
+        if (durationMs > threeMinsMs) {
+            const dots = items.get({
+                filter: function (item) {
+                    return item.className && item.className.includes('timeline-presence-dot');
+                }
+            });
+            if (dots.length > 0) {
+                items.remove(dots);
+            }
+        }
+
         const url = `{% url 'timeline_data' %}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
         
         fetch(url, { signal })

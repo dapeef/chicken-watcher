@@ -6,6 +6,8 @@ from ..factories import (
     EggFactory,
     NestingBoxPresenceFactory,
     NestingBoxImageFactory,
+    NestingBoxPresencePeriodFactory,
+    NestingBoxFactory,
 )
 
 @pytest.mark.django_db
@@ -28,14 +30,25 @@ class TestTimelineViews:
         assert response.status_code == 200
         assert response.json() == []
 
-        # Test with range covering now
+        # Test with range covering now but zoomed out (2 hours)
         start = (now - timedelta(hours=1)).isoformat()
         end = (now + timedelta(hours=1)).isoformat()
         response = client.get(f"{url}?start={start}&end={end}")
         assert response.status_code == 200
         data = response.json()
+        # Should only have egg, not presence
+        assert len(data) == 1
+        ids = [item["id"] for item in data]
+        assert f"egg_{egg.id}" in ids
+        assert f"presence_{presence.id}" not in ids
+
+        # Test with range covering now and zoomed in (2 minutes)
+        start = (now - timedelta(minutes=1)).isoformat()
+        end = (now + timedelta(minutes=1)).isoformat()
+        response = client.get(f"{url}?start={start}&end={end}")
+        assert response.status_code == 200
+        data = response.json()
         assert len(data) == 2
-        
         ids = [item["id"] for item in data]
         assert f"egg_{egg.id}" in ids
         assert f"presence_{presence.id}" in ids
@@ -98,3 +111,30 @@ class TestTimelineViews:
         t_after = t2 + timedelta(minutes=5)
         response = client.get(f"{url}?t={t_after.isoformat()}")
         assert response.context["latest_image"] == img2
+
+    def test_timeline_data_box_colors(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        box_left = NestingBoxFactory(name="left")
+        box_right = NestingBoxFactory(name="right")
+
+        period = NestingBoxPresencePeriodFactory(
+            nesting_box=box_left, started_at=now, ended_at=now + timedelta(minutes=1)
+        )
+        presence = NestingBoxPresenceFactory(nesting_box=box_right, present_at=now)
+
+        start = (now - timedelta(minutes=1)).isoformat()
+        end = (now + timedelta(minutes=1)).isoformat()
+
+        response = client.get(f"{url}?start={start}&end={end}")
+        data = response.json()
+
+        period_item = next(item for item in data if item["id"] == f"period_{period.id}")
+        presence_item = next(
+            item for item in data if item["id"] == f"presence_{presence.id}"
+        )
+
+        assert "box-left" in period_item["className"]
+        assert "timeline-period" in period_item["className"]
+        assert "box-right" in presence_item["className"]
+        assert "timeline-presence-dot" in presence_item["className"]

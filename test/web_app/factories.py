@@ -1,6 +1,6 @@
 import factory
 from django.utils import timezone
-from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence, HardwareSensor, NestingBoxImage
+from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence, HardwareSensor, NestingBoxImage, NestingBoxPresencePeriod
 
 
 class ChickenFactory(factory.django.DjangoModelFactory):
@@ -37,6 +37,16 @@ class NestingBoxPresenceFactory(factory.django.DjangoModelFactory):
     chicken = factory.SubFactory(ChickenFactory)
     nesting_box = factory.SubFactory(NestingBoxFactory)
     present_at = factory.LazyFunction(timezone.now)
+
+
+class NestingBoxPresencePeriodFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = NestingBoxPresencePeriod
+
+    chicken = factory.SubFactory(ChickenFactory)
+    nesting_box = factory.SubFactory(NestingBoxFactory)
+    started_at = factory.LazyFunction(timezone.now)
+    ended_at = factory.LazyFunction(timezone.now)
 
 
 class HardwareSensorFactory(factory.django.DjangoModelFactory):

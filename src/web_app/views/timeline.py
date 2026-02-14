@@ -1,13 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.generic import TemplateView
 
-from ..models import Egg, NestingBoxPresence, NestingBoxImage
+from django.db.models import Q
+from ..models import Chicken, Egg, NestingBoxPresence, NestingBoxImage, NestingBoxPresencePeriod
 
 class TimelineView(TemplateView):
     template_name = "web_app/timeline.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["chickens"] = Chicken.objects.all()
+        return context
 
 
 def timeline_data(request):
@@ -30,8 +36,16 @@ def timeline_data(request):
     eggs = Egg.objects.filter(laid_at__range=(start, end)).select_related(
         "chicken", "nesting_box"
     )
-    presences = NestingBoxPresence.objects.filter(
-        present_at__range=(start, end)
+
+    if end - start <= timedelta(minutes=3):
+        presences = NestingBoxPresence.objects.filter(
+            present_at__range=(start, end)
+        ).select_related("chicken", "nesting_box")
+    else:
+        presences = NestingBoxPresence.objects.none()
+
+    periods = NestingBoxPresencePeriod.objects.filter(
+        started_at__lte=end, ended_at__gte=start
     ).select_related("chicken", "nesting_box")
 
     timeline_items = []
@@ -44,6 +58,20 @@ def timeline_data(request):
                 "start": egg.laid_at.isoformat(),
                 "type": "point",
                 "className": "timeline-egg",
+                "group": f"chicken_{egg.chicken_id}" if egg.chicken_id else "unknown",
+            }
+        )
+
+    for period in periods:
+        timeline_items.append(
+            {
+                "id": f"period_{period.id}",
+                "content": f"📥 {period.nesting_box.name}",
+                "start": period.started_at.isoformat(),
+                "end": period.ended_at.isoformat(),
+                "type": "range",
+                "className": f"timeline-period box-{period.nesting_box.name}",
+                "group": f"chicken_{period.chicken_id}",
             }
         )
 
@@ -51,10 +79,11 @@ def timeline_data(request):
         timeline_items.append(
             {
                 "id": f"presence_{p.id}",
-                "content": f"🐔 {p.chicken.name} in {p.nesting_box.name}",
+                "content": "",
                 "start": p.present_at.isoformat(),
                 "type": "point",
-                "className": "timeline-presence",
+                "className": f"timeline-presence-dot box-{p.nesting_box.name}",
+                "group": f"chicken_{p.chicken_id}",
             }
         )
 
