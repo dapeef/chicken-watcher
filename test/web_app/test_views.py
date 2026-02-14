@@ -1,5 +1,6 @@
 import pytest
 import json
+import factory
 from datetime import timedelta, date
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +10,7 @@ from .factories import (
     HardwareSensorFactory,
     NestingBoxFactory,
     NestingBoxPresenceFactory,
+    NestingBoxImageFactory,
 )
 from web_app.models import Egg
 
@@ -256,3 +258,29 @@ class TestViews:
 
         response = client.get(url + "?t=2026-02-14T14:00:00")
         assert response.status_code == 200
+
+    def test_timeline_images(self, client):
+        from web_app.models import NestingBoxImage
+        now = timezone.now()
+        for i in range(5):
+            NestingBoxImageFactory(created_at=now - timedelta(minutes=i * 10))
+        
+        assert NestingBoxImage.objects.count() == 5
+
+        url = reverse("timeline_images")
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        # Test with sampling
+        response = client.get(f"{url}?start={start}&end={end}&n=2")
+        assert response.status_code == 200
+        data = response.json()
+        # Should return n=2 plus possibly the last one if it was sampled out,
+        # our logic ensures at least n are returned if available.
+        assert len(data) >= 2
+        assert "url" in data[0]
+        assert "timestamp" in data[0]
+
+        # Test with more n than available
+        response = client.get(f"{url}?start={start}&end={end}&n=10")
+        assert len(response.json()) == 5

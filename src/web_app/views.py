@@ -116,13 +116,13 @@ def timeline_data(request):
         return JsonResponse([], safe=False)
 
     try:
-        start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+        start = datetime.fromisoformat(start_str.replace("Z", "+00:00").replace(" ", "+"))
         if timezone.is_naive(start):
             start = timezone.make_aware(start)
-        end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(end_str.replace("Z", "+00:00").replace(" ", "+"))
         if timezone.is_naive(end):
             end = timezone.make_aware(end)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):
         return JsonResponse([], safe=False)
 
     eggs = Egg.objects.filter(laid_at__range=(start, end)).select_related(
@@ -157,6 +157,55 @@ def timeline_data(request):
         )
 
     return JsonResponse(timeline_items, safe=False)
+
+
+def timeline_images(request):
+    start_str = request.GET.get("start")
+    end_str = request.GET.get("end")
+    n = int(request.GET.get("n", 100))
+
+    if not start_str or not end_str:
+        return JsonResponse([], safe=False)
+
+    try:
+        # Handle space instead of + from URL decoding
+        start = datetime.fromisoformat(start_str.replace("Z", "+00:00").replace(" ", "+"))
+        if timezone.is_naive(start):
+            start = timezone.make_aware(start)
+        end = datetime.fromisoformat(end_str.replace("Z", "+00:00").replace(" ", "+"))
+        if timezone.is_naive(end):
+            end = timezone.make_aware(end)
+    except (ValueError, TypeError, OverflowError):
+        return JsonResponse([], safe=False)
+
+    images_qs = NestingBoxImage.objects.filter(created_at__range=(start, end)).order_by(
+        "created_at"
+    )
+    total_count = images_qs.count()
+
+    if total_count == 0:
+        return JsonResponse([], safe=False)
+
+    if total_count <= n:
+        images = images_qs
+    else:
+        # Sample n images evenly by index
+        # Fetching all IDs is relatively cheap
+        all_ids = list(images_qs.values_list("id", flat=True))
+        step = len(all_ids) / n
+        sampled_ids = [all_ids[int(i * step)] for i in range(n)]
+        # Add the last one to ensure we cover the end of the range
+        if all_ids[-1] not in sampled_ids:
+            sampled_ids.append(all_ids[-1])
+        images = NestingBoxImage.objects.filter(id__in=sampled_ids).order_by(
+            "created_at"
+        )
+
+    data = [
+        {"timestamp": img.created_at.isoformat(), "url": img.image.url}
+        for img in images
+    ]
+    return JsonResponse(data, safe=False)
 
 
 def partial_image_at_time(request):

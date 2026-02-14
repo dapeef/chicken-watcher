@@ -1,6 +1,6 @@
 import factory
 from django.utils import timezone
-from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence, HardwareSensor
+from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence, HardwareSensor, NestingBoxImage
 
 
 class ChickenFactory(factory.django.DjangoModelFactory):
@@ -45,3 +45,11 @@ class HardwareSensorFactory(factory.django.DjangoModelFactory):
 
     name = factory.Sequence(lambda n: f"sensor_{n}")
     is_connected = True
+
+
+class NestingBoxImageFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = NestingBoxImage
+
+    created_at = factory.LazyFunction(timezone.now)
+    image = factory.django.ImageField(color="blue")

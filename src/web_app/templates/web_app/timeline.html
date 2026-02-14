@@ -43,10 +43,11 @@
 
 <div class="row mt-4">
     <div class="col-12" id="camera-preview">
-        <div class="card shadow-sm">
+        <div class="card shadow-sm overflow-hidden" id="latest-image-card">
+            <img id="dashboard-image" src="" class="w-100 d-none" alt="Camera preview">
             <div class="card-body">
                 <h5 class="card-title">Camera Preview</h5>
-                <p class="text-center py-5 bg-light mb-0">Hover over timeline to load image</p>
+                <p id="image-timestamp" class="text-muted mb-0 small">Hover over timeline to see camera footage</p>
             </div>
         </div>
     </div>
@@ -84,6 +85,49 @@
         };
     }
 
+    let cachedImages = [];
+    let objectUrls = [];
+
+    const loadImages = function(properties) {
+        const start = properties.start.toISOString();
+        const end = properties.end.toISOString();
+        const url = `{% url 'timeline_images' %}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&n=100`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                // Clean up old object URLs that aren't currently displayed
+                const imgElement = document.getElementById('dashboard-image');
+                const currentSrc = imgElement ? imgElement.src : '';
+                
+                objectUrls.forEach(u => {
+                    if (u !== currentSrc) {
+                        URL.revokeObjectURL(u);
+                    }
+                });
+                objectUrls = objectUrls.filter(u => u === currentSrc);
+
+                cachedImages = data.map(img => ({
+                    timestamp: new Date(img.timestamp).getTime(),
+                    url: img.url,
+                    iso: img.timestamp,
+                    blobUrl: null
+                }));
+
+                // Preload images as blobs to ensure NO network requests during scrubbing
+                cachedImages.forEach(img => {
+                    fetch(img.url)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            const bUrl = URL.createObjectURL(blob);
+                            img.blobUrl = bUrl;
+                            objectUrls.push(bUrl);
+                        })
+                        .catch(err => console.error("Error preloading blob:", err));
+                });
+            });
+    };
+
     const loadData = debounce(function(properties) {
         const start = properties.start.toISOString();
         const end = properties.end.toISOString();
@@ -95,6 +139,8 @@
                 // Use update to avoid duplicates and only add new items
                 items.update(data);
             });
+        
+        loadImages(properties);
     }, 300);
 
     timeline.on('rangechanged', loadData);
@@ -105,19 +151,40 @@
         end: endOfDay
     });
 
-    const updatePreview = debounce(function(timeIso) {
-        const url = `{% url 'partial_image_at_time' %}?t=${encodeURIComponent(timeIso)}`;
+    const updatePreview = function(time) {
+        if (!cachedImages.length) return;
         
-        fetch(url, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+        const targetTime = time.getTime();
+        
+        // Find the closest image in our cache
+        let closest = cachedImages[0];
+        let minDiff = Math.abs(targetTime - closest.timestamp);
+        
+        for (let i = 1; i < cachedImages.length; i++) {
+            const diff = Math.abs(targetTime - cachedImages[i].timestamp);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closest = cachedImages[i];
             }
-        })
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('camera-preview').innerHTML = html;
-        });
-    }, 100);
+        }
+        
+        const imgElement = document.getElementById('dashboard-image');
+        const timestampElement = document.getElementById('image-timestamp');
+        
+        if (imgElement && closest) {
+            const displayUrl = closest.blobUrl || closest.url;
+            // Only update src if it's actually different
+            // Check both exact match (for blob URLs) and endsWith (for relative paths)
+            if (imgElement.src !== displayUrl && !imgElement.src.endsWith(displayUrl)) {
+                imgElement.src = displayUrl;
+                imgElement.classList.remove('d-none');
+            }
+            if (timestampElement) {
+                const date = new Date(closest.iso);
+                timestampElement.innerText = `Photo from ${date.toLocaleString()}`;
+            }
+        }
+    };
 
     // Use the vis-timeline mouseMove event for better stability
     let previewLineAdded = false;
@@ -129,7 +196,7 @@
             } else {
                 timeline.setCustomTime(props.time, 'preview-line');
             }
-            updatePreview(props.time.toISOString());
+            updatePreview(props.time);
         }
     });
 </script>
