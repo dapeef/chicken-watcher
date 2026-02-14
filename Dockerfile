@@ -33,6 +33,11 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-install-project
 
+########################################
+# 1.5. Build project
+########################################
+FROM builder AS project-builder
+
 # project sources
 COPY src ./src
 COPY manage.py ./
@@ -53,7 +58,8 @@ RUN apt-get update && \
 
 ENV UV_NO_INSTALL=1 \
     UV_NO_DEV=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
 
 WORKDIR /app
 
@@ -65,8 +71,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 RUN ldconfig
 
 # copy application code (already byte-compiled)
-# TODO: this is huge because it copies the .venv every time. Split the copy to move `src/` separately from `.venv/`
-COPY --from=builder /app /app
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=project-builder /app/src /app/src
+COPY --from=project-builder /app/manage.py /app/manage.py
+COPY --from=project-builder /app/pyproject.toml /app/uv.lock ./
 
 CMD ["bash", "-c", "\
       uv run manage.py migrate --no-input && \
