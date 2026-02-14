@@ -123,8 +123,18 @@
                     updatePreview(lastMouseTime);
                 }
 
+                // Prioritize loading images closest to the mouse (or center of view)
+                const startMs = properties.start.getTime();
+                const endMs = properties.end.getTime();
+                const centerMs = (startMs + endMs) / 2;
+                const referenceTime = lastMouseTime ? lastMouseTime.getTime() : centerMs;
+
+                const sortedForLoading = [...cachedImages].sort((a, b) => {
+                    return Math.abs(a.timestamp - referenceTime) - Math.abs(b.timestamp - referenceTime);
+                });
+
                 // Preload images as blobs to ensure NO network requests during scrubbing
-                cachedImages.forEach(img => {
+                sortedForLoading.forEach(img => {
                     fetch(img.url, { signal })
                         .then(res => res.blob())
                         .then(blob => {
