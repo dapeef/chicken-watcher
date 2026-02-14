@@ -303,5 +303,14 @@
             updatePreview(props.time);
         }
     });
+
+    // If the current time is within the view, refresh data every second
+    setInterval(() => {
+        const window = timeline.getWindow();
+        const now = new Date();
+        if (now >= window.start && now <= window.end) {
+            loadData(window);
+        }
+    }, 1000);
 </script>
 {% endblock %}
