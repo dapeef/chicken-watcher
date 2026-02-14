@@ -9,6 +9,8 @@ from django.db import transaction
 from gpiozero.pins.lgpio import LGPIOFactory
 
 from hardware_agent.beam_break_sensor import BeamSensor
+from hardware_agent.camera import USBCamera
+from hardware_agent.rfid_reader import RFIDReader
 from web_app.models import NestingBoxPresence, NestingBox, Chicken, NestingBoxImage, Egg
 
 
@@ -79,17 +81,17 @@ def handle_beam_break(name: str) -> None:
 
 
 def run_agent():
-    # rfid_reader = RFIDReader("left", os.environ.get("RFID_PORT_BY_ID_LEFT"))
-    # rfid_reader.connect()
-    # rfid_reader.start_reading(handle_tag_read)
-    #
-    # rfid_reader = RFIDReader("right", os.environ.get("RFID_PORT_BY_ID_RIGHT"))
-    # rfid_reader.connect()
-    # rfid_reader.start_reading(handle_tag_read)
-    #
-    # camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE_BY_ID"), fps=1)
-    # camera.connect()
-    # camera.start_capturing(save_frame_to_db)
+    rfid_reader = RFIDReader("left", os.environ.get("RFID_PORT_BY_ID_LEFT"))
+    rfid_reader.connect()
+    rfid_reader.start_reading(handle_tag_read)
+
+    rfid_reader = RFIDReader("right", os.environ.get("RFID_PORT_BY_ID_RIGHT"))
+    rfid_reader.connect()
+    rfid_reader.start_reading(handle_tag_read)
+
+    camera = USBCamera("cam", device=os.environ.get("CAMERA_DEVICE_BY_ID"), fps=1)
+    camera.connect()
+    camera.start_capturing(save_frame_to_db)
 
     pin_factory = LGPIOFactory(chip=0)
 
