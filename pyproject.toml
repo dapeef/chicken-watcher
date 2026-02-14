@@ -29,5 +29,15 @@ package = true
 [dependency-groups]
 dev = [
     "django-debug-toolbar>=6.1.0",
+    "factory-boy>=3.3.3",
+    "pytest>=9.0.2",
+    "pytest-django>=4.11.1",
+    "pytest-mock>=3.15.1",
     "ruff>=0.14.10",
 ]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "django_project.settings.dev"
+pythonpath = ["src", "."]
+testpaths = ["test"]
+python_files = ["tests.py", "test_*.py", "*_tests.py"]

@@ -1,0 +1,40 @@
+import factory
+from django.utils import timezone
+from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence, HardwareSensor
+
+class ChickenFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Chicken
+
+    name = factory.Faker("name")
+    date_of_birth = factory.LazyFunction(lambda: timezone.now().date() - timezone.timedelta(days=365))
+    tag_string = factory.Sequence(lambda n: f"TAG_{n}")
+
+class NestingBoxFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = NestingBox
+
+    name = factory.Sequence(lambda n: f"Box {n}")
+
+class EggFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Egg
+
+    chicken = factory.SubFactory(ChickenFactory)
+    nesting_box = factory.SubFactory(NestingBoxFactory)
+    laid_at = factory.LazyFunction(timezone.now)
+
+class NestingBoxPresenceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = NestingBoxPresence
+
+    chicken = factory.SubFactory(ChickenFactory)
+    nesting_box = factory.SubFactory(NestingBoxFactory)
+    present_at = factory.LazyFunction(timezone.now)
+
+class HardwareSensorFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = HardwareSensor
+
+    name = factory.Sequence(lambda n: f"sensor_{n}")
+    is_connected = True

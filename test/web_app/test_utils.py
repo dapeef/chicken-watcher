@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 from math import isclose
-from .utils import rolling_average, CENTER, LEFT, RIGHT
+from web_app.utils import rolling_average, CENTER, LEFT, RIGHT
 
 
 class RollingAverageTests(SimpleTestCase):
