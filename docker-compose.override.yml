@@ -2,7 +2,7 @@ services:
   hardware-agent:
     develop:
       watch:
-        - action: sync+restart
+        - action: rebuild
           path: ./src
           target: /app/src
           ignore:
@@ -17,7 +17,7 @@ services:
   web-app:
     develop:
       watch:
-        - action: sync+restart
+        - action: rebuild
           path: ./src
           target: /app/src
           ignore:
