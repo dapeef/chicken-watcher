@@ -87,15 +87,18 @@
 
     let cachedImages = [];
     let objectUrls = [];
+    let currentAbortController = null;
 
-    const loadImages = function(properties) {
+    const loadImages = function(properties, signal) {
         const start = properties.start.toISOString();
         const end = properties.end.toISOString();
         const url = `{% url 'timeline_images' %}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&n=100`;
         
-        fetch(url)
+        fetch(url, { signal })
             .then(response => response.json())
             .then(data => {
+                if (signal.aborted) return;
+
                 // Clean up old object URLs that aren't currently displayed
                 const imgElement = document.getElementById('dashboard-image');
                 const currentSrc = imgElement ? imgElement.src : '';
@@ -116,31 +119,50 @@
 
                 // Preload images as blobs to ensure NO network requests during scrubbing
                 cachedImages.forEach(img => {
-                    fetch(img.url)
+                    fetch(img.url, { signal })
                         .then(res => res.blob())
                         .then(blob => {
+                            if (signal.aborted) return;
                             const bUrl = URL.createObjectURL(blob);
                             img.blobUrl = bUrl;
                             objectUrls.push(bUrl);
                         })
-                        .catch(err => console.error("Error preloading blob:", err));
+                        .catch(err => {
+                            if (err.name === 'AbortError') return;
+                            console.error("Error preloading blob:", err);
+                        });
                 });
+            })
+            .catch(err => {
+                if (err.name === 'AbortError') return;
+                console.error("Error loading image metadata:", err);
             });
     };
 
     const loadData = debounce(function(properties) {
+        if (currentAbortController) {
+            currentAbortController.abort();
+        }
+        currentAbortController = new AbortController();
+        const signal = currentAbortController.signal;
+
         const start = properties.start.toISOString();
         const end = properties.end.toISOString();
         const url = `{% url 'timeline_data' %}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
         
-        fetch(url)
+        fetch(url, { signal })
             .then(response => response.json())
             .then(data => {
+                if (signal.aborted) return;
                 // Use update to avoid duplicates and only add new items
                 items.update(data);
+            })
+            .catch(err => {
+                if (err.name === 'AbortError') return;
+                console.error("Error loading timeline data:", err);
             });
         
-        loadImages(properties);
+        loadImages(properties, signal);
     }, 300);
 
     timeline.on('rangechanged', loadData);
