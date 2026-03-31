@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any, Optional
 
@@ -5,6 +6,8 @@ from gpiozero import DigitalInputDevice
 from gpiozero.exc import GPIOZeroError
 
 from hardware_agent.base import BaseSensor
+
+logger = logging.getLogger(__name__)
 
 
 class BeamSensor(BaseSensor):
@@ -34,10 +37,10 @@ class BeamSensor(BaseSensor):
                 bounce_time=self.bounce_time,
                 pin_factory=self.pin_factory,
             )
-            print(f"[{self.name}] Connected to beam sensor on GPIO {self.pin}")
+            logger.info("Connected to beam sensor on GPIO %s", self.pin)
             return True
         except (GPIOZeroError, ValueError) as exc:
-            print(f"[{self.name}] Error connecting to GPIO {self.pin}: {exc}")
+            logger.error("Error connecting to GPIO %s: %s", self.pin, exc)
             return False
 
     def disconnect(self) -> None:
@@ -47,7 +50,7 @@ class BeamSensor(BaseSensor):
                 self.device.close()
             except Exception:
                 pass
-            print(f"[{self.name}] Disconnected from GPIO {self.pin}")
+            logger.info("Disconnected from GPIO %s", self.pin)
         self.device = None
 
     def is_connected(self) -> bool:

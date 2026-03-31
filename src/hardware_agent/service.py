@@ -1,9 +1,12 @@
+import logging
 import os
 import signal
 
 from gpiozero.pins.lgpio import LGPIOFactory
 
 from hardware_agent.manager import HardwareManager
+
+logger = logging.getLogger(__name__)
 
 
 def run_agent():
@@ -17,7 +20,7 @@ def run_agent():
     try:
         pin_factory = LGPIOFactory(chip=0)
     except Exception as e:
-        print(f"Could not initialize LGPIOFactory: {e}")
+        logger.warning("Could not initialize LGPIOFactory: %s", e)
         pin_factory = None
 
     manager.add_beam_sensor("left", os.environ.get("BEAM_BREAK_GPIO_LEFT"), pin_factory)
@@ -25,7 +28,7 @@ def run_agent():
         "right", os.environ.get("BEAM_BREAK_GPIO_RIGHT"), pin_factory
     )
 
-    print("Hardware Manager started. Sensors are connecting in background.")
+    logger.info("Hardware Manager started. Sensors are connecting in background.")
 
     signal.pause()
 

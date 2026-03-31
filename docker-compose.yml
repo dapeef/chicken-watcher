@@ -10,6 +10,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - MEDIA_ROOT=/app/media
+      - LOG_FILENAME=hardware_agent.log
       - RFID_PORT_BY_ID_LEFT=${RFID_PORT_BY_ID_LEFT}
       - RFID_PORT_BY_ID_RIGHT=${RFID_PORT_BY_ID_RIGHT}
       - CAMERA_DEVICE_BY_ID=${CAMERA_DEVICE_BY_ID}
@@ -17,6 +18,7 @@ services:
       - BEAM_BREAK_GPIO_RIGHT=${BEAM_BREAK_GPIO_RIGHT}
     volumes:
       - media_volume:/app/media
+      - logs_volume:/app/logs
       - /dev:/dev
     restart: unless-stopped
     depends_on:
@@ -32,9 +34,11 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - MEDIA_ROOT=/app/media
       - STATIC_ROOT=/app/static
+      - LOG_FILENAME=web_app.log
     volumes:
       - media_volume:/app/media
       - static_volume:/app/static
+      - logs_volume:/app/logs
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -58,4 +62,5 @@ services:
 volumes:
   media_volume:
   static_volume:
+  logs_volume:
   pgdata:

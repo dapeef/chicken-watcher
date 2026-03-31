@@ -78,6 +78,8 @@ WSGI_APPLICATION = "django_project.wsgi.application"
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
 os.makedirs(LOGS_DIR, exist_ok=True)
 
+_log_filename = os.getenv("LOG_FILENAME", "django.log")
+
 # --- Logging ---
 LOGGING = {
     "version": 1,
@@ -106,7 +108,7 @@ LOGGING = {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "INFO",
             "formatter": "verbose",
-            "filename": os.path.join(LOGS_DIR, "django.log"),
+            "filename": os.path.join(LOGS_DIR, _log_filename),
             "maxBytes": 1024 * 1024 * 10,  # 10 MiB
             "backupCount": 5,
             "encoding": "utf-8",

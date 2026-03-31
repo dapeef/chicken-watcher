@@ -1,5 +1,8 @@
+import logging
 import pathlib
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 import cv2
 from django.core.files.base import ContentFile
@@ -28,7 +31,7 @@ def report_status(full_name: str, connected: bool, message: str = ""):
             },
         )
     except Exception as e:
-        print(f"Error reporting status for {full_name}: {e}")
+        logger.error("Error reporting status for %s: %s", full_name, e)
 
 
 def report_event(full_name: str):
@@ -37,7 +40,7 @@ def report_event(full_name: str):
             last_event_at=timezone.now(), is_connected=True
         )
     except Exception as e:
-        print(f"Error reporting event for {full_name}: {e}")
+        logger.error("Error reporting event for %s: %s", full_name, e)
 
 
 NESTING_BOX_PRESENCE_TIMEOUT = 60
@@ -46,7 +49,7 @@ NESTING_BOX_PRESENCE_TIMEOUT = 60
 @transaction.atomic
 def handle_tag_read(name: str, tag: str):
     report_event(f"rfid_{name}")
-    print(f"[{name}] Nesting box detected tag: {tag}")
+    logger.info("[%s] Nesting box detected tag: %s", name, tag)
     try:
         nesting_box = NestingBox.objects.get(name=name)
         chicken = Chicken.objects.get(tag_string=tag)
@@ -91,14 +94,18 @@ def handle_tag_read(name: str, tag: str):
             presence_period=period,
         )
 
-        print(
-            f"[{name}] Chicken {chicken.name} (tag: {tag}) added to nesting box. Period ID: {period.id}"
+        logger.info(
+            "[%s] Chicken %s (tag: %s) added to nesting box. Period ID: %s",
+            name,
+            chicken.name,
+            tag,
+            period.id,
         )
 
     except Chicken.DoesNotExist:
-        print(f"Error: No matching chicken found matching tag: {tag}")
+        logger.error("No matching chicken found matching tag: %s", tag)
     except NestingBox.DoesNotExist:
-        print(f"Error: No matching nesting box found matching name: {name}")
+        logger.error("No matching nesting box found matching name: %s", name)
 
 
 def save_frame_to_file(cam_name, frame):
@@ -136,13 +143,13 @@ def save_frame_to_db(cam_name: str, frame):
     # 4) create the DB row
     NestingBoxImage.objects.create(image=django_file)
 
-    print(f"{cam_name} frame saved to db as {filename}")
+    logger.debug("%s frame saved to db as %s", cam_name, filename)
 
 
 @transaction.atomic
 def handle_beam_break(name: str) -> None:
     report_event(f"beam_{name}")
-    print(f"[{name}] Beam break detected")
+    logger.info("[%s] Beam break detected", name)
 
     try:
         nesting_box = NestingBox.objects.get(name=name)
@@ -155,11 +162,11 @@ def handle_beam_break(name: str) -> None:
             .last()
         )
         if presence is None:
-            print(f"Warning: No NestingBoxPresence found for box '{name}'")
+            logger.warning("No NestingBoxPresence found for box '%s'", name)
             return
 
         Egg.objects.create(nesting_box=nesting_box, chicken=presence.chicken)
     except NestingBox.DoesNotExist:
-        print(f"Error: No matching nesting box found matching name: {name}")
+        logger.error("No matching nesting box found matching name: %s", name)
     except Exception as e:
-        print(f"Error handling beam break: {e}")
+        logger.error("Error handling beam break: %s", e)

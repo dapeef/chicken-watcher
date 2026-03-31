@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Optional
 
@@ -5,6 +6,8 @@ import serial
 from serial.tools import list_ports
 
 from hardware_agent.base import BaseSensor
+
+logger = logging.getLogger(__name__)
 
 START_BYTE, END_BYTE = 0x02, 0x03
 MIN_RESET_INTERVAL = 0.1  # Seconds
@@ -36,10 +39,10 @@ class RFIDReader(BaseSensor):
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
             )
-            print(f"[{self.name}] Connected to RFID reader on {self.port}")
+            logger.info("Connected to RFID reader on %s", self.port)
             return True
         except serial.SerialException as e:
-            print(f"[{self.name}] Error connecting to {self.port}: {e}")
+            logger.error("Error connecting to %s: %s", self.port, e)
             return False
 
     def disconnect(self):
@@ -48,7 +51,7 @@ class RFIDReader(BaseSensor):
                 self.serial_conn.close()
             except Exception:
                 pass
-            print(f"[{self.name}] Disconnected from {self.port}")
+            logger.info("Disconnected from %s", self.port)
         self.serial_conn = None
 
     def is_connected(self) -> bool:
@@ -100,7 +103,5 @@ class RFIDReader(BaseSensor):
 
     @staticmethod
     def list_ports() -> None:
-        print("Ports:")
         for p in list_ports.comports():
-            print(" ", p.device, p.description)
-        print()
+            logger.info("Port: %s %s", p.device, p.description)

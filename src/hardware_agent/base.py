@@ -1,7 +1,10 @@
+import logging
 import threading
 import time
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class BaseSensor(ABC):
@@ -48,7 +51,7 @@ class BaseSensor(ABC):
 
     def _run_loop(self):
         """Standard reconnection loop."""
-        print(f"[{self.name}] Started background loop…")
+        logger.info("Started background loop…")
         while self.running:
             if not self.is_connected():
                 if self.connect():
@@ -64,7 +67,7 @@ class BaseSensor(ABC):
             try:
                 self.poll()
             except Exception as e:
-                print(f"[{self.name}] Error in loop: {e}")
+                logger.error("Error in loop: %s", e)
                 if self.status_callback:
                     self.status_callback(self.name, False, str(e))
                 self.handle_error(e)

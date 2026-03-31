@@ -1,3 +1,5 @@
+import logging
+
 from hardware_agent.beam_break_sensor import BeamSensor
 from hardware_agent.camera import USBCamera
 from hardware_agent.rfid_reader import RFIDReader
@@ -8,6 +10,8 @@ from hardware_agent.handlers import (
     handle_beam_break,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class HardwareManager:
     def __init__(self):
@@ -15,7 +19,7 @@ class HardwareManager:
 
     def add_rfid_reader(self, name: str, port: str):
         if not port:
-            print(f"[HardwareManager] Skipping RFID reader '{name}': No port provided")
+            logger.warning("Skipping RFID reader '%s': No port provided", name)
             report_status(f"rfid_{name}", False, "No port configured")
             return
 
@@ -28,7 +32,7 @@ class HardwareManager:
 
     def add_camera(self, name: str, device: str):
         if not device:
-            print(f"[HardwareManager] Skipping camera '{name}': No device provided")
+            logger.warning("Skipping camera '%s': No device provided", name)
             report_status(f"camera_{name}", False, "No device configured")
             return
 
@@ -41,23 +45,19 @@ class HardwareManager:
 
     def add_beam_sensor(self, name: str, gpio: str, pin_factory):
         if not pin_factory:
-            print(
-                f"[HardwareManager] Skipping beam sensor '{name}': No pin factory available"
-            )
+            logger.warning("Skipping beam sensor '%s': No pin factory available", name)
             report_status(f"beam_{name}", False, "LGPIO not available")
             return
 
         if not gpio:
-            print(f"[HardwareManager] Skipping beam sensor '{name}': No GPIO provided")
+            logger.warning("Skipping beam sensor '%s': No GPIO provided", name)
             report_status(f"beam_{name}", False, "No GPIO configured")
             return
 
         try:
             pin = int(gpio)
         except (ValueError, TypeError):
-            print(
-                f"[HardwareManager] Skipping beam sensor '{name}': Invalid GPIO '{gpio}'"
-            )
+            logger.warning("Skipping beam sensor '%s': Invalid GPIO '%s'", name, gpio)
             report_status(f"beam_{name}", False, f"Invalid GPIO: {gpio}")
             return
 

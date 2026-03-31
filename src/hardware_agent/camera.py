@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from typing import Tuple
@@ -5,6 +6,8 @@ from typing import Tuple
 import cv2
 
 from hardware_agent.base import BaseSensor
+
+logger = logging.getLogger(__name__)
 
 
 class USBCamera(BaseSensor):
@@ -43,7 +46,7 @@ class USBCamera(BaseSensor):
         self.cap = cv2.VideoCapture(self.device, backend)
 
         if not self.cap.isOpened():
-            print(f"[{self.name}] Could not open camera #{self.device}")
+            logger.error("Could not open camera #%s", self.device)
             return False
 
         w, h = self.resolution
@@ -55,18 +58,19 @@ class USBCamera(BaseSensor):
         self.cap.set(cv2.CAP_PROP_FPS, hw_fps)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-        print(
-            f"[{self.name}] Connected to camera #{self.device} "
-            f"({int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))}×"
-            f"{int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))} @ "
-            f"{self.cap.get(cv2.CAP_PROP_FPS):.1f} hw fps)"
+        logger.info(
+            "Connected to camera #%s (%dx%d @ %.1f hw fps)",
+            self.device,
+            int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            self.cap.get(cv2.CAP_PROP_FPS),
         )
         return True
 
     def disconnect(self):
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
-            print(f"[{self.name}] Disconnected camera #{self.device}")
+            logger.info("Disconnected camera #%s", self.device)
         self.cap = None
 
     def is_connected(self) -> bool:
@@ -84,7 +88,7 @@ class USBCamera(BaseSensor):
 
     def _reader(self):
         """Background thread that constantly reads frames from the camera."""
-        print(f"[{self.name}] Reader thread started")
+        logger.info("Reader thread started")
         consecutive_failures = 0
         while self.running:
             cap = self.cap
@@ -103,8 +107,8 @@ class USBCamera(BaseSensor):
 
                     consecutive_failures += 1
                     if consecutive_failures >= 10:
-                        print(
-                            f"[{self.name}] Reader thread: failed to read frame 10 times in a row. Exiting."
+                        logger.warning(
+                            "Reader thread: failed to read frame 10 times in a row. Exiting."
                         )
                         break
 
@@ -112,7 +116,7 @@ class USBCamera(BaseSensor):
                     time.sleep(0.1)
             except Exception as e:
                 if self.running:
-                    print(f"[{self.name}] Reader thread exception: {e}")
+                    logger.error("Reader thread exception: %s", e)
                 break
 
         # If we exited the loop but are still supposed to be running,
@@ -120,7 +124,7 @@ class USBCamera(BaseSensor):
         if self.running:
             with self._read_lock:
                 self._latest_frame = None
-        print(f"[{self.name}] Reader thread stopped")
+        logger.info("Reader thread stopped")
 
     def poll(self):
         # Wait for at least one frame to be available (useful at startup)
@@ -150,10 +154,9 @@ class USBCamera(BaseSensor):
         Try opening /dev/videoN (Linux) or index N (Windows/macOS) in a loop.
         Prints indices that succeed.
         """
-        print("Available video devices:")
+        logger.info("Available video devices:")
         for idx in range(max_indices):
             cap = cv2.VideoCapture(idx, cv2.CAP_ANY)
             if cap.isOpened():
-                print(f"  #{idx}")
+                logger.info("  #%d", idx)
                 cap.release()
-        print()
