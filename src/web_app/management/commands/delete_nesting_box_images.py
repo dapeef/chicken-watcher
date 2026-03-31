@@ -18,8 +18,15 @@ class Command(BaseCommand):
 
 def delete_all_nesting_box_images():
     """Deletes all NestingBoxImage records, including their image files on disk."""
-    logger.info(f"Deleting all {NestingBoxImage.objects.count()} NestingBoxImage records")
-    for image in NestingBoxImage.objects.all():
+
+    logger.info(
+        f"Deleting all {NestingBoxImage.objects.count()} NestingBoxImage records"
+    )
+
+    for count, image in enumerate(NestingBoxImage.objects.all(), start=1):
         image.image.delete(save=False)
         image.delete()
+        if count % 100 == 0:
+            logger.info(f"Deleted {count} NestingBoxImage records so far")
+
     logger.info("All NestingBoxImage records deleted")
