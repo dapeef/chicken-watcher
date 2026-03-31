@@ -1,4 +1,6 @@
+import csv
 import datetime
+from pathlib import Path
 from random import randrange, randint, choice, random
 
 from django.core.management.base import BaseCommand
@@ -23,6 +25,11 @@ MODE_REFRESH = "refresh"
 
 """ Clear all data and do not create any object """
 MODE_CLEAR = "clear"
+
+""" Upsert chickens from chickens.csv """
+MODE_SEED_CHICKENS = "seed_chickens"
+
+CHICKENS_CSV = Path(__file__).parent / "chickens.csv"
 
 
 class Command(BaseCommand):
@@ -150,12 +157,48 @@ def populate_data():
     logger.info("DB populated")
 
 
+def seed_chickens_from_csv(csv_path: Path = CHICKENS_CSV):
+    """Upsert chickens from a CSV file (Name, DoB, Tag ID).
+
+    Matches on name: creates the chicken if it doesn't exist, updates it otherwise.
+    Does not delete any existing chickens or touch any other data.
+    """
+    logger.info(f"Seeding chickens from {csv_path}")
+    created_count = 0
+    updated_count = 0
+
+    with csv_path.open(newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name = row["Name"].strip()
+            dob = datetime.date.fromisoformat(row["DoB"].strip())
+            tag_string = row["Tag ID"].strip()
+
+            _, created = Chicken.objects.update_or_create(
+                name=name,
+                defaults={"date_of_birth": dob, "tag_string": tag_string},
+            )
+
+            if created:
+                created_count += 1
+                logger.info(f"Created chicken: {name}")
+            else:
+                updated_count += 1
+                logger.info(f"Updated chicken: {name}")
+
+    logger.info(f"Chickens seeded: {created_count} created, {updated_count} updated")
+
+
 def run_seed(mode):
     """Seed database based on mode
 
-    :param mode: refresh / clear
+    :param mode: refresh / clear / seed_chickens
     :return:
     """
+    if mode == MODE_SEED_CHICKENS:
+        seed_chickens_from_csv()
+        return
+
     # Clear data from tables
     clear_data()
     if mode == MODE_CLEAR:
