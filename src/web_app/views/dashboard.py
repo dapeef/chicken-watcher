@@ -5,6 +5,7 @@ from django.shortcuts import render
 
 from ..models import Egg, Chicken, NestingBoxPresence, HardwareSensor, NestingBoxImage
 
+
 def get_dashboard_context():
     today_start = timezone.localtime().replace(
         hour=0, minute=0, second=0, microsecond=0

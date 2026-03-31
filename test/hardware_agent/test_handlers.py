@@ -114,7 +114,9 @@ class TestHardwareHandlers:
         mocker.patch("django.utils.timezone.now", return_value=t2)
         handle_tag_read("Box1", "12345")
 
-        periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by("started_at")
+        periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by(
+            "started_at"
+        )
         assert periods.count() == 2
         assert periods[0].ended_at == t0
         assert periods[1].started_at == t2

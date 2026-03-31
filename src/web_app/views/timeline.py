@@ -4,8 +4,14 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.generic import TemplateView
 
-from django.db.models import Q
-from ..models import Chicken, Egg, NestingBoxPresence, NestingBoxImage, NestingBoxPresencePeriod
+from ..models import (
+    Chicken,
+    Egg,
+    NestingBoxPresence,
+    NestingBoxImage,
+    NestingBoxPresencePeriod,
+)
+
 
 class TimelineView(TemplateView):
     template_name = "web_app/timeline.html"
@@ -24,7 +30,9 @@ def timeline_data(request):
         return JsonResponse([], safe=False)
 
     try:
-        start = datetime.fromisoformat(start_str.replace("Z", "+00:00").replace(" ", "+"))
+        start = datetime.fromisoformat(
+            start_str.replace("Z", "+00:00").replace(" ", "+")
+        )
         if timezone.is_naive(start):
             start = timezone.make_aware(start)
         end = datetime.fromisoformat(end_str.replace("Z", "+00:00").replace(" ", "+"))
@@ -104,7 +112,9 @@ def timeline_images(request):
 
     try:
         # Handle space instead of + from URL decoding
-        start = datetime.fromisoformat(start_str.replace("Z", "+00:00").replace(" ", "+"))
+        start = datetime.fromisoformat(
+            start_str.replace("Z", "+00:00").replace(" ", "+")
+        )
         if timezone.is_naive(start):
             start = timezone.make_aware(start)
         end = datetime.fromisoformat(end_str.replace("Z", "+00:00").replace(" ", "+"))
@@ -146,27 +156,37 @@ def timeline_images(request):
 def partial_image_at_time(request):
     t_str = request.GET.get("t")
     if not t_str:
-        return render(request, "web_app/partials/_latest_image.html", {"latest_image": None})
-    
+        return render(
+            request, "web_app/partials/_latest_image.html", {"latest_image": None}
+        )
+
     try:
         # Vis.js sends ISO strings, but let's be flexible
-        target_time = datetime.fromisoformat(t_str.replace("Z", "+00:00").replace(" ", "+"))
+        target_time = datetime.fromisoformat(
+            t_str.replace("Z", "+00:00").replace(" ", "+")
+        )
         if timezone.is_naive(target_time):
             target_time = timezone.make_aware(target_time)
     except (ValueError, OverflowError):
-        return render(request, "web_app/partials/_latest_image.html", {"latest_image": None})
+        return render(
+            request, "web_app/partials/_latest_image.html", {"latest_image": None}
+        )
 
     # Find the image closest to this time
     # For simplicity, we find the latest image created BEFORE or AT this time
-    closest_image = NestingBoxImage.objects.filter(
-        created_at__lte=target_time
-    ).order_by("-created_at").first()
-    
+    closest_image = (
+        NestingBoxImage.objects.filter(created_at__lte=target_time)
+        .order_by("-created_at")
+        .first()
+    )
+
     # If none before, maybe one just after?
     if not closest_image:
-        closest_image = NestingBoxImage.objects.filter(
-            created_at__gte=target_time
-        ).order_by("created_at").first()
+        closest_image = (
+            NestingBoxImage.objects.filter(created_at__gte=target_time)
+            .order_by("created_at")
+            .first()
+        )
 
     return render(
         request, "web_app/partials/_latest_image.html", {"latest_image": closest_image}

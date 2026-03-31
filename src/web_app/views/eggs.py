@@ -3,11 +3,11 @@ from datetime import timedelta, date, datetime
 from django.urls import reverse_lazy
 from django.views.generic import ListView, TemplateView, CreateView
 from django.db.models import Count
-from django.utils import timezone
 
 from ..models import Egg, Chicken
 from ..forms import EggForm
 from ..utils import rolling_average, RIGHT
+
 
 class EggListView(ListView):
     model = Egg

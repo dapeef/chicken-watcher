@@ -9,6 +9,7 @@ from ..factories import (
     NestingBoxPresenceFactory,
 )
 
+
 @pytest.mark.django_db
 class TestDashboardViews:
     def test_dashboard_view(self, client):

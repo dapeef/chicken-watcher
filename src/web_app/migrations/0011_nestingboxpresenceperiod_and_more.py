@@ -6,25 +6,50 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('web_app', '0010_hardwaresensor'),
+        ("web_app", "0010_hardwaresensor"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='NestingBoxPresencePeriod',
+            name="NestingBoxPresencePeriod",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('started_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('ended_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('chicken', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.chicken')),
-                ('nesting_box', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='web_app.nestingbox')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("started_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("ended_at", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "chicken",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="web_app.chicken",
+                    ),
+                ),
+                (
+                    "nesting_box",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="web_app.nestingbox",
+                    ),
+                ),
             ],
         ),
         migrations.AddField(
-            model_name='nestingboxpresence',
-            name='presence_period',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='presences', to='web_app.nestingboxpresenceperiod'),
+            model_name="nestingboxpresence",
+            name="presence_period",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="presences",
+                to="web_app.nestingboxpresenceperiod",
+            ),
         ),
     ]

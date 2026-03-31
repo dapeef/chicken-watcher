@@ -10,6 +10,7 @@ from ..factories import (
     NestingBoxFactory,
 )
 
+
 @pytest.mark.django_db
 class TestTimelineViews:
     def test_timeline_view(self, client):
@@ -19,7 +20,7 @@ class TestTimelineViews:
 
     def test_timeline_data(self, client):
         url = reverse("timeline_data")
-        
+
         # Create some data
         now = timezone.now()
         egg = EggFactory(laid_at=now)
@@ -79,7 +80,9 @@ class TestTimelineViews:
         # invalid n
         response = client.get(f"{url}?start={start}&end={end}&n=abc")
         assert response.status_code == 200
-        assert len(response.json()) == 1  # Should default to 100, but we only have 1 image
+        assert (
+            len(response.json()) == 1
+        )  # Should default to 100, but we only have 1 image
 
         # n=0 should be treated as n=1
         response = client.get(f"{url}?start={start}&end={end}&n=0")

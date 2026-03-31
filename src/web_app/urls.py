@@ -36,5 +36,9 @@ urlpatterns = [
     path("timeline/", views.TimelineView.as_view(), name="timeline"),
     path("timeline/data/", views.timeline_data, name="timeline_data"),
     path("timeline/images/", views.timeline_images, name="timeline_images"),
-    path("partials/image-at-time/", views.partial_image_at_time, name="partial_image_at_time"),
+    path(
+        "partials/image-at-time/",
+        views.partial_image_at_time,
+        name="partial_image_at_time",
+    ),
 ]

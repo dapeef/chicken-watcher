@@ -4,7 +4,13 @@ from random import randrange, randint, choice, random
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from web_app.models import Chicken, NestingBox, Egg, NestingBoxPresence, NestingBoxPresencePeriod
+from web_app.models import (
+    Chicken,
+    NestingBox,
+    Egg,
+    NestingBoxPresence,
+    NestingBoxPresencePeriod,
+)
 
 import logging
 
@@ -121,7 +127,8 @@ def populate_data():
                     chicken=chicken,
                     nesting_box=nesting_box,
                     started_at=start_time,
-                    ended_at=start_time + datetime.timedelta(seconds=seconds_in_box - 1),
+                    ended_at=start_time
+                    + datetime.timedelta(seconds=seconds_in_box - 1),
                 )
 
                 for delta_secs in range(seconds_in_box):

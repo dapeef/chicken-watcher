@@ -10,6 +10,7 @@ from ..factories import (
 )
 from web_app.models import Egg
 
+
 @pytest.mark.django_db
 class TestEggViews:
     def test_egg_production_view_dob_dod_filtering(self, client):

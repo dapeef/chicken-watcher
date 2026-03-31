@@ -7,6 +7,7 @@ from django.utils import timezone
 from ..models import Chicken, Egg, NestingBoxPresence
 from ..utils import rolling_average
 
+
 class ChickenListView(ListView):
     model = Chicken
     template_name = "web_app/chicken_list.html"
