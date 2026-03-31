@@ -29,6 +29,9 @@ MODE_CLEAR = "clear"
 """ Upsert chickens from chickens.csv """
 MODE_SEED_CHICKENS = "seed_chickens"
 
+""" Ensure the standard nesting boxes exist """
+MODE_SEED_NESTING_BOXES = "seed_nesting_boxes"
+
 CHICKENS_CSV = Path(__file__).parent / "chickens.csv"
 
 
@@ -99,8 +102,7 @@ def populate_data():
     )
 
     # Nesting boxes
-    NestingBox.objects.create(name="left")
-    NestingBox.objects.create(name="right")
+    seed_nesting_boxes()
 
     # Eggs and nesting box presences
     logger.info("Populating Egg and NestingBoxPresence")
@@ -157,6 +159,20 @@ def populate_data():
     logger.info("DB populated")
 
 
+def seed_nesting_boxes():
+    """Ensure the standard nesting boxes (left, right) exist.
+
+    Uses get_or_create so it is safe to run against a database that already
+    has the boxes — it will not create duplicates.
+    """
+    for name in ("left", "right"):
+        _, created = NestingBox.objects.get_or_create(name=name)
+        if created:
+            logger.info(f"Created nesting box: {name}")
+        else:
+            logger.info(f"Nesting box already exists: {name}")
+
+
 def seed_chickens_from_csv(csv_path: Path = CHICKENS_CSV):
     """Upsert chickens from a CSV file (Name, DoB, Tag ID).
 
@@ -192,11 +208,15 @@ def seed_chickens_from_csv(csv_path: Path = CHICKENS_CSV):
 def run_seed(mode):
     """Seed database based on mode
 
-    :param mode: refresh / clear / seed_chickens
+    :param mode: refresh / clear / seed_chickens / seed_nesting_boxes
     :return:
     """
     if mode == MODE_SEED_CHICKENS:
         seed_chickens_from_csv()
+        return
+
+    if mode == MODE_SEED_NESTING_BOXES:
+        seed_nesting_boxes()
         return
 
     # Clear data from tables

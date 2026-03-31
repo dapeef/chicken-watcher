@@ -11,7 +11,11 @@ from web_app.models import (
     NestingBoxPresencePeriod,
     NestingBoxImage,
 )
-from test.web_app.factories import NestingBoxImageFactory, ChickenFactory
+from test.web_app.factories import (
+    NestingBoxImageFactory,
+    ChickenFactory,
+    NestingBoxFactory,
+)
 
 
 @pytest.mark.django_db
@@ -45,6 +49,45 @@ def test_seed_command_clear():
     assert Egg.objects.count() == 0
     assert NestingBoxPresence.objects.count() == 0
     assert NestingBoxPresencePeriod.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_seed_nesting_boxes_creates_boxes():
+    from web_app.management.commands.seed import seed_nesting_boxes
+
+    seed_nesting_boxes()
+
+    assert NestingBox.objects.count() == 2
+    assert NestingBox.objects.filter(name="left").exists()
+    assert NestingBox.objects.filter(name="right").exists()
+
+
+@pytest.mark.django_db
+def test_seed_nesting_boxes_is_idempotent():
+    from web_app.management.commands.seed import seed_nesting_boxes
+
+    seed_nesting_boxes()
+    seed_nesting_boxes()
+
+    assert NestingBox.objects.count() == 2
+
+
+@pytest.mark.django_db
+def test_seed_nesting_boxes_does_not_clear_other_data():
+    NestingBoxFactory(name="extra")
+
+    from web_app.management.commands.seed import seed_nesting_boxes
+
+    seed_nesting_boxes()
+
+    assert NestingBox.objects.filter(name="extra").exists()
+
+
+@pytest.mark.django_db
+def test_seed_nesting_boxes_via_call_command():
+    call_command("seed", mode="seed_nesting_boxes")
+
+    assert NestingBox.objects.count() == 2
 
 
 @pytest.mark.django_db
