@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 import numpy as np
 from hardware_agent.handlers import (
@@ -121,17 +123,27 @@ class TestHardwareHandlers:
         assert periods[0].ended_at == t0
         assert periods[1].started_at == t2
 
-    def test_handle_tag_read_unknown_chicken(self, mocker):
+    def test_handle_tag_read_unknown_chicken(self, mocker, caplog):
         NestingBoxFactory(name="Box1")
-        # Should not raise exception, just print error
-        handle_tag_read("Box1", "unknown")
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+            handle_tag_read("Box1", "unknown")
         assert NestingBoxPresence.objects.count() == 0
+        assert any(
+            "No matching chicken found matching tag" in r.message
+            and r.levelno == logging.ERROR
+            for r in caplog.records
+        )
 
-    def test_handle_tag_read_unknown_box(self, mocker):
+    def test_handle_tag_read_unknown_box(self, mocker, caplog):
         ChickenFactory(tag_string="12345")
-        # Should not raise exception, just print error
-        handle_tag_read("UnknownBox", "12345")
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+            handle_tag_read("UnknownBox", "12345")
         assert NestingBoxPresence.objects.count() == 0
+        assert any(
+            "No matching nesting box found matching name" in r.message
+            and r.levelno == logging.ERROR
+            for r in caplog.records
+        )
 
     def test_handle_beam_break(self, mocker):
         chicken = ChickenFactory()
@@ -149,11 +161,26 @@ class TestHardwareHandlers:
         sensor = HardwareSensor.objects.get(name="beam_Box1")
         assert sensor.is_connected is True
 
-    def test_handle_beam_break_no_presence(self, mocker):
+    def test_handle_beam_break_no_presence(self, mocker, caplog):
         NestingBoxFactory(name="Box1")
-        # Should not create an egg
-        handle_beam_break("Box1")
+        with caplog.at_level(logging.WARNING, logger="hardware_agent.handlers"):
+            handle_beam_break("Box1")
         assert Egg.objects.count() == 0
+        assert any(
+            "No NestingBoxPresence found for box" in r.message
+            and r.levelno == logging.WARNING
+            for r in caplog.records
+        )
+
+    def test_handle_beam_break_unknown_box(self, caplog):
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+            handle_beam_break("UnknownBox")
+        assert Egg.objects.count() == 0
+        assert any(
+            "No matching nesting box found matching name" in r.message
+            and r.levelno == logging.ERROR
+            for r in caplog.records
+        )
 
     def test_save_frame_to_db(self, mocker):
         # Create a dummy frame (numpy array)
@@ -197,3 +224,38 @@ class TestHardwareHandlers:
         # Check if file was created in tmp_path
         files = list(tmp_path.glob("CamTest_*.jpg"))
         assert len(files) == 1
+
+    def test_save_frame_to_db_logs_debug(self, caplog):
+        frame = np.zeros((100, 100, 3), dtype=np.uint8)
+        with caplog.at_level(logging.DEBUG, logger="hardware_agent.handlers"):
+            save_frame_to_db("Cam1", frame)
+        assert any(
+            "frame saved to db as" in r.message and r.levelno == logging.DEBUG
+            for r in caplog.records
+        )
+
+    def test_report_status_logs_error_on_db_failure(self, mocker, caplog):
+        mocker.patch(
+            "hardware_agent.handlers.HardwareSensor.objects.update_or_create",
+            side_effect=Exception("DB unavailable"),
+        )
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+            report_status("test_sensor", True)
+        assert any(
+            "Error reporting status for test_sensor" in r.message
+            and r.levelno == logging.ERROR
+            for r in caplog.records
+        )
+
+    def test_report_event_logs_error_on_db_failure(self, mocker, caplog):
+        mocker.patch(
+            "hardware_agent.handlers.HardwareSensor.objects.filter",
+            side_effect=Exception("DB unavailable"),
+        )
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+            report_event("test_sensor")
+        assert any(
+            "Error reporting event for test_sensor" in r.message
+            and r.levelno == logging.ERROR
+            for r in caplog.records
+        )
