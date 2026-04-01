@@ -43,12 +43,24 @@ To view the logs of any container (in this case `hardware-agent`):
 docker compose logs -f hardware-agent
 ```
 
+To shell into the logs volume (logs are in `/app/logs`):
+
+```shell
+docker run --rm -it -v chicken-watcher_logs_volume:/app/logs alpine sh
+```
+
 ## Prod
 
 To run on the pi, we must exclude the `docker-compose.override.yml`:
 
 ```shell
-docker compose -f docker-compose.yml up -d
+docker compose -f docker-compose.yml up -d --build
+```
+
+To run a management command:
+
+```shell
+docker compose exec web-app uv run manage.py [command]
 ```
 
 ## Setting up the pi
