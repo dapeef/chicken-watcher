@@ -27,6 +27,6 @@ def delete_all_nesting_box_images():
         image.image.delete(save=False)
         image.delete()
         if count % 100 == 0:
-            logger.info(f"Deleted {count} NestingBoxImage records so far")
+            logger.info(f"Deleted {count} (of {count}) NestingBoxImage records so far")
 
     logger.info("All NestingBoxImage records deleted")

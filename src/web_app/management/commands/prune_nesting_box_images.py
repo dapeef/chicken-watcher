@@ -18,11 +18,7 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        before = NestingBoxImage.objects.count()
         delete_nesting_box_images_far_from_events()
-        after = NestingBoxImage.objects.count()
-        deleted = before - after
-        self.stdout.write(f"Deleted {deleted} NestingBoxImages. {after} remain.")
 
 
 def get_images_to_delete():
@@ -64,6 +60,10 @@ def delete_nesting_box_images_far_from_events():
         image.delete()
         deleted += 1
         if deleted % 100 == 0:
-            logger.info(f"Deleted {deleted} NestingBoxImage records so far")
+            logger.info(
+                f"Deleted {deleted} (of {count}) NestingBoxImage records so far"
+            )
 
-    logger.info(f"Pruned {deleted} NestingBoxImage records")
+    after = NestingBoxImage.objects.count()
+
+    logger.info(f"Pruned {deleted} NestingBoxImage records. {after} remain.")
