@@ -1,5 +1,6 @@
 import csv
 import datetime
+from enum import StrEnum
 from pathlib import Path
 from random import randrange, randint, choice, random
 
@@ -20,17 +21,13 @@ logger = logging.getLogger(__name__)
 
 # uv run manage.py seed --mode=refresh
 
-""" Clear all data and creates addresses """
-MODE_REFRESH = "refresh"
 
-""" Clear all data and do not create any object """
-MODE_CLEAR = "clear"
+class SeedMode(StrEnum):
+    REFRESH = "refresh"  # Clear all data and create seed data
+    CLEAR = "clear"  # Clear all data and do not create any objects
+    SEED_CHICKENS = "seed_chickens"  # Upsert chickens from chickens.csv
+    SEED_NESTING_BOXES = "seed_nesting_boxes"  # Ensure the standard nesting boxes exist
 
-""" Upsert chickens from chickens.csv """
-MODE_SEED_CHICKENS = "seed_chickens"
-
-""" Ensure the standard nesting boxes exist """
-MODE_SEED_NESTING_BOXES = "seed_nesting_boxes"
 
 CHICKENS_CSV = Path(__file__).parent / "chickens.csv"
 
@@ -39,12 +36,39 @@ class Command(BaseCommand):
     help = "seed database for testing and development."
 
     def add_arguments(self, parser):
-        parser.add_argument("--mode", type=str, help="Mode")
+        parser.add_argument(
+            "--mode",
+            type=SeedMode,
+            choices=list(SeedMode),
+            required=True,
+            help="Seed mode.",
+        )
+        parser.add_argument(
+            "--csv-file",
+            type=Path,
+            default=None,
+            help=f"Path to chickens CSV file (used with --mode={SeedMode.SEED_CHICKENS}). Defaults to the bundled chickens.csv.",
+        )
 
     def handle(self, *args, **options):
-        self.stdout.write("Seeding data...")
-        run_seed(options["mode"])
-        self.stdout.write("Data seeding complete.")
+        """Seed database based on mode"""
+
+        mode: SeedMode = options["mode"]
+        csv_file_raw = options["csv_file"]
+        csv_file: Path | None = Path(csv_file_raw) if csv_file_raw is not None else None
+
+        match mode:
+            case SeedMode.REFRESH:
+                clear_data()
+                populate_data()
+            case SeedMode.CLEAR:
+                clear_data()
+            case SeedMode.SEED_CHICKENS:
+                seed_chickens_from_csv(
+                    csv_file
+                ) if csv_file else seed_chickens_from_csv()
+            case SeedMode.SEED_NESTING_BOXES:
+                seed_nesting_boxes()
 
 
 def clear_data():
@@ -203,25 +227,3 @@ def seed_chickens_from_csv(csv_path: Path = CHICKENS_CSV):
                 logger.info(f"Updated chicken: {name}")
 
     logger.info(f"Chickens seeded: {created_count} created, {updated_count} updated")
-
-
-def run_seed(mode):
-    """Seed database based on mode
-
-    :param mode: refresh / clear / seed_chickens / seed_nesting_boxes
-    :return:
-    """
-    if mode == MODE_SEED_CHICKENS:
-        seed_chickens_from_csv()
-        return
-
-    if mode == MODE_SEED_NESTING_BOXES:
-        seed_nesting_boxes()
-        return
-
-    # Clear data from tables
-    clear_data()
-    if mode == MODE_CLEAR:
-        return
-
-    populate_data()

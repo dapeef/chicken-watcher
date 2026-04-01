@@ -139,7 +139,16 @@ def test_seed_chickens_does_not_clear_other_data(tmp_path):
 
 
 @pytest.mark.django_db
-def test_seed_chickens_via_call_command():
-    call_command("seed", mode="seed_chickens")
-    # chickens.csv has 6 rows
+def test_seed_chickens_via_call_command(tmp_path):
+    csv_path = tmp_path / "chickens.csv"
+    csv_path.write_text(
+        "Name,DoB,Tag ID\n"
+        "Henrietta,2025-01-15,AABBCCDD\n"
+        "Cluckers,2025-03-20,11223344\n"
+        "Feathers,2025-05-10,DEADBEEF\n"
+        "Nugget,2025-06-01,CAFEBABE\n"
+        "Pecky,2025-07-04,00112233\n"
+        "Fluffy,2025-08-08,44556677\n"
+    )
+    call_command("seed", mode="seed_chickens", csv_file=str(csv_path))
     assert Chicken.objects.count() == 6
