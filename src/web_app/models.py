@@ -63,7 +63,7 @@ class Egg(models.Model):
     nesting_box = models.ForeignKey(
         NestingBox, on_delete=models.CASCADE, null=True, blank=True
     )
-    laid_at = models.DateTimeField(default=timezone.now)
+    laid_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self):
         chicken = self.chicken.name if self.chicken else "Unknown chicken"
@@ -84,7 +84,7 @@ class NestingBoxPresencePeriod(models.Model):
 class NestingBoxPresence(models.Model):
     chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
     nesting_box = models.ForeignKey(NestingBox, on_delete=models.CASCADE)
-    present_at = models.DateTimeField(default=timezone.now)
+    present_at = models.DateTimeField(default=timezone.now, db_index=True)
     presence_period = models.ForeignKey(
         NestingBoxPresencePeriod,
         on_delete=models.SET_NULL,
