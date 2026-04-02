@@ -95,9 +95,18 @@ docker compose exec web-app uv run manage.py [command]
        ```
 6. Spin up the containers
    ```shell
-   docker compose -f docker-compose.yml up
+   docker compose -f docker-compose.yml up -d --build
    ```
 7. Create a superuser account for the web app
    ```shell
    docker compose exec web-app uv run manage.py createsuperuser
    ```
+8. Create the nesting boxes
+   ```shell
+   docker compose exec web-app uv run manage.py seed --mode=seed_nesting_boxes
+   ```
+9. Create the chickens from `chickens.csv`
+   ```shell
+   docker compose exec web-app uv run manage.py seed --mode=seed_chickens
+   ```
+   
