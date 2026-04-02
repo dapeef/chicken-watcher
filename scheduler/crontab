@@ -1,0 +1,4 @@
+PATH=/app/.venv/bin:/usr/local/bin:/usr/bin:/bin
+PYTHONPATH=/app/src
+
+0 0 * * * uv run /app/manage.py prune_nesting_box_images > /proc/1/fd/1 2>&1

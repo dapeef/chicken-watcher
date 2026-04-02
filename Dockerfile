@@ -76,3 +76,18 @@ CMD ["bash", "-c", "\
       python manage.py migrate --no-input && \
       python manage.py collectstatic --no-input --clear && \
       uvicorn django_project.asgi:application --host 0.0.0.0 --port 8000 --workers 1"]
+
+########################################
+# 3.  Scheduler stage
+########################################
+FROM runtime AS scheduler
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends cron && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY scheduler/crontab /app/crontab
+
+CMD ["sh", "-c", \
+    "{ printenv | grep -E '^(DJANGO_|POSTGRES_|MEDIA_ROOT|LOG_FILENAME)'; cat /app/crontab; } | crontab - \
+    && exec cron -f -L /dev/stdout"]
