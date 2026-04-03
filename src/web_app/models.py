@@ -77,6 +77,10 @@ class NestingBoxPresencePeriod(models.Model):
     started_at = models.DateTimeField(default=timezone.now)
     ended_at = models.DateTimeField(default=timezone.now)
 
+    @property
+    def duration(self):
+        return self.ended_at - self.started_at
+
     def __str__(self):
         return f"{self.chicken.name} in {self.nesting_box.name} ({self.started_at} - {self.ended_at})"
 

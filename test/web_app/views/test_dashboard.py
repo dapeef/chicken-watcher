@@ -6,36 +6,127 @@ from ..factories import (
     ChickenFactory,
     HardwareSensorFactory,
     NestingBoxFactory,
-    NestingBoxPresenceFactory,
+    NestingBoxPresencePeriodFactory,
 )
 
 
 @pytest.mark.django_db
 class TestDashboardViews:
-    def test_dashboard_view(self, client):
-        c1 = ChickenFactory(name="C1")
-        b1 = NestingBoxFactory(name="Box1")
-        NestingBoxFactory(name="Box2")
-
-        # Create some presences today
-        NestingBoxPresenceFactory(
-            chicken=c1,
-            nesting_box=b1,
-            present_at=timezone.now() - timedelta(minutes=10),
-        )
-        p_latest = NestingBoxPresenceFactory(
-            chicken=c1, nesting_box=b1, present_at=timezone.now() - timedelta(minutes=5)
-        )
-
+    def test_dashboard_view_returns_200(self, client):
         url = reverse("dashboard")
         response = client.get(url)
         assert response.status_code == 200
 
-        latest_presence = response.context["latest_presence"]
-        # Should contain p_latest for b1
-        assert p_latest in latest_presence
-        # Should only have one entry for b1
-        assert len([p for p in latest_presence if p.nesting_box == b1]) == 1
+    def test_latest_presence_uses_presence_periods(self, client):
+        """latest_presence context should contain NestingBoxPresencePeriod objects."""
+        c1 = ChickenFactory(name="C1")
+        b1 = NestingBoxFactory(name="Box1")
+        period = NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b1,
+            started_at=timezone.now() - timedelta(minutes=10),
+            ended_at=timezone.now() - timedelta(minutes=5),
+        )
+
+        response = client.get(reverse("dashboard"))
+        assert response.status_code == 200
+
+        latest_presence = list(response.context["latest_presence"])
+        assert period in latest_presence
+
+    def test_latest_presence_one_entry_per_box(self, client):
+        """Only the most recent period per box is returned."""
+        c1 = ChickenFactory(name="C1")
+        b1 = NestingBoxFactory(name="Box1")
+
+        NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b1,
+            started_at=timezone.now() - timedelta(minutes=20),
+            ended_at=timezone.now() - timedelta(minutes=15),
+        )
+        latest = NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b1,
+            started_at=timezone.now() - timedelta(minutes=10),
+            ended_at=timezone.now() - timedelta(minutes=5),
+        )
+
+        response = client.get(reverse("dashboard"))
+        latest_presence = list(response.context["latest_presence"])
+
+        box1_entries = [p for p in latest_presence if p.nesting_box == b1]
+        assert len(box1_entries) == 1
+        assert box1_entries[0] == latest
+
+    def test_latest_presence_separate_entries_per_box(self, client):
+        """One entry is returned for each box that has a period today."""
+        c1 = ChickenFactory(name="C1")
+        b1 = NestingBoxFactory(name="Box1")
+        b2 = NestingBoxFactory(name="Box2")
+
+        p1 = NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b1,
+            started_at=timezone.now() - timedelta(minutes=20),
+            ended_at=timezone.now() - timedelta(minutes=15),
+        )
+        p2 = NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b2,
+            started_at=timezone.now() - timedelta(minutes=10),
+            ended_at=timezone.now() - timedelta(minutes=5),
+        )
+
+        response = client.get(reverse("dashboard"))
+        latest_presence = list(response.context["latest_presence"])
+
+        assert p1 in latest_presence
+        assert p2 in latest_presence
+
+    def test_latest_presence_excludes_yesterday(self, client):
+        """Periods that ended before today are not included."""
+        c1 = ChickenFactory(name="C1")
+        b1 = NestingBoxFactory(name="Box1")
+
+        NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b1,
+            started_at=timezone.now() - timedelta(days=1, minutes=10),
+            ended_at=timezone.now() - timedelta(days=1),
+        )
+
+        response = client.get(reverse("dashboard"))
+        latest_presence = list(response.context["latest_presence"])
+        assert latest_presence == []
+
+    def test_presence_period_duration_property(self):
+        """NestingBoxPresencePeriod.duration returns the correct timedelta."""
+        now = timezone.now()
+        period = NestingBoxPresencePeriodFactory.build(
+            started_at=now - timedelta(minutes=7),
+            ended_at=now - timedelta(minutes=2),
+        )
+        assert period.duration == timedelta(minutes=5)
+
+    def test_latest_presence_partial_renders_duration_and_departed(self, client):
+        """The partial template renders duration and departed columns."""
+        c1 = ChickenFactory(name="Henrietta")
+        b1 = NestingBoxFactory(name="LeftBox")
+        NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b1,
+            started_at=timezone.now() - timedelta(minutes=10),
+            ended_at=timezone.now() - timedelta(minutes=5),
+        )
+
+        response = client.get(reverse("partial_latest_presence"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Henrietta" in content
+        assert "LeftBox" in content
+        assert "Duration" in content
+        assert "Departed" in content
 
     def test_partial_sensors(self, client):
         HardwareSensorFactory(name="rfid_test", is_connected=True)

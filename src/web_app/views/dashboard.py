@@ -3,7 +3,14 @@ from django.utils import timezone
 from django.views.generic import TemplateView
 from django.shortcuts import render
 
-from ..models import Egg, Chicken, NestingBoxPresence, HardwareSensor, NestingBoxImage
+from ..models import (
+    Egg,
+    Chicken,
+    NestingBoxPresence,
+    NestingBoxPresencePeriod,
+    HardwareSensor,
+    NestingBoxImage,
+)
 
 
 def get_dashboard_context():
@@ -14,27 +21,29 @@ def get_dashboard_context():
 
     eggs_today_qs = Egg.objects.filter(laid_at__range=(today_start, now))
 
-    # Latest presence for each box
+    # Latest presence period for each box
     if db.connection.vendor == "postgresql":
         latest_presence = (
-            NestingBoxPresence.objects.filter(present_at__gte=today_start)
-            .order_by("nesting_box_id", "-present_at")
+            NestingBoxPresencePeriod.objects.filter(ended_at__gte=today_start)
+            .select_related("chicken", "nesting_box")
+            .order_by("nesting_box_id", "-ended_at")
             .distinct("nesting_box_id")
         )
     else:
-        # Fallback for SQLite: get the latest presence for each nesting box manually or just show recent ones
+        # Fallback for SQLite: pick the most recent period per box
         latest_presence = []
         box_ids = (
-            NestingBoxPresence.objects.filter(present_at__gte=today_start)
+            NestingBoxPresencePeriod.objects.filter(ended_at__gte=today_start)
             .values_list("nesting_box_id", flat=True)
             .distinct()
         )
         for b_id in box_ids:
             p = (
-                NestingBoxPresence.objects.filter(
-                    nesting_box_id=b_id, present_at__gte=today_start
+                NestingBoxPresencePeriod.objects.filter(
+                    nesting_box_id=b_id, ended_at__gte=today_start
                 )
-                .order_by("-present_at")
+                .select_related("chicken", "nesting_box")
+                .order_by("-ended_at")
                 .first()
             )
             if p:

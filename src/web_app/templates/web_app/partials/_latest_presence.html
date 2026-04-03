@@ -4,13 +4,14 @@
     {% if latest_presence %}
       <div class="table-responsive">
         <table class="table align-middle mb-0 small">
-          <thead><tr><th>Chicken</th><th>Box</th><th>Departed</th></tr></thead>
+          <thead><tr><th>Chicken</th><th>Box</th><th>Duration</th><th>Departed</th></tr></thead>
           <tbody>
           {% for p in latest_presence %}
             <tr>
               <td>{{ p.chicken.name }}</td>
               <td>{{ p.nesting_box.name }}</td>
-              <td>{{ p.present_at|timesince }} ago</td>
+              <td>{{ p.duration }}</td>
+              <td>{{ p.ended_at|timesince }} ago</td>
             </tr>
           {% endfor %}
           </tbody>
