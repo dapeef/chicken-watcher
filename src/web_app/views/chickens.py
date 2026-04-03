@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import timedelta, date, datetime, timezone as dt_timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -89,17 +90,19 @@ class ChickenDetailView(DetailView):
         ctx["chart_rolling"] = json.dumps(rolling)
 
         # ------------------------------------------------------------
-        # 2) Time-of-day nesting frequency
+        # 2) Time-of-day charts (shared labels)
         # ------------------------------------------------------------
-        all_periods = NestingBoxPresencePeriod.objects.filter(chicken=chicken)
-        tod_counts = nesting_time_of_day(all_periods)
-        # Labels: "HH:MM" for the start of each bucket
         tod_labels = [
             f"{(i * BUCKET_MINUTES) // 60:02d}:{(i * BUCKET_MINUTES) % 60:02d}"
             for i in range(BUCKETS_PER_DAY)
         ]
         ctx["tod_labels"] = json.dumps(tod_labels)
-        ctx["tod_counts"] = json.dumps(tod_counts)
+
+        all_periods = NestingBoxPresencePeriod.objects.filter(chicken=chicken)
+        ctx["tod_nesting_counts"] = json.dumps(nesting_time_of_day(all_periods))
+
+        all_eggs = Egg.objects.filter(chicken=chicken)
+        ctx["tod_egg_kde"] = json.dumps(egg_time_of_day_kde(all_eggs))
 
         # ------------------------------------------------------------
         # 3) Quick stats
@@ -155,6 +158,54 @@ def nesting_time_of_day(periods):
             cursor += timedelta(minutes=BUCKET_MINUTES)
 
     return [len(s) for s in days_seen]
+
+
+# Bandwidth for egg KDE in minutes. ~25 min gives a smooth but responsive curve.
+KDE_BANDWIDTH_MINUTES = 25
+
+
+def egg_time_of_day_kde(eggs):
+    """
+    Given an iterable of Egg instances, return a list of BUCKETS_PER_DAY
+    density values using a circular Gaussian KDE.
+
+    Times are in UTC (no DST adjustment) to give solar-relative readings.
+
+    Each egg contributes a Gaussian kernel centred on its UTC time-of-day
+    (in minutes). The day is treated as circular (1440 minutes), so kernels
+    wrap correctly at midnight. The final curve is the sum of all kernels,
+    normalised so that the area under it equals 1.
+
+    Returns a list of BUCKETS_PER_DAY floats rounded to 4 decimal places.
+    """
+    DAY_MINUTES = 24 * 60  # 1440
+
+    # Collect time-of-day in minutes (UTC)
+    times = []
+    for egg in eggs:
+        t = egg.laid_at.astimezone(dt_timezone.utc)
+        times.append(t.hour * 60 + t.minute + t.second / 60)
+
+    if not times:
+        return [0.0] * BUCKETS_PER_DAY
+
+    sigma = KDE_BANDWIDTH_MINUTES
+    n = len(times)
+
+    result = []
+    for i in range(BUCKETS_PER_DAY):
+        x = i * BUCKET_MINUTES  # centre of this bucket in minutes
+        total = 0.0
+        for t in times:
+            # Evaluate the Gaussian at the three closest circular copies
+            # (t - DAY, t, t + DAY) to handle wrap-around at midnight
+            for offset in (-DAY_MINUTES, 0, DAY_MINUTES):
+                diff = x - (t + offset)
+                total += math.exp(-0.5 * (diff / sigma) ** 2)
+        result.append(total / (n * sigma * math.sqrt(2 * math.pi)))
+
+    # Round for compact JSON
+    return [round(v, 6) for v in result]
 
 
 def chicken_timeline_data(request, pk):

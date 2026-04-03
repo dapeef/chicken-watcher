@@ -51,8 +51,13 @@
 
       <hr>
 
+      <h6 class="mb-2">Egg laying time of day</h6>
+      <canvas id="todEggChart" height="80"></canvas>
+
+      <hr>
+
       <h6 class="mb-2">Time of day in nesting box</h6>
-      <canvas id="todChart" height="80"></canvas>
+      <canvas id="todNestChart" height="80"></canvas>
 
       <hr>
 
@@ -100,14 +105,42 @@ document.addEventListener("DOMContentLoaded", () => {
     if (now >= w.start && now <= w.end) loadNestData(w);
   }, 10000);
 
-  // ── Time-of-day nesting frequency chart ───────────────────────────────────
-  new Chart(document.getElementById("todChart"), {
+  const todAxisTitle = { display: true, text: "Time of day (UTC — not adjusted for BST)" };
+  const todXScale = { ticks: { maxTicksLimit: 12 }, title: todAxisTitle };
+  const todLabels = {{ tod_labels|safe }};
+
+  // ── Egg laying time of day (KDE) ──────────────────────────────────────────
+  new Chart(document.getElementById("todEggChart"), {
     type: "line",
     data: {
-      labels: {{ tod_labels|safe }},
+      labels: todLabels,
+      datasets: [{
+        label: "Egg laying density",
+        data: {{ tod_egg_kde|safe }},
+        borderColor: "rgba(255,140,0,0.9)",
+        backgroundColor: "rgba(255,140,0,0.1)",
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+      }]
+    },
+    options: {
+      scales: {
+        x: todXScale,
+        y: { beginAtZero: true, ticks: { display: false } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // ── Time-of-day nesting frequency chart ───────────────────────────────────
+  new Chart(document.getElementById("todNestChart"), {
+    type: "line",
+    data: {
+      labels: todLabels,
       datasets: [{
         label: "Days present at this time",
-        data: {{ tod_counts|safe }},
+        data: {{ tod_nesting_counts|safe }},
         borderColor: "rgba(102,16,242,0.8)",
         backgroundColor: "rgba(102,16,242,0.1)",
         fill: true,
@@ -117,10 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     options: {
       scales: {
-        x: {
-          ticks: { maxTicksLimit: 12 },
-          title: { display: true, text: "Time of day (UTC — not adjusted for BST)" }
-        },
+        x: todXScale,
         y: { beginAtZero: true, precision: 0 }
       },
       plugins: { legend: { display: false } }

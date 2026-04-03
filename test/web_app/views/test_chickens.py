@@ -9,7 +9,12 @@ from ..factories import (
     NestingBoxFactory,
     NestingBoxPresencePeriodFactory,
 )
-from web_app.views.chickens import nesting_time_of_day, BUCKET_MINUTES, BUCKETS_PER_DAY
+from web_app.views.chickens import (
+    nesting_time_of_day,
+    egg_time_of_day_kde,
+    BUCKET_MINUTES,
+    BUCKETS_PER_DAY,
+)
 
 
 def make_period(started_at, ended_at):
@@ -172,3 +177,53 @@ class TestChickenViews:
         url = reverse("chicken_timeline_data", kwargs={"pk": 99999})
         response = client.get(url)
         assert response.status_code == 404
+
+
+def make_egg(laid_at):
+    """Build an unsaved Egg-like object for unit tests."""
+    return EggFactory.build(laid_at=laid_at)
+
+
+class TestEggTimeOfDayKde:
+    def test_empty_returns_all_zeros(self):
+        result = egg_time_of_day_kde([])
+        assert len(result) == BUCKETS_PER_DAY
+        assert all(v == 0.0 for v in result)
+
+    def test_result_length(self):
+        egg = make_egg(utc(10, 0))
+        result = egg_time_of_day_kde([egg])
+        assert len(result) == BUCKETS_PER_DAY
+
+    def test_single_egg_peak_near_its_time(self):
+        # Egg at 10:00 UTC — the peak bucket should be at or near 10:00
+        egg = make_egg(utc(10, 0))
+        result = egg_time_of_day_kde([egg])
+        peak_bucket = result.index(max(result))
+        peak_minutes = peak_bucket * BUCKET_MINUTES
+        # Peak should be within one bucket of 10:00 (600 minutes)
+        assert abs(peak_minutes - 600) <= BUCKET_MINUTES
+
+    def test_all_values_non_negative(self):
+        eggs = [make_egg(utc(h)) for h in range(0, 24, 3)]
+        result = egg_time_of_day_kde(eggs)
+        assert all(v >= 0 for v in result)
+
+    def test_integrates_to_approximately_one(self):
+        # The KDE produces density in units of probability per minute.
+        # Summing all buckets and multiplying by BUCKET_MINUTES gives total
+        # probability mass, which should be ≈ 1.
+        eggs = [make_egg(utc(h)) for h in range(0, 24, 2)]
+        result = egg_time_of_day_kde(eggs)
+        total = sum(result) * BUCKET_MINUTES
+        # Allow generous tolerance because we're on a discrete grid
+        assert abs(total - 1.0) < 0.05
+
+    def test_midnight_egg_wraps_symmetrically(self):
+        # An egg at midnight should produce a symmetric distribution
+        # with its peak at bucket 0 (00:00)
+        egg = make_egg(utc(0, 0))
+        result = egg_time_of_day_kde([egg])
+        assert result[0] == max(result)
+        # And the distribution should be symmetric: bucket 1 ≈ bucket 143
+        assert abs(result[1] - result[143]) < 1e-6
