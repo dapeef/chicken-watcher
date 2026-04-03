@@ -8,8 +8,7 @@
 <style>
   #nest-visualization {
     width: 100%;
-    height: 160px;
-    border: 1px solid lightgray;
+    height: 220px;
   }
 </style>
 {% endblock %}
@@ -102,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const nestContainer = document.getElementById("nest-visualization");
   const nestItems = new vis.DataSet([]);
   const nestTimeline = new vis.Timeline(nestContainer, nestItems, {
-    height: "160px",
+    height: "220px",
     stack: true,
     showCurrentTime: true,
     zoomMin: 1000 * 60, // 1 minute
