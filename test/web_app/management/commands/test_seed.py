@@ -15,8 +15,8 @@ from test.web_app.factories import (
 
 
 @pytest.mark.django_db
-def test_seed_command_refresh():
-    call_command("seed", mode="refresh")
+def test_seed_command_spawn_test_data():
+    call_command("seed", mode="spawn_test_data")
 
     assert Chicken.objects.count() > 0
     assert NestingBox.objects.count() == 2
@@ -42,7 +42,7 @@ def test_seed_command_refresh():
 
 @pytest.mark.django_db
 def test_seed_command_clear():
-    call_command("seed", mode="refresh")
+    call_command("seed", mode="spawn_test_data")
     assert Chicken.objects.count() > 0
 
     call_command("seed", mode="clear")

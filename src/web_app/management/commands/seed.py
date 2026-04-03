@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class SeedMode(StrEnum):
-    REFRESH = "refresh"  # Clear all data and create seed data
+    SPAWN_TEST_DATA = "spawn_test_data"  # Clear all data and populate with fake test data (non-prod only)
     CLEAR = "clear"  # Clear all data and do not create any objects
     SEED_CHICKENS = "seed_chickens"  # Upsert chickens from chickens.csv
     SEED_NESTING_BOXES = "seed_nesting_boxes"  # Ensure the standard nesting boxes exist
@@ -57,7 +57,7 @@ class Command(BaseCommand):
         csv_file: Path | None = Path(csv_file_raw) if csv_file_raw is not None else None
 
         match mode:
-            case SeedMode.REFRESH:
+            case SeedMode.SPAWN_TEST_DATA:
                 clear_data()
                 populate_data()
             case SeedMode.CLEAR:
