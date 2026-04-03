@@ -1,2 +1,16 @@
-Name,DoB,Tag ID
-Examplename,2025-01-01,""
+Name,DoB,Tag ID,Tag number,Worked harder
+Eigg,2023-12-11,"",1,
+Skye,2023-12-11,,,
+Islay,2023-12-11,,,
+Tiree,2023-12-11,,,
+Rhum,2023-12-11,,,
+Muck,2023-12-11,,,true
+Mull,2023-12-11,,,true
+Iona,2023-12-11,,,true
+Coll,2023-12-11,,,true
+Twiglet,2022-09-19,,,
+Eyes,2022-09-19,,,
+Noggin,2025-03-15,,,
+Bracket,2025-03-15,,,
+Soffit,2025-03-15,,,
+Lintel,2025-03-15,,,
