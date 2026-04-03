@@ -1,1 +1,9 @@
 **/*.egg-info/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.env
+logs/
+media/
+static/
