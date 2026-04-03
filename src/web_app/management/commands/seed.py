@@ -11,7 +11,6 @@ from web_app.models import (
     Chicken,
     NestingBox,
     Egg,
-    NestingBoxPresence,
     NestingBoxPresencePeriod,
 )
 
@@ -77,7 +76,6 @@ def clear_data():
     Chicken.objects.all().delete()
     NestingBox.objects.all().delete()
     Egg.objects.all().delete()
-    NestingBoxPresence.objects.all().delete()
     NestingBoxPresencePeriod.objects.all().delete()
 
 
@@ -128,8 +126,8 @@ def populate_data():
     # Nesting boxes
     seed_nesting_boxes()
 
-    # Eggs and nesting box presences
-    logger.info("Populating Egg and NestingBoxPresence")
+    # Eggs and nesting box presence periods
+    logger.info("Populating Egg and NestingBoxPresencePeriod")
     for chicken in Chicken.objects.all():
         logger.info(f"For chicken: {chicken.name}")
 
@@ -156,21 +154,12 @@ def populate_data():
 
                 nesting_box = choice(list(NestingBox.objects.all()))
 
-                period = NestingBoxPresencePeriod.objects.create(
+                NestingBoxPresencePeriod.objects.create(
                     chicken=chicken,
                     nesting_box=nesting_box,
                     started_at=start_time,
-                    ended_at=start_time
-                    + datetime.timedelta(seconds=seconds_in_box - 1),
+                    ended_at=start_time + datetime.timedelta(seconds=seconds_in_box),
                 )
-
-                for delta_secs in range(seconds_in_box):
-                    NestingBoxPresence.objects.create(
-                        nesting_box=nesting_box,
-                        present_at=start_time + datetime.timedelta(seconds=delta_secs),
-                        chicken=chicken,
-                        presence_period=period,
-                    )
 
                 egg_time = start_time + datetime.timedelta(
                     seconds=seconds_in_box - 5
