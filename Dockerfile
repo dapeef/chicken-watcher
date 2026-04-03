@@ -75,7 +75,7 @@ COPY --from=project-builder /app/pyproject.toml /app/uv.lock ./
 CMD ["bash", "-c", "\
       python manage.py migrate --no-input && \
       python manage.py collectstatic --no-input --clear && \
-      uvicorn django_project.asgi:application --host 0.0.0.0 --port 8000 --workers 1"]
+      uvicorn django_project.asgi:application --host 0.0.0.0 --port 8000 --workers 3"]
 
 ########################################
 # 3.  Scheduler stage
