@@ -7,18 +7,13 @@
 <div class="row g-3">
 
   <!-- Eggs laid so far -->
-  <div class="col-12 col-md-4" hx-get="{% url 'partial_eggs_today' %}" hx-trigger="every 5s">
+  <div class="col-12 col-md-6" hx-get="{% url 'partial_eggs_today' %}" hx-trigger="every 5s">
     {% include 'web_app/partials/_eggs_today.html' %}
   </div>
 
   <!-- Chickens who have laid -->
-  <div class="col-12 col-md-4" hx-get="{% url 'partial_laid_chickens' %}" hx-trigger="every 5s">
+  <div class="col-12 col-md-6" hx-get="{% url 'partial_laid_chickens' %}" hx-trigger="every 5s">
     {% include 'web_app/partials/_laid_chickens.html' %}
-  </div>
-
-  <!-- Hardware Sensors -->
-  <div class="col-12 col-md-4" hx-get="{% url 'partial_sensors' %}" hx-trigger="every 5s">
-    {% include 'web_app/partials/_sensors.html' %}
   </div>
 
   <!-- Latest Nesting Box Image -->
@@ -67,13 +62,18 @@
   </script>
 
   <!-- Boxes currently occupied -->
-  <div class="col-12" hx-get="{% url 'partial_latest_presence' %}" hx-trigger="every 5s">
+  <div class="col-12 col-md-5" hx-get="{% url 'partial_latest_presence' %}" hx-trigger="every 5s">
     {% include 'web_app/partials/_latest_presence.html' %}
   </div>
 
   <!-- Latest events -->
-  <div class="col-12" hx-get="{% url 'partial_latest_events' %}" hx-trigger="every 5s">
+  <div class="col-12 col-md-4" hx-get="{% url 'partial_latest_events' %}" hx-trigger="every 5s">
     {% include 'web_app/partials/_latest_events.html' %}
+  </div>
+
+  <!-- Hardware Sensors -->
+  <div class="col-12 col-md-3" hx-get="{% url 'partial_sensors' %}" hx-trigger="every 5s">
+    {% include 'web_app/partials/_sensors.html' %}
   </div>
 
 </div>
