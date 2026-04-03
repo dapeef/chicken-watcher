@@ -3,9 +3,7 @@
 {% block title %}Timeline - Coop{% endblock %}
 
 {% block extra_head %}
-<script type="text/javascript" src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
-<link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
-
+{% include 'web_app/partials/_timeline_assets.html' %}
 <style>
     #visualization {
         width: 100%;
@@ -14,41 +12,6 @@
     }
     #camera-preview {
         min-height: 500px;
-    }
-    .timeline-egg {
-        background-color: #ffe5d0;
-        border-color: #f5c2a7;
-    }
-    .timeline-period.box-left {
-        background-color: #d1ecf1;
-        border-color: #bee5eb;
-    }
-    .timeline-period.box-right {
-        background-color: #d4edda;
-        border-color: #c3e6cb;
-    }
-    .timeline-presence-dot.vis-point {
-        background: none;
-        border: none;
-    }
-    .timeline-presence-dot.box-left .vis-dot {
-        border-width: 3px;
-        border-radius: 3px;
-        border-color: #0d6efd;
-    }
-    .timeline-presence-dot.box-right .vis-dot {
-        border-width: 3px;
-        border-radius: 3px;
-        border-color: #198754;
-    }
-    .timeline-presence-dot .vis-item-content {
-        padding: 0;
-    }
-    .vis-custom-time.preview-line {
-        background-color: #0d6efd;
-        width: 3px;
-        pointer-events: none;
-        z-index: 10;
     }
 </style>
 {% endblock %}
