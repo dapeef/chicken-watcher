@@ -74,8 +74,8 @@ class Egg(models.Model):
 class NestingBoxPresencePeriod(models.Model):
     chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
     nesting_box = models.ForeignKey(NestingBox, on_delete=models.CASCADE)
-    started_at = models.DateTimeField(default=timezone.now)
-    ended_at = models.DateTimeField(default=timezone.now)
+    started_at = models.DateTimeField(default=timezone.now, db_index=True)
+    ended_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     @property
     def duration(self):
@@ -88,7 +88,7 @@ class NestingBoxPresencePeriod(models.Model):
 class NestingBoxPresence(models.Model):
     chicken = models.ForeignKey(Chicken, on_delete=models.CASCADE)
     nesting_box = models.ForeignKey(NestingBox, on_delete=models.CASCADE)
-    present_at = models.DateTimeField(default=timezone.now, db_index=True)
+    present_at = models.DateTimeField(default=timezone.now)
     presence_period = models.ForeignKey(
         NestingBoxPresencePeriod,
         on_delete=models.SET_NULL,

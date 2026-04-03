@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.db.models import Exists, OuterRef
 
-from web_app.models import Egg, NestingBoxImage, NestingBoxPresence
+from web_app.models import Egg, NestingBoxImage, NestingBoxPresencePeriod
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +14,13 @@ WINDOW = timedelta(seconds=30)
 class Command(BaseCommand):
     help = (
         "Delete NestingBoxImage records that are not within "
-        f"{WINDOW.seconds}s of any nesting box presence event or egg."
+        f"{WINDOW.seconds}s of any nesting box presence period or egg."
     )
 
     def handle(self, *args, **options):
         """
         Delete NestingBoxImage records (and their files on disk) that have no
-        NestingBoxPresence event or Egg within WINDOW of their created_at.
+        NestingBoxPresencePeriod or Egg within WINDOW of their created_at.
         """
 
         logger.info(
@@ -52,11 +52,11 @@ class Command(BaseCommand):
 def get_images_to_delete():
     """
     Return a queryset of NestingBoxImages that are NOT within WINDOW of any
-    NestingBoxPresence event or Egg.
+    NestingBoxPresencePeriod or Egg.
     """
-    nearby_presence = NestingBoxPresence.objects.filter(
-        present_at__gte=OuterRef("created_at") - WINDOW,
-        present_at__lte=OuterRef("created_at") + WINDOW,
+    nearby_presence = NestingBoxPresencePeriod.objects.filter(
+        started_at__lte=OuterRef("created_at") + WINDOW,
+        ended_at__gte=OuterRef("created_at") - WINDOW,
     )
     nearby_egg = Egg.objects.filter(
         laid_at__gte=OuterRef("created_at") - WINDOW,

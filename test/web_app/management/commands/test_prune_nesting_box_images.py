@@ -6,17 +6,17 @@ from web_app.models import NestingBoxImage
 from test.web_app.factories import (
     EggFactory,
     NestingBoxImageFactory,
-    NestingBoxPresenceFactory,
+    NestingBoxPresencePeriodFactory,
 )
 
 # ---------------------------------------------------------------------------
-# Nesting box presence proximity
+# Nesting box presence period proximity
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
 def test_prune_images_deletes_images_with_no_nearby_events():
-    """Images with no presence or egg within 30s should be deleted."""
+    """Images with no presence period or egg within 30s should be deleted."""
     NestingBoxImageFactory(created_at=timezone.now())
     assert NestingBoxImage.objects.count() == 1
 
@@ -26,11 +26,14 @@ def test_prune_images_deletes_images_with_no_nearby_events():
 
 
 @pytest.mark.django_db
-def test_prune_images_keeps_image_within_30s_before_presence():
-    """An image created 29s before a presence event should be kept."""
+def test_prune_images_keeps_image_within_30s_before_period_start():
+    """An image created 29s before a period starts should be kept."""
     now = timezone.now()
     image = NestingBoxImageFactory(created_at=now)
-    NestingBoxPresenceFactory(present_at=now + datetime.timedelta(seconds=29))
+    NestingBoxPresencePeriodFactory(
+        started_at=now + datetime.timedelta(seconds=29),
+        ended_at=now + datetime.timedelta(seconds=60),
+    )
 
     call_command("prune_nesting_box_images")
 
@@ -38,11 +41,14 @@ def test_prune_images_keeps_image_within_30s_before_presence():
 
 
 @pytest.mark.django_db
-def test_prune_images_keeps_image_within_30s_after_presence():
-    """An image created 29s after a presence event should be kept."""
+def test_prune_images_keeps_image_within_30s_after_period_end():
+    """An image created 29s after a period ends should be kept."""
     now = timezone.now()
     image = NestingBoxImageFactory(created_at=now)
-    NestingBoxPresenceFactory(present_at=now - datetime.timedelta(seconds=29))
+    NestingBoxPresencePeriodFactory(
+        started_at=now - datetime.timedelta(seconds=60),
+        ended_at=now - datetime.timedelta(seconds=29),
+    )
 
     call_command("prune_nesting_box_images")
 
@@ -50,11 +56,14 @@ def test_prune_images_keeps_image_within_30s_after_presence():
 
 
 @pytest.mark.django_db
-def test_prune_images_keeps_image_exactly_at_presence():
-    """An image with the same timestamp as a presence event should be kept."""
+def test_prune_images_keeps_image_during_period():
+    """An image whose timestamp falls inside a period should be kept."""
     now = timezone.now()
     image = NestingBoxImageFactory(created_at=now)
-    NestingBoxPresenceFactory(present_at=now)
+    NestingBoxPresencePeriodFactory(
+        started_at=now - datetime.timedelta(seconds=30),
+        ended_at=now + datetime.timedelta(seconds=30),
+    )
 
     call_command("prune_nesting_box_images")
 
@@ -63,10 +72,13 @@ def test_prune_images_keeps_image_exactly_at_presence():
 
 @pytest.mark.django_db
 def test_prune_images_deletes_image_just_outside_30s_window():
-    """An image 31s away from any presence event should be deleted."""
+    """An image 31s before a period starts should be deleted."""
     now = timezone.now()
     image = NestingBoxImageFactory(created_at=now)
-    NestingBoxPresenceFactory(present_at=now + datetime.timedelta(seconds=31))
+    NestingBoxPresencePeriodFactory(
+        started_at=now + datetime.timedelta(seconds=31),
+        ended_at=now + datetime.timedelta(seconds=90),
+    )
 
     call_command("prune_nesting_box_images")
 
@@ -75,12 +87,15 @@ def test_prune_images_deletes_image_just_outside_30s_window():
 
 @pytest.mark.django_db
 def test_prune_images_mixed_keeps_and_deletes():
-    """Only images near a presence are kept; others are removed."""
+    """Only images near a presence period are kept; others are removed."""
     now = timezone.now()
     close_image = NestingBoxImageFactory(created_at=now)
     far_image = NestingBoxImageFactory(created_at=now + datetime.timedelta(minutes=10))
-    # Presence is only near the first image
-    NestingBoxPresenceFactory(present_at=now)
+    # Period is only near the first image
+    NestingBoxPresencePeriodFactory(
+        started_at=now - datetime.timedelta(seconds=5),
+        ended_at=now + datetime.timedelta(seconds=5),
+    )
 
     call_command("prune_nesting_box_images")
 
@@ -91,7 +106,7 @@ def test_prune_images_mixed_keeps_and_deletes():
 @pytest.mark.django_db
 def test_prune_images_when_no_images_exist():
     """Running the command with no images should not raise an error."""
-    NestingBoxPresenceFactory()
+    NestingBoxPresencePeriodFactory()
     assert NestingBoxImage.objects.count() == 0
 
     call_command("prune_nesting_box_images")
@@ -101,7 +116,7 @@ def test_prune_images_when_no_images_exist():
 
 @pytest.mark.django_db
 def test_prune_images_when_no_presences_exist():
-    """With no presences all images should be deleted."""
+    """With no presence periods all images should be deleted."""
     NestingBoxImageFactory.create_batch(3)
     assert NestingBoxImage.objects.count() == 3
 
@@ -113,9 +128,8 @@ def test_prune_images_when_no_presences_exist():
 @pytest.mark.django_db
 def test_prune_images_deletes_image_files(mocker):
     """The underlying image file on disk should be deleted for pruned images."""
-    now = timezone.now()
-    NestingBoxImageFactory(created_at=now)
-    # No presence or egg, so the image should be pruned
+    NestingBoxImageFactory(created_at=timezone.now())
+    # No presence period or egg, so the image should be pruned
     mock_delete = mocker.patch("django.db.models.fields.files.FieldFile.delete")
 
     call_command("prune_nesting_box_images")
@@ -128,7 +142,10 @@ def test_prune_images_does_not_delete_files_for_kept_images(mocker):
     """Image files for kept images should not be deleted."""
     now = timezone.now()
     NestingBoxImageFactory(created_at=now)
-    NestingBoxPresenceFactory(present_at=now)
+    NestingBoxPresencePeriodFactory(
+        started_at=now - datetime.timedelta(seconds=5),
+        ended_at=now + datetime.timedelta(seconds=5),
+    )
     mock_delete = mocker.patch("django.db.models.fields.files.FieldFile.delete")
 
     call_command("prune_nesting_box_images")
@@ -190,13 +207,16 @@ def test_prune_images_deletes_image_just_outside_30s_egg_window():
 
 
 @pytest.mark.django_db
-def test_prune_images_kept_by_egg_when_no_presence():
-    """An image near an egg but far from any presence should be kept."""
+def test_prune_images_kept_by_egg_when_no_nearby_period():
+    """An image near an egg but far from any presence period should be kept."""
     now = timezone.now()
     image = NestingBoxImageFactory(created_at=now)
     EggFactory(laid_at=now + datetime.timedelta(seconds=10))
-    # Presence is far away
-    NestingBoxPresenceFactory(present_at=now + datetime.timedelta(minutes=5))
+    # Period is far away
+    NestingBoxPresencePeriodFactory(
+        started_at=now + datetime.timedelta(minutes=5),
+        ended_at=now + datetime.timedelta(minutes=6),
+    )
 
     call_command("prune_nesting_box_images")
 
