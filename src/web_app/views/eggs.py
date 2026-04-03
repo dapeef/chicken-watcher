@@ -1,7 +1,7 @@
 import json
 from datetime import timedelta, date, datetime
 from django.urls import reverse_lazy
-from django.views.generic import ListView, TemplateView, CreateView
+from django.views.generic import ListView, TemplateView, CreateView, DeleteView
 from django.db.models import Count
 
 from ..models import Egg, Chicken
@@ -123,4 +123,10 @@ class EggCreateView(CreateView):
     model = Egg
     form_class = EggForm
     template_name = "web_app/egg_form.html"
+    success_url = reverse_lazy("egg_list")
+
+
+class EggDeleteView(DeleteView):
+    model = Egg
+    template_name = "web_app/egg_confirm_delete.html"
     success_url = reverse_lazy("egg_list")

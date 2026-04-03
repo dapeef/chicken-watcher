@@ -106,6 +106,35 @@ class TestEggViews:
         assert len(datasets) == 1
         assert datasets[0]["label"] == chicken.name
 
+    def test_egg_delete_view_get_shows_confirmation(self, client):
+        egg = EggFactory()
+        url = reverse("egg_delete", args=[egg.pk])
+
+        response = client.get(url)
+        assert response.status_code == 200
+        assert "Are you sure" in response.content.decode()
+
+    def test_egg_delete_view_post_deletes_egg(self, client):
+        egg = EggFactory()
+        url = reverse("egg_delete", args=[egg.pk])
+
+        response = client.post(url)
+        assert response.status_code == 302
+        assert Egg.objects.count() == 0
+
+    def test_egg_delete_view_redirects_to_egg_list(self, client):
+        egg = EggFactory()
+        url = reverse("egg_delete", args=[egg.pk])
+
+        response = client.post(url)
+        assert response.url == reverse("egg_list")
+
+    def test_egg_delete_view_nonexistent_egg_returns_404(self, client):
+        url = reverse("egg_delete", args=[9999])
+
+        response = client.get(url)
+        assert response.status_code == 404
+
     def test_egg_production_view_filters(self, client):
         chicken = ChickenFactory()
         # One egg today
