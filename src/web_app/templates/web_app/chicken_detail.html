@@ -4,6 +4,27 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script type="text/javascript" src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
+<link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+<style>
+  #nest-visualization {
+    width: 100%;
+    height: 160px;
+    border: 1px solid lightgray;
+  }
+  .timeline-egg {
+    background-color: #ffe5d0;
+    border-color: #f5c2a7;
+  }
+  .timeline-period.box-left {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+  }
+  .timeline-period.box-right {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -63,18 +84,7 @@
 
       <!-- nesting behaviour -->
       <div class="tab-pane fade" id="nest" role="tabpanel">
-        <h6>Last 24&nbsp;hours</h6>
-        {% if presence_events %}
-          <ul class="list-group list-group-flush small">
-            {% for ev in presence_events %}
-              <li class="list-group-item">
-                {{ ev.present_at|date:"H:i" }} — in {{ ev.nesting_box.name }}
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-muted mb-0">No presence detected.</p>
-        {% endif %}
+        <div id="nest-visualization"></div>
       </div>
 
       <!-- raw events -->
@@ -101,6 +111,43 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+  // ── Nesting behaviour mini-timeline ────────────────────────────────────────
+  const nestContainer = document.getElementById("nest-visualization");
+  const nestItems = new vis.DataSet([]);
+  const nestTimeline = new vis.Timeline(nestContainer, nestItems, {
+    height: "160px",
+    stack: true,
+    showCurrentTime: true,
+    zoomMin: 1000 * 60, // 1 minute
+  });
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(startOfDay);
+  endOfDay.setDate(endOfDay.getDate() + 1);
+  nestTimeline.setWindow(startOfDay, endOfDay);
+
+  function loadNestData(properties) {
+    const start = properties.start.toISOString();
+    const end = properties.end.toISOString();
+    const url = `{% url 'chicken_timeline_data' hen.pk %}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+    fetch(url)
+      .then(r => r.json())
+      .then(data => nestItems.update(data))
+      .catch(err => console.error("Error loading nest timeline data:", err));
+  }
+
+  nestTimeline.on("rangechanged", loadNestData);
+  loadNestData({ start: startOfDay, end: endOfDay });
+
+  // Refresh while the current time is in view
+  setInterval(() => {
+    const w = nestTimeline.getWindow();
+    const now = new Date();
+    if (now >= w.start && now <= w.end) loadNestData(w);
+  }, 10000);
+
+  // ── Egg output chart ───────────────────────────────────────────────────────
   const ctx = document.getElementById("eggChart");
   if (!ctx) return;
 

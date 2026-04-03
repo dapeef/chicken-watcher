@@ -30,6 +30,11 @@ urlpatterns = [
     path(
         "chickens/<int:pk>/", views.ChickenDetailView.as_view(), name="chicken_detail"
     ),
+    path(
+        "chickens/<int:pk>/timeline-data/",
+        views.chicken_timeline_data,
+        name="chicken_timeline_data",
+    ),
     path("eggs/", views.EggListView.as_view(), name="egg_list"),
     path("eggs/new/", views.EggCreateView.as_view(), name="egg_create"),
     path("eggs/<int:pk>/delete/", views.EggDeleteView.as_view(), name="egg_delete"),

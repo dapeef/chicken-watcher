@@ -1,10 +1,12 @@
 import json
-from datetime import timedelta, date
+from datetime import datetime, timedelta, date
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.views.generic import ListView, DetailView
 from django.db.models import Count, Max, Q
 from django.utils import timezone
 
-from ..models import Chicken, Egg, NestingBoxPresence
+from ..models import Chicken, Egg, NestingBoxPresencePeriod
 from ..utils import rolling_average
 
 
@@ -81,18 +83,6 @@ class ChickenDetailView(DetailView):
         ctx["chart_rolling"] = json.dumps(rolling)
 
         # ------------------------------------------------------------
-        # 2) Nesting-box presence last 24 h
-        # ------------------------------------------------------------
-        now = timezone.localtime()
-        since = now - timedelta(hours=24)
-        presence = (
-            NestingBoxPresence.objects.filter(chicken=chicken, present_at__gte=since)
-            .select_related("nesting_box")
-            .order_by("present_at")
-        )
-        ctx["presence_events"] = presence
-
-        # ------------------------------------------------------------
         # 3) Quick stats
         # ------------------------------------------------------------
         stats = Egg.objects.filter(chicken=chicken).aggregate(
@@ -104,3 +94,59 @@ class ChickenDetailView(DetailView):
         )
         ctx["stats"] = stats
         return ctx
+
+
+def chicken_timeline_data(request, pk):
+    chicken = get_object_or_404(Chicken, pk=pk)
+
+    start_str = request.GET.get("start")
+    end_str = request.GET.get("end")
+
+    if not start_str or not end_str:
+        return JsonResponse([], safe=False)
+
+    try:
+        start = datetime.fromisoformat(
+            start_str.replace("Z", "+00:00").replace(" ", "+")
+        )
+        if timezone.is_naive(start):
+            start = timezone.make_aware(start)
+        end = datetime.fromisoformat(end_str.replace("Z", "+00:00").replace(" ", "+"))
+        if timezone.is_naive(end):
+            end = timezone.make_aware(end)
+    except (ValueError, TypeError, OverflowError):
+        return JsonResponse([], safe=False)
+
+    eggs = Egg.objects.filter(
+        chicken=chicken, laid_at__range=(start, end)
+    ).select_related("nesting_box")
+
+    periods = NestingBoxPresencePeriod.objects.filter(
+        chicken=chicken, started_at__lte=end, ended_at__gte=start
+    ).select_related("nesting_box")
+
+    items = []
+
+    for egg in eggs:
+        items.append(
+            {
+                "id": f"egg_{egg.id}",
+                "content": "🥚",
+                "start": egg.laid_at.isoformat(),
+                "className": "timeline-egg",
+            }
+        )
+
+    for period in periods:
+        items.append(
+            {
+                "id": f"period_{period.id}",
+                "content": f"📥 {period.nesting_box.name}",
+                "start": period.started_at.isoformat(),
+                "end": period.ended_at.isoformat(),
+                "type": "range",
+                "className": f"timeline-period box-{period.nesting_box.name}",
+            }
+        )
+
+    return JsonResponse(items, safe=False)
