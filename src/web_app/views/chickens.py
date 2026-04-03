@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime, timezone as dt_timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.generic import ListView, DetailView
@@ -89,6 +89,19 @@ class ChickenDetailView(DetailView):
         ctx["chart_rolling"] = json.dumps(rolling)
 
         # ------------------------------------------------------------
+        # 2) Time-of-day nesting frequency
+        # ------------------------------------------------------------
+        all_periods = NestingBoxPresencePeriod.objects.filter(chicken=chicken)
+        tod_counts = nesting_time_of_day(all_periods)
+        # Labels: "HH:MM" for the start of each bucket
+        tod_labels = [
+            f"{(i * BUCKET_MINUTES) // 60:02d}:{(i * BUCKET_MINUTES) % 60:02d}"
+            for i in range(BUCKETS_PER_DAY)
+        ]
+        ctx["tod_labels"] = json.dumps(tod_labels)
+        ctx["tod_counts"] = json.dumps(tod_counts)
+
+        # ------------------------------------------------------------
         # 3) Quick stats
         # ------------------------------------------------------------
         stats = Egg.objects.filter(chicken=chicken).aggregate(
@@ -100,6 +113,48 @@ class ChickenDetailView(DetailView):
         )
         ctx["stats"] = stats
         return ctx
+
+
+BUCKET_MINUTES = 10
+BUCKETS_PER_DAY = 24 * 60 // BUCKET_MINUTES  # 144
+
+
+def nesting_time_of_day(periods):
+    """
+    Given an iterable of NestingBoxPresencePeriod instances, return a list of
+    BUCKETS_PER_DAY counts.
+
+    Each bucket represents a BUCKET_MINUTES-wide window of the day in UTC.
+    UTC is used deliberately: these are solar/biological measurements (chickens
+    don't observe DST), so wall-clock adjustments like BST would distort the
+    pattern.
+
+    The value is the number of distinct calendar days on which this chicken
+    was present in a nesting box during that time-of-day window.
+    """
+    # days_seen[bucket] = set of date objects on which the chicken was present
+    days_seen = [set() for _ in range(BUCKETS_PER_DAY)]
+
+    for period in periods:
+        # Convert to UTC — intentionally not local time, to avoid DST distortion
+        local_start = period.started_at.astimezone(dt_timezone.utc)
+        local_end = period.ended_at.astimezone(dt_timezone.utc)
+
+        # Walk forward in BUCKET_MINUTES steps from the start of the period,
+        # capping at local_end. For each step record which calendar date and
+        # which bucket index it falls in.
+        cursor = local_start.replace(second=0, microsecond=0)
+        # Snap cursor back to the start of its bucket
+        cursor = cursor.replace(
+            minute=(cursor.minute // BUCKET_MINUTES) * BUCKET_MINUTES
+        )
+
+        while cursor < local_end:
+            bucket = (cursor.hour * 60 + cursor.minute) // BUCKET_MINUTES
+            days_seen[bucket].add(cursor.date())
+            cursor += timedelta(minutes=BUCKET_MINUTES)
+
+    return [len(s) for s in days_seen]
 
 
 def chicken_timeline_data(request, pk):

@@ -51,6 +51,11 @@
 
       <hr>
 
+      <h6 class="mb-2">Time of day in nesting box</h6>
+      <canvas id="todChart" height="80"></canvas>
+
+      <hr>
+
       <h6 class="mb-2">Nesting behaviour</h6>
       <div id="nest-visualization"></div>
     </div>
@@ -94,6 +99,33 @@ document.addEventListener("DOMContentLoaded", () => {
     const now = new Date();
     if (now >= w.start && now <= w.end) loadNestData(w);
   }, 10000);
+
+  // ── Time-of-day nesting frequency chart ───────────────────────────────────
+  new Chart(document.getElementById("todChart"), {
+    type: "line",
+    data: {
+      labels: {{ tod_labels|safe }},
+      datasets: [{
+        label: "Days present at this time",
+        data: {{ tod_counts|safe }},
+        borderColor: "rgba(102,16,242,0.8)",
+        backgroundColor: "rgba(102,16,242,0.1)",
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+      }]
+    },
+    options: {
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 12 },
+          title: { display: true, text: "Time of day (UTC — not adjusted for BST)" }
+        },
+        y: { beginAtZero: true, precision: 0 }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
 
   // ── Egg output chart ───────────────────────────────────────────────────────
   const ctx = document.getElementById("eggChart");
