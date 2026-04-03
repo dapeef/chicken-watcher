@@ -43,54 +43,16 @@
     </div>
   </div>
 
-  <!-- right column: tabs -->
+  <!-- right column -->
   <div class="col-md-8">
-    <ul class="nav nav-tabs" id="henTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="eggs-tab" data-bs-toggle="tab"
-                data-bs-target="#eggs" type="button" role="tab">Egg output</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="nest-tab" data-bs-toggle="tab"
-                data-bs-target="#nest" type="button" role="tab">Nesting behaviour</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="raw-tab" data-bs-toggle="tab"
-                data-bs-target="#raw" type="button" role="tab">Raw events</button>
-      </li>
-    </ul>
+    <div class="border p-3 bg-white shadow-sm">
+      <h6 class="mb-2">Egg output</h6>
+      <canvas id="eggChart" height="120"></canvas>
 
-    <div class="tab-content border border-top-0 p-3 bg-white shadow-sm"
-         id="henTabsContent">
+      <hr>
 
-      <!-- egg chart -->
-      <div class="tab-pane fade show active" id="eggs" role="tabpanel">
-        <canvas id="eggChart" height="120"></canvas>
-      </div>
-
-      <!-- nesting behaviour -->
-      <div class="tab-pane fade" id="nest" role="tabpanel">
-        <div id="nest-visualization"></div>
-      </div>
-
-      <!-- raw events -->
-      <div class="tab-pane fade" id="raw" role="tabpanel">
-        <table class="table table-sm small">
-          <thead><tr><th>Eggs (latest&nbsp;20)</th><th>Time</th><th>Box</th></tr></thead>
-          <tbody>
-          {% for egg in hen.egg_set.all|dictsortreversed:"laid_at"|slice:":20" %}
-            <tr>
-              <td>Egg</td>
-              <td>{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
-              <td>{{ egg.nesting_box.name }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="3" class="text-muted">No eggs yet.</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
+      <h6 class="mb-2">Nesting behaviour</h6>
+      <div id="nest-visualization"></div>
     </div>
   </div>
 </div>
@@ -135,7 +97,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Egg output chart ───────────────────────────────────────────────────────
   const ctx = document.getElementById("eggChart");
-  if (!ctx) return;
 
   const labels  = {{ chart_labels|safe }};
   const daily   = {{ chart_daily|safe }};
