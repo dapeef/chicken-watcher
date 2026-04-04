@@ -104,7 +104,7 @@ class NestingBoxPresence(models.Model):
 
 
 class NestingBoxImage(models.Model):
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
     image = models.ImageField(upload_to="nesting_box_images")
 
     def __str__(self):
