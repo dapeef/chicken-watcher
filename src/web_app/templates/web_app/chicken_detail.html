@@ -29,7 +29,12 @@
             <dt class="col-5">Date of death</dt><dd class="col-7">{{ hen.date_of_death }}</dd>
           {% endif %}
           <dt class="col-5">Age</dt><dd class="col-7">{{ hen.age|intcomma }} days</dd>
-          <dt class="col-5">Tag</dt><dd class="col-7">{{ hen.tag_string }}</dd>
+          {% if hen.tag %}
+            <dt class="col-5">Tag number</dt><dd class="col-7">{{ hen.tag.number }}</dd>
+            <dt class="col-5">Tag ID</dt><dd class="col-7">{{ hen.tag.rfid_string }}</dd>
+          {% else %}
+            <dt class="col-5">Tag</dt><dd class="col-7"><em>None</em></dd>
+          {% endif %}
         </dl>
 
         <hr>

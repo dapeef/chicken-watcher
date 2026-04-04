@@ -28,11 +28,21 @@ class ChickenQuerySet(models.QuerySet):
         )
 
 
+class Tag(models.Model):
+    rfid_string = models.CharField(max_length=200, unique=True)
+    number = models.PositiveIntegerField(unique=True)
+
+    def __str__(self):
+        return f"Tag {self.number} ({self.rfid_string})"
+
+
 class Chicken(models.Model):
     name = models.CharField(max_length=200)
     date_of_birth = models.DateField()
     date_of_death = models.DateField(null=True, blank=True)
-    tag_string = models.CharField(max_length=200)
+    tag = models.ForeignKey(
+        Tag, on_delete=models.SET_NULL, null=True, blank=True, related_name="chickens"
+    )
 
     objects = ChickenQuerySet.as_manager()
 

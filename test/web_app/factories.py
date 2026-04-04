@@ -1,6 +1,7 @@
 import factory
 from django.utils import timezone
 from web_app.models import (
+    Tag,
     Chicken,
     NestingBox,
     Egg,
@@ -11,6 +12,14 @@ from web_app.models import (
 )
 
 
+class TagFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Tag
+
+    rfid_string = factory.Sequence(lambda n: f"TAG_{n:010d}")
+    number = factory.Sequence(lambda n: n + 1)
+
+
 class ChickenFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Chicken
@@ -19,7 +28,7 @@ class ChickenFactory(factory.django.DjangoModelFactory):
     date_of_birth = factory.LazyFunction(
         lambda: timezone.now().date() - timezone.timedelta(days=365)
     )
-    tag_string = factory.Sequence(lambda n: f"TAG_{n}")
+    tag = factory.SubFactory(TagFactory)
 
 
 class NestingBoxFactory(factory.django.DjangoModelFactory):

@@ -11,7 +11,7 @@ This is a system which will run on a Raspberry Pi and track which chicken lays w
 Seed the DB using:
 
 ```shell
-uv run manage.py seed
+uv run manage.py seed --mode=spawn_test_data
 ```
 
 Set the RFID readers' ports as environment variables. When deployed, these are set in the `.env` file and are set
@@ -105,8 +105,11 @@ docker compose exec web-app uv run manage.py [command]
    ```shell
    docker compose exec web-app uv run manage.py seed --mode=seed_nesting_boxes
    ```
-9. Create the chickens from `chickens.csv`
+9. Seed the tags from `tags.csv`
    ```shell
-   docker compose exec web-app uv run manage.py seed --mode=seed_chickens
+   docker compose exec web-app uv run manage.py seed --mode=seed_tags
    ```
-   
+10. Seed the chickens from `chickens.csv` (tags must exist first)
+    ```shell
+    docker compose exec web-app uv run manage.py seed --mode=seed_chickens
+    ```

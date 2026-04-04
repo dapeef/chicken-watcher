@@ -13,6 +13,7 @@ from web_app.models import (
     NestingBoxPresence,
     NestingBox,
     Chicken,
+    Tag,
     NestingBoxImage,
     Egg,
     HardwareSensor,
@@ -52,7 +53,8 @@ def handle_tag_read(name: str, tag: str):
     logger.info("[%s] Nesting box detected tag: %s", name, tag)
     try:
         nesting_box = NestingBox.objects.get(name=name)
-        chicken = Chicken.objects.get(tag_string=tag)
+        tag_obj = Tag.objects.get(rfid_string=tag)
+        chicken = Chicken.objects.get(tag=tag_obj, date_of_death__isnull=True)
 
         now = timezone.now()
 
@@ -102,8 +104,10 @@ def handle_tag_read(name: str, tag: str):
             period.id,
         )
 
+    except Tag.DoesNotExist:
+        logger.error("No tag found matching rfid string: %s", tag)
     except Chicken.DoesNotExist:
-        logger.error("No matching chicken found matching tag: %s", tag)
+        logger.error("No live chicken found assigned to tag: %s", tag)
     except NestingBox.DoesNotExist:
         logger.error("No matching nesting box found matching name: %s", name)
 

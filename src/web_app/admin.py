@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    Tag,
     Chicken,
     NestingBox,
     Egg,
@@ -10,6 +11,7 @@ from .models import (
     NestingBoxPresencePeriod,
 )
 
+admin.site.register(Tag)
 admin.site.register(Chicken)
 admin.site.register(NestingBox)
 admin.site.register(Egg)

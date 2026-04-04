@@ -17,13 +17,13 @@ from web_app.models import (
     HardwareSensor,
     NestingBoxPresencePeriod,
 )
-from test.web_app.factories import ChickenFactory, NestingBoxFactory
+from test.web_app.factories import TagFactory, ChickenFactory, NestingBoxFactory
 
 
 @pytest.mark.django_db
 class TestHardwareHandlers:
     def test_handle_tag_read(self, mocker):
-        chicken = ChickenFactory(tag_string="12345")
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         box = NestingBoxFactory(name="Box1")
         HardwareSensor.objects.create(name="rfid_Box1")
 
@@ -45,7 +45,7 @@ class TestHardwareHandlers:
         from datetime import timedelta
         from django.utils import timezone
 
-        chicken = ChickenFactory(tag_string="12345")
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         box = NestingBoxFactory(name="Box1")
         HardwareSensor.objects.create(name="rfid_Box1")
 
@@ -71,7 +71,7 @@ class TestHardwareHandlers:
         from datetime import timedelta
         from django.utils import timezone
 
-        chicken = ChickenFactory(tag_string="12345")
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         box = NestingBoxFactory(name="Box1")
         HardwareSensor.objects.create(name="rfid_Box1")
 
@@ -94,7 +94,7 @@ class TestHardwareHandlers:
         from datetime import timedelta
         from django.utils import timezone
 
-        chicken = ChickenFactory(tag_string="12345")
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         box1 = NestingBoxFactory(name="Box1")
         box2 = NestingBoxFactory(name="Box2")
         HardwareSensor.objects.create(name="rfid_Box1")
@@ -123,19 +123,32 @@ class TestHardwareHandlers:
         assert periods[0].ended_at == t0
         assert periods[1].started_at == t2
 
-    def test_handle_tag_read_unknown_chicken(self, mocker, caplog):
+    def test_handle_tag_read_unknown_rfid(self, mocker, caplog):
         NestingBoxFactory(name="Box1")
         with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
             handle_tag_read("Box1", "unknown")
         assert NestingBoxPresence.objects.count() == 0
         assert any(
-            "No matching chicken found matching tag" in r.message
+            "No tag found matching rfid string" in r.message
+            and r.levelno == logging.ERROR
+            for r in caplog.records
+        )
+
+    def test_handle_tag_read_no_live_chicken_for_tag(self, mocker, caplog):
+        # Tag exists but has no live chicken assigned (e.g. previous chicken has died)
+        TagFactory(rfid_string="12345", number=1)
+        NestingBoxFactory(name="Box1")
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+            handle_tag_read("Box1", "12345")
+        assert NestingBoxPresence.objects.count() == 0
+        assert any(
+            "No live chicken found assigned to tag" in r.message
             and r.levelno == logging.ERROR
             for r in caplog.records
         )
 
     def test_handle_tag_read_unknown_box(self, mocker, caplog):
-        ChickenFactory(tag_string="12345")
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
             handle_tag_read("UnknownBox", "12345")
         assert NestingBoxPresence.objects.count() == 0
