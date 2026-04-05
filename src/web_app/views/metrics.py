@@ -16,7 +16,7 @@ import json
 import math
 from datetime import timedelta, date, datetime, timezone as dt_timezone
 
-from django.db.models import Count
+from django.db.models import Count, Sum, F, ExpressionWrapper, DurationField
 from django.views.generic import TemplateView
 
 from ..models import Chicken, Egg, NestingBoxPresencePeriod
@@ -406,6 +406,81 @@ class MetricsView(TemplateView):
             "stepped": True,
         }
 
+        # ── Nesting box preference pie charts ────────────────────────────────
+        # Aggregate across all chosen chickens within the date range.
+        # "by visits"  → count of NestingBoxPresencePeriod rows per box
+        # "by time"    → total seconds spent per box
+        box_qs = (
+            NestingBoxPresencePeriod.objects.filter(
+                chicken__in=chosen,
+                started_at__date__range=(start, end),
+            )
+            .annotate(
+                duration_secs=ExpressionWrapper(
+                    F("ended_at") - F("started_at"),
+                    output_field=DurationField(),
+                )
+            )
+            .values("nesting_box__name")
+            .annotate(
+                visits=Count("id"),
+                total_duration=Sum("duration_secs"),
+            )
+            .order_by("nesting_box__name")
+        )
+
+        box_labels = []
+        box_visits = []
+        box_seconds = []
+        for row in box_qs:
+            box_labels.append(row["nesting_box__name"])
+            box_visits.append(row["visits"])
+            duration = row["total_duration"]
+            box_seconds.append(
+                int(duration.total_seconds()) if duration is not None else 0
+            )
+
+        # Eggs per nesting box
+        egg_box_qs = (
+            Egg.objects.filter(
+                chicken__in=chosen,
+                laid_at__date__range=(start, end),
+            )
+            .values("nesting_box__name")
+            .annotate(egg_count=Count("id"))
+            .order_by("nesting_box__name")
+        )
+        egg_box_labels = [r["nesting_box__name"] for r in egg_box_qs]
+        egg_box_counts = [r["egg_count"] for r in egg_box_qs]
+
+        # Colour palette for pie slices — use the same PALETTE so colours are
+        # consistent if a user ever cross-references with line charts.
+        pie_colours = PALETTE[: len(box_labels)]
+        egg_pie_colours = PALETTE[: len(egg_box_labels)]
+
+        nesting_box_visits_json = json.dumps(
+            {
+                "labels": box_labels,
+                "datasets": [
+                    {
+                        "data": box_visits,
+                        "backgroundColor": pie_colours,
+                    }
+                ],
+            }
+        )
+        nesting_box_time_json = json.dumps(
+            {
+                "labels": box_labels,
+                "datasets": [
+                    {
+                        "data": box_seconds,
+                        "backgroundColor": pie_colours,
+                    }
+                ],
+            }
+        )
+
         # ── Context ───────────────────────────────────────────────────────────
         ctx.update(
             {
@@ -434,6 +509,16 @@ class MetricsView(TemplateView):
                 "tod_labels_json": json.dumps(tod_labels),
                 "tod_egg_datasets_json": json.dumps(tod_egg_datasets),
                 "tod_nest_datasets_json": json.dumps(tod_nest_datasets),
+                "nesting_box_visits_json": nesting_box_visits_json,
+                "nesting_box_time_json": nesting_box_time_json,
+                "nesting_box_eggs_json": json.dumps(
+                    {
+                        "labels": egg_box_labels,
+                        "datasets": [
+                            {"data": egg_box_counts, "backgroundColor": egg_pie_colours}
+                        ],
+                    }
+                ),
             }
         )
         return ctx

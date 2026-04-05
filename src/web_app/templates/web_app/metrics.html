@@ -197,6 +197,30 @@
       <canvas id="todNestChart" height="100"></canvas>
     </div>
 
+    <div class="chart-card">
+      <h6 class="mb-3">Nesting box preference</h6>
+      <div class="row g-4">
+        <div class="col-sm-4 text-center">
+          <p class="small text-muted mb-2">By time spent</p>
+          <div style="position: relative; height: 260px;">
+            <canvas id="nestBoxTimeChart"></canvas>
+          </div>
+        </div>
+        <div class="col-sm-4 text-center">
+          <p class="small text-muted mb-2">By visits</p>
+          <div style="position: relative; height: 260px;">
+            <canvas id="nestBoxVisitsChart"></canvas>
+          </div>
+        </div>
+        <div class="col-sm-4 text-center">
+          <p class="small text-muted mb-2">By eggs</p>
+          <div style="position: relative; height: 260px;">
+            <canvas id="nestBoxEggsChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -366,6 +390,54 @@ document.addEventListener("DOMContentLoaded", () => {
         tooltip: { intersect: false, mode: "index" }
       }
     }
+  });
+
+  // Helper: format seconds as "Xh Ym"
+  function fmtSeconds(s) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  const pieOptions = (labelFn) => ({
+    ...noAnimation,
+    maintainAspectRatio: false,
+    rotation: 180,
+    plugins: {
+      legend: { position: "bottom" },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const label = ctx.label || "";
+            const value = labelFn(ctx.parsed);
+            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+            const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : "0.0";
+            return `${label}: ${value} (${pct}%)`;
+          }
+        }
+      }
+    }
+  });
+
+  // Nesting box preference — by time spent
+  new Chart(document.getElementById("nestBoxTimeChart"), {
+    type: "pie",
+    data: {{ nesting_box_time_json|safe }},
+    options: pieOptions(fmtSeconds),
+  });
+
+  // Nesting box preference — by visits
+  new Chart(document.getElementById("nestBoxVisitsChart"), {
+    type: "pie",
+    data: {{ nesting_box_visits_json|safe }},
+    options: pieOptions(v => `${v} visit${v !== 1 ? "s" : ""}`),
+  });
+
+  // Nesting box preference — by eggs
+  new Chart(document.getElementById("nestBoxEggsChart"), {
+    type: "pie",
+    data: {{ nesting_box_eggs_json|safe }},
+    options: pieOptions(v => `${v} egg${v !== 1 ? "s" : ""}`),
   });
 });
 </script>
