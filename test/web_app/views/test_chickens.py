@@ -1,6 +1,6 @@
 import pytest
 import json
-from datetime import timedelta, datetime, timezone as dt_timezone
+from datetime import date, timedelta, datetime, timezone as dt_timezone
 from django.urls import reverse
 from django.utils import timezone
 from ..factories import (
@@ -78,26 +78,136 @@ class TestNestingTimeOfDay:
 
 
 @pytest.mark.django_db
-class TestChickenViews:
-    def test_chicken_list_view(self, client):
+class TestChickenListView:
+    url = reverse("chicken_list")
+
+    # --- basic rendering ---
+
+    def test_empty_list(self, client):
+        response = client.get(self.url)
+        assert response.status_code == 200
+        assert len(response.context["object_list"]) == 0
+
+    def test_chickens_appear_in_list(self, client):
         ChickenFactory(name="Bertha")
         ChickenFactory(name="Alice")
-        url = reverse("chicken_list")
-
-        # Test default sorting (name)
-        response = client.get(url)
+        response = client.get(self.url)
         assert response.status_code == 200
-        chickens = response.context["object_list"]
-        assert len(chickens) == 2
-        assert chickens[0].name == "Alice"
-        assert chickens[1].name == "Bertha"
+        names = {c.name for c in response.context["object_list"]}
+        assert names == {"Bertha", "Alice"}
 
-        # Test explicit sorting
-        response = client.get(url + "?sort=-name")
-        chickens = response.context["object_list"]
-        assert chickens[0].name == "Bertha"
-        assert chickens[1].name == "Alice"
+    def test_all_expected_headers_present(self, client):
+        response = client.get(self.url)
+        header_keys = [col for col, _ in response.context["headers"]]
+        assert "name" in header_keys
+        assert "age_duration" in header_keys
+        assert "tag__number" in header_keys
+        assert "eggs_total" in header_keys
+        assert "last_egg" in header_keys
+        assert "date_of_birth" in header_keys
+        assert "date_of_death" in header_keys
 
+    def test_html_contains_age_and_tag_columns(self, client):
+        response = client.get(self.url)
+        assert b"Age" in response.content
+        assert b"Tag number" in response.content
+
+    # --- sorting ---
+
+    def test_default_sort_is_by_name_ascending(self, client):
+        ChickenFactory(name="Zelda")
+        ChickenFactory(name="Alice")
+        response = client.get(self.url)
+        names = [c.name for c in response.context["object_list"]]
+        assert names == sorted(names)
+
+    def test_sort_by_name_descending(self, client):
+        ChickenFactory(name="Bertha")
+        ChickenFactory(name="Alice")
+        response = client.get(self.url + "?sort=-name")
+        names = [c.name for c in response.context["object_list"]]
+        assert names == ["Bertha", "Alice"]
+
+    def test_sort_context_reflects_query_param(self, client):
+        response = client.get(self.url + "?sort=age_duration")
+        assert response.context["sort"] == "age_duration"
+
+    def test_sort_by_age_duration_ascending(self, client):
+        today = date.today()
+        young = ChickenFactory(date_of_birth=today - timedelta(days=10))
+        old = ChickenFactory(date_of_birth=today - timedelta(days=200))
+        response = client.get(self.url + "?sort=age_duration")
+        ids = [c.pk for c in response.context["object_list"]]
+        assert ids == [young.pk, old.pk]
+
+    def test_sort_by_eggs_total_descending(self, client):
+        few = ChickenFactory()
+        many = ChickenFactory()
+        EggFactory.create_batch(5, chicken=many)
+        EggFactory.create_batch(1, chicken=few)
+        response = client.get(self.url + "?sort=-eggs_total")
+        ids = [c.pk for c in response.context["object_list"]]
+        assert ids[0] == many.pk
+
+    # --- age_days annotation ---
+
+    def test_age_duration_for_living_chicken(self, client):
+        today = date.today()
+        dob = today - timedelta(days=100)
+        chicken = ChickenFactory(date_of_birth=dob, date_of_death=None)
+        response = client.get(self.url)
+        hen = next(c for c in response.context["object_list"] if c.pk == chicken.pk)
+        assert hen.age_duration.days == 100
+
+    def test_age_duration_capped_at_date_of_death(self, client):
+        today = date.today()
+        dob = today - timedelta(days=200)
+        dod = today - timedelta(days=50)
+        chicken = ChickenFactory(date_of_birth=dob, date_of_death=dod)
+        response = client.get(self.url)
+        hen = next(c for c in response.context["object_list"] if c.pk == chicken.pk)
+        assert hen.age_duration.days == 150
+
+    def test_age_rendered_as_ymd_in_html(self, client):
+        today = date.today()
+        # 42 days = 1m 12d
+        ChickenFactory(date_of_birth=today - timedelta(days=42), date_of_death=None)
+        response = client.get(self.url)
+        assert b"1m 12d" in response.content
+
+    # --- tag number ---
+
+    def test_tag_number_shown_when_tag_assigned(self, client):
+        from ..factories import TagFactory
+
+        tag = TagFactory(number=99)
+        ChickenFactory(tag=tag)
+        response = client.get(self.url)
+        assert b"99" in response.content
+
+    def test_tag_number_dash_when_no_tag(self, client):
+        ChickenFactory(tag=None)
+        response = client.get(self.url)
+        assert "—".encode() in response.content
+
+    def test_tag_number_value_on_queryset(self, client):
+        from ..factories import TagFactory
+
+        tag = TagFactory(number=7)
+        chicken = ChickenFactory(tag=tag)
+        response = client.get(self.url)
+        hen = next(c for c in response.context["object_list"] if c.pk == chicken.pk)
+        assert hen.tag.number == 7
+
+    def test_chicken_without_tag_has_none_tag(self, client):
+        chicken = ChickenFactory(tag=None)
+        response = client.get(self.url)
+        hen = next(c for c in response.context["object_list"] if c.pk == chicken.pk)
+        assert hen.tag is None
+
+
+@pytest.mark.django_db
+class TestChickenViews:
     def test_chicken_detail_view(self, client):
         chicken = ChickenFactory()
         EggFactory.create_batch(

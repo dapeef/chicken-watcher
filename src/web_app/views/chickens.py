@@ -1,10 +1,19 @@
 import math
 from datetime import timedelta, datetime, timezone as dt_timezone
+from django.db.models import (
+    Count,
+    DateField,
+    DurationField,
+    ExpressionWrapper,
+    F,
+    Max,
+    Q,
+)
+from django.db.models.functions import Cast, Coalesce, Now
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.views.generic import ListView, DetailView
-from django.db.models import Count, Max, Q
 from django.utils import timezone
+from django.views.generic import ListView, DetailView
 
 from ..models import Chicken, Egg, NestingBoxPresencePeriod
 from .timeline_utils import (
@@ -20,12 +29,18 @@ class ChickenListView(ListView):
     template_name = "web_app/chicken_list.html"
 
     def get_queryset(self):
-        qs = (
-            Chicken.objects.annotate(
-                eggs_total=Count("egg"),
-                last_egg=Max("egg__laid_at"),
-            ).select_related()  # nothing to prefetch here but keeps pattern
-        )
+        # age_duration: (date_of_death ?? today) - date_of_birth as a timedelta.
+        # date_of_death is already a DateField; Cast(Now(), DateField()) gives
+        # today's date without requiring TruncDate (which only works on DateTimeFields).
+        end_date = Coalesce(F("date_of_death"), Cast(Now(), output_field=DateField()))
+        qs = Chicken.objects.annotate(
+            eggs_total=Count("egg"),
+            last_egg=Max("egg__laid_at"),
+            age_duration=ExpressionWrapper(
+                end_date - F("date_of_birth"),
+                output_field=DurationField(),
+            ),
+        ).select_related("tag")
 
         sort_param = self.request.GET.get("sort", "name")
         qs = qs.order_by(sort_param)
@@ -37,6 +52,8 @@ class ChickenListView(ListView):
         ctx["sort"] = self.request.GET.get("sort", "name")
         ctx["headers"] = [
             ("name", "Name"),
+            ("age_duration", "Age"),
+            ("tag__number", "Tag number"),
             ("eggs_total", "Eggs total"),
             ("last_egg", "Last egg"),
             ("date_of_birth", "DoB"),
