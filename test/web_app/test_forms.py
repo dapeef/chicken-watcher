@@ -26,6 +26,32 @@ class TestEggForm:
         assert egg.laid_at.month == now.month
         assert egg.laid_at.day == now.day
 
+    def test_valid_form_dud_true(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": now.strftime("%Y-%m-%dT%H:%M"),
+            "dud": True,
+        }
+        form = EggForm(data=data)
+        assert form.is_valid(), form.errors
+        egg = form.save()
+        assert egg.dud is True
+
+    def test_valid_form_dud_defaults_to_false(self):
+        # Omitting 'dud' from POST data simulates an unchecked checkbox
+        now = timezone.now().replace(second=0, microsecond=0)
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": now.strftime("%Y-%m-%dT%H:%M"),
+        }
+        form = EggForm(data=data)
+        assert form.is_valid(), form.errors
+        egg = form.save()
+        assert egg.dud is False
+
     def test_invalid_form(self):
         # laid_at is required in the form
         form = EggForm(data={"chicken": "", "nesting_box": "", "laid_at": ""})

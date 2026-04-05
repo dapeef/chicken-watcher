@@ -30,6 +30,7 @@
       <td>{{ egg.chicken|default:'—' }}</td>
       <td>{{ egg.nesting_box|default:'—' }}</td>
       <td>{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
+      <td>{% if egg.dud %}Yes{% else %}No{% endif %}</td>
       <td><a href="{% url 'egg_delete' egg.pk %}" class="btn btn-sm btn-outline-danger">Delete</a></td>
     </tr>
   {% empty %}

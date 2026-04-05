@@ -74,3 +74,36 @@ class TestEggViews:
 
         response = client.get(url)
         assert response.status_code == 404
+
+    def test_egg_create_view_dud_true(self, client):
+        url = reverse("egg_create")
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": timezone.now().strftime("%Y-%m-%dT%H:%M"),
+            "dud": True,
+        }
+        response = client.post(url, data)
+        assert response.status_code == 302
+        assert Egg.objects.filter(dud=True).count() == 1
+
+    def test_egg_create_view_dud_defaults_to_false(self, client):
+        url = reverse("egg_create")
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": timezone.now().strftime("%Y-%m-%dT%H:%M"),
+        }
+        response = client.post(url, data)
+        assert response.status_code == 302
+        assert Egg.objects.filter(dud=False).count() == 1
+
+    def test_egg_list_shows_dud_column(self, client):
+        EggFactory(dud=True)
+        EggFactory(dud=False)
+        url = reverse("egg_list")
+        response = client.get(url)
+        content = response.content.decode()
+        assert "Dud" in content
+        assert "Yes" in content
+        assert "No" in content

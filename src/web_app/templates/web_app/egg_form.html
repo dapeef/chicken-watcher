@@ -26,6 +26,12 @@
       {{ form.laid_at }}
     </div>
 
-    <button type="submit" class="btn btn-primary">Save</button>
+    <div>
+      <label for="{{ form.dud.id_for_label }}">Dud</label>
+      {{ form.dud.errors }}
+      {{ form.dud }}
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-2">Save</button>
   </form>
 {% endblock %}

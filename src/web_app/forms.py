@@ -18,7 +18,7 @@ class EggForm(forms.ModelForm):
 
     class Meta:
         model = Egg
-        fields = ["chicken", "nesting_box", "laid_at"]
+        fields = ["chicken", "nesting_box", "laid_at", "dud"]
 
     # Keep DB value timezone-aware
     def clean_laid_at(self):

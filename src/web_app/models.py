@@ -48,6 +48,7 @@ class Egg(models.Model):
         NestingBox, on_delete=models.CASCADE, null=True, blank=True
     )
     laid_at = models.DateTimeField(default=timezone.now, db_index=True)
+    dud = models.BooleanField(default=False)
 
     def __str__(self):
         chicken = self.chicken.name if self.chicken else "Unknown chicken"
