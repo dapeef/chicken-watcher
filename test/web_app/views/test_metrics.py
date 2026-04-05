@@ -5,12 +5,14 @@ from django.urls import reverse
 
 from web_app.views.metrics import (
     _gaussian_smooth_circular,
+    _build_egg_prod_datasets,
     DEFAULT_SPAN,
     DEFAULT_WINDOW,
     DEFAULT_NEST_SIGMA,
     DEFAULT_KDE_BANDWIDTH,
 )
 from web_app.views.chickens import BUCKETS_PER_DAY, BUCKET_MINUTES
+from django.db.models import Q
 from ..factories import (
     ChickenFactory,
     EggFactory,
@@ -1091,3 +1093,326 @@ class TestMetricsViewUnknownChicken:
         assert box_count(r_off) == 4
         # With toggle on: hen's 4 + unknown's 2
         assert box_count(r_on) == 6
+
+
+# ── Dud egg charts ────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestMetricsViewDudEggs:
+    """
+    Tests for:
+    - include_duds param parsing
+    - dud_prod_datasets_json context key and its contents
+    - include_duds effect on egg_prod, tod_egg, and nesting box pie charts
+    """
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _base_params(self, start, end):
+        return {
+            "chickens_sent": "1",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "w": "1",  # window=1 so rolling avg == raw count
+        }
+
+    # ── include_duds param parsing ────────────────────────────────────────────
+
+    def test_fresh_load_include_duds_defaults_false(self, client):
+        response = client.get(reverse("metrics"))
+        assert response.context["include_duds"] is False
+
+    def test_form_submission_include_duds_off_by_default(self, client):
+        response = client.get(reverse("metrics"), {"chickens_sent": "1"})
+        assert response.context["include_duds"] is False
+
+    def test_include_duds_explicit_on(self, client):
+        response = client.get(
+            reverse("metrics"), {"chickens_sent": "1", "include_duds": "1"}
+        )
+        assert response.context["include_duds"] is True
+
+    # ── dud production chart context key ─────────────────────────────────────
+
+    def test_dud_prod_datasets_json_present_in_context(self, client):
+        response = client.get(reverse("metrics"))
+        assert "dud_prod_datasets_json" in response.context
+
+    def test_dud_prod_datasets_json_is_valid_json(self, client):
+        response = client.get(reverse("metrics"))
+        # Should not raise
+        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        assert isinstance(datasets, list)
+
+    # ── dud production chart counts ───────────────────────────────────────────
+
+    def test_dud_prod_chart_counts_only_dud_eggs(self, client):
+        """Only dud=True eggs appear in the dud production chart."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+
+        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, dud=True)
+        EggFactory.create_batch(5, chicken=hen, laid_at=today_dt, dud=False)
+
+        params = {
+            **self._base_params(start, today),
+            "chickens": str(hen.pk),
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
+        # With w=1 rolling avg, last entry = count on that day
+        assert hen_data[-1] == 3
+
+    def test_dud_prod_chart_zero_when_no_duds(self, client):
+        """All-zero series when a hen has no dud eggs."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, dud=False)
+
+        params = {
+            **self._base_params(start, today),
+            "chickens": str(hen.pk),
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
+        assert all(v == 0 or v is None for v in hen_data)
+
+    def test_dud_prod_chart_respects_date_range(self, client):
+        """Dud eggs outside the date range do not appear."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
+        before_range = datetime.combine(
+            start - timedelta(days=1), datetime.min.time(), tzinfo=dt_timezone.utc
+        )
+        EggFactory.create_batch(3, chicken=hen, laid_at=before_range, dud=True)
+
+        params = {
+            **self._base_params(start, today),
+            "chickens": str(hen.pk),
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
+        assert all(v == 0 or v is None for v in hen_data)
+
+    def test_dud_prod_chart_respects_chicken_selection(self, client):
+        """Only selected chickens appear in the dud production chart."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(2, chicken=c2, laid_at=today_dt, dud=True)
+
+        params = {
+            **self._base_params(start, today),
+            "chickens": str(c1.pk),  # only c1 selected
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        labels = {d["label"] for d in datasets}
+        assert c1.name in labels
+        assert c2.name not in labels
+
+    def test_dud_prod_chart_multiple_hens(self, client):
+        """Each selected hen gets its own series with correct dud counts."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(2, chicken=c1, laid_at=today_dt, dud=True)
+        EggFactory.create_batch(4, chicken=c2, laid_at=today_dt, dud=True)
+
+        params = {
+            **self._base_params(start, today),
+            "chickens": [str(c1.pk), str(c2.pk)],
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        c1_data = next(d["data"] for d in datasets if d["label"] == c1.name)
+        c2_data = next(d["data"] for d in datasets if d["label"] == c2.name)
+        assert c1_data[-1] == 2
+        assert c2_data[-1] == 4
+
+    # ── include_duds effect on egg production chart ───────────────────────────
+
+    def test_include_duds_adds_duds_to_egg_prod(self, client):
+        """Without include_duds, dud eggs are absent from the egg production series."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, dud=False)
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, dud=True)
+
+        base = {**self._base_params(start, today), "chickens": str(hen.pk)}
+
+        r_without_duds = client.get(reverse("metrics"), base)
+        r_with_duds = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+
+        def last_value(response):
+            datasets = json.loads(response.context["egg_prod_datasets_json"])
+            return next(d["data"] for d in datasets if d["label"] == hen.name)[-1]
+
+        # duds excluded by default → 3; duds included → 5
+        assert last_value(r_without_duds) == 3
+        assert last_value(r_with_duds) == 5
+
+    def test_include_duds_off_does_not_affect_non_dud_count(self, client):
+        """Non-dud eggs are counted identically whether include_duds is on or off."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, dud=False)
+
+        base = {**self._base_params(start, today), "chickens": str(hen.pk)}
+
+        r_off = client.get(reverse("metrics"), base)
+        r_on = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+
+        def last_value(response):
+            datasets = json.loads(response.context["egg_prod_datasets_json"])
+            return next(d["data"] for d in datasets if d["label"] == hen.name)[-1]
+
+        assert last_value(r_off) == 4
+        assert last_value(r_on) == 4
+
+    # ── include_duds effect on egg time-of-day KDE ────────────────────────────
+
+    def test_include_duds_changes_tod_egg_kde(self, client):
+        """
+        With duds included, the KDE shape changes because dud eggs are at a
+        different time of day. Normal eggs at midnight, dud eggs at noon.
+        Without include_duds the peak is near midnight; with it the shape differs.
+        """
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+
+        # Normal eggs at 00:00 UTC
+        midnight_dt = datetime.combine(
+            today, datetime.min.time(), tzinfo=dt_timezone.utc
+        )
+        # Dud eggs at 12:00 UTC (bucket 72 = 720 minutes / 10)
+        noon_dt = midnight_dt.replace(hour=12)
+
+        EggFactory.create_batch(10, chicken=hen, laid_at=midnight_dt, dud=False)
+        EggFactory.create_batch(10, chicken=hen, laid_at=noon_dt, dud=True)
+
+        base = {**self._base_params(start, today), "chickens": str(hen.pk)}
+
+        r_without = client.get(reverse("metrics"), base)
+        r_with = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+
+        def hen_kde(response):
+            datasets = json.loads(response.context["tod_egg_datasets_json"])
+            return next(d["data"] for d in datasets if d["label"] == hen.name)
+
+        kde_without = hen_kde(r_without)
+        kde_with = hen_kde(r_with)
+
+        # The two KDEs should differ (adding duds at noon changes the shape)
+        assert kde_with != kde_without
+        # Without duds, the peak should be near midnight (bucket 0), not noon
+        peak_without = kde_without.index(max(kde_without))
+        NOON_BUCKET = 72
+        assert peak_without != NOON_BUCKET
+
+    # ── include_duds effect on nesting box eggs pie chart ─────────────────────
+
+    def test_include_duds_adds_duds_to_box_pie(self, client):
+        """Without include_duds, dud eggs are excluded from the nesting box pie."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        box = NestingBoxFactory(name="left")
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(
+            3, chicken=hen, nesting_box=box, laid_at=today_dt, dud=False
+        )
+        EggFactory.create_batch(
+            2, chicken=hen, nesting_box=box, laid_at=today_dt, dud=True
+        )
+
+        base = {**self._base_params(start, today), "chickens": str(hen.pk)}
+
+        r_off = client.get(reverse("metrics"), base)
+        r_on = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+
+        def box_count(response):
+            data = json.loads(response.context["nesting_box_eggs_json"])
+            return dict(zip(data["labels"], data["datasets"][0]["data"])).get("Left", 0)
+
+        assert box_count(r_off) == 3
+        assert box_count(r_on) == 5
+
+    # ── _build_egg_prod_datasets unit tests ───────────────────────────────────
+
+    @pytest.mark.django_db
+    def test_build_helper_dud_filter_isolates_duds(self):
+        """_build_egg_prod_datasets with Q(dud=True) returns only dud counts."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        data_start = start - timedelta(days=1)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, dud=True)
+        EggFactory.create_batch(5, chicken=hen, laid_at=today_dt, dud=False)
+
+        days = (today - start).days + 1
+        data_date_labels = [data_start + timedelta(days=i) for i in range(days + 1)]
+
+        datasets = _build_egg_prod_datasets(
+            chosen=[hen],
+            data_date_labels=data_date_labels,
+            window=1,
+            base_egg_filter=Q(dud=True),
+            show_sum=False,
+            show_mean=False,
+            include_unknown=False,
+            data_start=data_start,
+            end=today,
+        )
+        assert len(datasets) == 1
+        assert datasets[0]["label"] == hen.name
+        # Last non-None value should be 2 (only dud eggs)
+        values = [v for v in datasets[0]["data"] if v is not None]
+        assert values[-1] == 2
+
+    @pytest.mark.django_db
+    def test_build_helper_empty_filter_counts_all(self):
+        """_build_egg_prod_datasets with Q() (no filter) returns all eggs."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        data_start = start - timedelta(days=1)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, dud=True)
+        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, dud=False)
+
+        days = (today - start).days + 1
+        data_date_labels = [data_start + timedelta(days=i) for i in range(days + 1)]
+
+        datasets = _build_egg_prod_datasets(
+            chosen=[hen],
+            data_date_labels=data_date_labels,
+            window=1,
+            base_egg_filter=Q(),
+            show_sum=False,
+            show_mean=False,
+            include_unknown=False,
+            data_start=data_start,
+            end=today,
+        )
+        values = [v for v in datasets[0]["data"] if v is not None]
+        assert values[-1] == 5  # 2 duds + 3 non-duds

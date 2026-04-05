@@ -4,12 +4,14 @@ and nesting time-of-day frequency.
 
 URL params
 ----------
-chickens    – repeated: ?chickens=1&chickens=3  (pk list; empty = all)
-show_sum    – "1" to include a sum series
-show_mean   – "1" to include a mean series
-start       – YYYY-MM-DD  (default: 60 days ago)
-end         – YYYY-MM-DD  (default: today)
-w           – rolling window in days for egg production chart (default: 7)
+chickens      – repeated: ?chickens=1&chickens=3  (pk list; empty = all)
+show_sum      – "1" to include a sum series
+show_mean     – "1" to include a mean series
+include_unknown – "1" to include unattributed eggs
+include_duds  – "1" to include dud eggs in all charts (default: off)
+start         – YYYY-MM-DD  (default: 90 days ago)
+end           – YYYY-MM-DD  (default: today)
+w             – rolling window in days for egg production chart (default: 7)
 """
 
 import json
@@ -57,6 +59,7 @@ PALETTE = [
 SUM_COLOUR = "#adb5bd"  # grey  — dotted, secondary
 MEAN_COLOUR = "#212529"  # near-black — solid/bold, primary aggregate
 UNKNOWN_COLOUR = "#adb5bd"  # grey — unattributed eggs series / pie slices
+DUD_COLOUR = "#dc3545"  # red — dud egg series
 
 
 def _gaussian_smooth_circular(counts: list[int], sigma_minutes: int) -> list[float]:
@@ -99,6 +102,146 @@ def _parse_date(txt: str | None) -> date | None:
         return None
 
 
+def _build_egg_prod_datasets(
+    chosen: list,
+    data_date_labels: list,
+    window: int,
+    base_egg_filter: Q,
+    show_sum: bool,
+    show_mean: bool,
+    include_unknown: bool,
+    data_start: date,
+    end: date,
+    unknown_colour: str = UNKNOWN_COLOUR,
+) -> list[dict]:
+    """
+    Build Chart.js dataset dicts for an egg-production-over-time chart.
+
+    base_egg_filter is a Q object that is ANDed with the chicken/date filter
+    before querying eggs — use it to restrict to e.g. dud=True or dud=False.
+    """
+    eggs_qs = (
+        Egg.objects.filter(
+            Q(chicken__in=chosen) & base_egg_filter,
+            laid_at__date__range=(data_start, end),
+        )
+        .values("chicken_id", "laid_at__date")
+        .annotate(cnt=Count("id"))
+    )
+
+    per_hen_counts: dict[int, dict[date, int]] = {c.pk: {} for c in chosen}
+    for row in eggs_qs:
+        per_hen_counts[row["chicken_id"]][row["laid_at__date"]] = row["cnt"]
+
+    datasets = []
+    raw_counts_per_hen = []
+
+    for idx, hen in enumerate(chosen):
+        colour = PALETTE[idx % len(PALETTE)]
+        dob = hen.date_of_birth
+        dod = hen.date_of_death
+        counts = [
+            per_hen_counts[hen.pk].get(d, 0)
+            if dob <= d <= (dod or date.today())
+            else None
+            for d in data_date_labels
+        ]
+        raw_counts_per_hen.append(counts)
+        rolled = rolling_average(counts, window, RIGHT)[window:]
+        datasets.append(
+            {
+                "label": hen.name,
+                "data": rolled,
+                "tension": 0.3,
+                "pointRadius": 0,
+                "borderColor": colour,
+                "backgroundColor": colour,
+            }
+        )
+
+    if include_unknown:
+        unknown_qs = (
+            Egg.objects.filter(
+                Q(chicken__isnull=True) & base_egg_filter,
+                laid_at__date__range=(data_start, end),
+            )
+            .values("laid_at__date")
+            .annotate(cnt=Count("id"))
+        )
+        unknown_daily: dict[date, int] = {
+            row["laid_at__date"]: row["cnt"] for row in unknown_qs
+        }
+        unknown_counts = [unknown_daily.get(d, 0) for d in data_date_labels]
+        raw_counts_per_hen.append(unknown_counts)
+        rolled_unknown = rolling_average(unknown_counts, window, RIGHT)[window:]
+        datasets.append(
+            {
+                "label": "Unknown",
+                "data": rolled_unknown,
+                "tension": 0.3,
+                "pointRadius": 0,
+                "borderColor": unknown_colour,
+                "backgroundColor": unknown_colour,
+            }
+        )
+
+    if show_sum or show_mean:
+        n_hens = len(raw_counts_per_hen)
+        sum_counts = []
+        for day_idx in range(len(data_date_labels)):
+            vals = [
+                raw_counts_per_hen[h][day_idx]
+                for h in range(n_hens)
+                if raw_counts_per_hen[h][day_idx] is not None
+            ]
+            sum_counts.append(sum(vals) if vals else None)
+
+        if show_sum:
+            rolled_sum = rolling_average(sum_counts, window, RIGHT)[window:]
+            datasets.append(
+                {
+                    "label": "Sum",
+                    "data": rolled_sum,
+                    "tension": 0.3,
+                    "pointRadius": 0,
+                    "borderColor": SUM_COLOUR,
+                    "backgroundColor": SUM_COLOUR,
+                    "borderDash": [4, 4],
+                    "borderWidth": 3,
+                }
+            )
+
+        if show_mean:
+            n_active = [
+                sum(
+                    1
+                    for h in range(n_hens)
+                    if raw_counts_per_hen[h][day_idx] is not None
+                )
+                for day_idx in range(len(data_date_labels))
+            ]
+            mean_counts = [
+                (sum_counts[i] / n_active[i])
+                if (sum_counts[i] is not None and n_active[i] > 0)
+                else None
+                for i in range(len(data_date_labels))
+            ]
+            rolled_mean = rolling_average(mean_counts, window, RIGHT)[window:]
+            datasets.append(
+                {
+                    "label": "Mean",
+                    "data": rolled_mean,
+                    "tension": 0.3,
+                    "pointRadius": 0,
+                    "borderColor": MEAN_COLOUR,
+                    "backgroundColor": MEAN_COLOUR,
+                    "borderWidth": 3,
+                }
+            )
+
+    return datasets
+
+
 class MetricsView(TemplateView):
     template_name = "web_app/metrics.html"
 
@@ -134,6 +277,8 @@ class MetricsView(TemplateView):
         include_unknown = (
             req.get("include_unknown", "" if chickens_sent else "1") == "1"
         )
+        # include_duds: off by default on fresh load and form submissions
+        include_duds = req.get("include_duds", "") == "1"
 
         # Date range
         end = _parse_date(req.get("end")) or date.today()
@@ -173,133 +318,34 @@ class MetricsView(TemplateView):
             data_start + timedelta(days=i) for i in range(days + window)
         ]
 
-        # Query eggs for all chosen chickens in one hit
-        eggs_qs = (
-            Egg.objects.filter(
-                chicken__in=chosen,
-                laid_at__date__range=(data_start, end),
-            )
-            .values("chicken_id", "laid_at__date")
-            .annotate(cnt=Count("id"))
+        # Base filter for "normal" egg production: optionally exclude duds
+        normal_egg_filter = Q() if include_duds else Q(dud=False)
+
+        egg_prod_datasets = _build_egg_prod_datasets(
+            chosen=chosen,
+            data_date_labels=data_date_labels,
+            window=window,
+            base_egg_filter=normal_egg_filter,
+            show_sum=show_sum,
+            show_mean=show_mean,
+            include_unknown=include_unknown,
+            data_start=data_start,
+            end=end,
         )
 
-        # {hen_id: {date: count}}
-        per_hen_counts: dict[int, dict[date, int]] = {c.pk: {} for c in chosen}
-        for row in eggs_qs:
-            per_hen_counts[row["chicken_id"]][row["laid_at__date"]] = row["cnt"]
-
-        egg_prod_datasets = []
-        raw_counts_per_hen: list[list[float | None]] = []
-
-        for idx, hen in enumerate(chosen):
-            colour = PALETTE[idx % len(PALETTE)]
-            dob = hen.date_of_birth
-            dod = hen.date_of_death
-
-            counts = [
-                per_hen_counts[hen.pk].get(d, 0)
-                if dob <= d <= (dod or date.today())
-                else None
-                for d in data_date_labels
-            ]
-            raw_counts_per_hen.append(counts)
-
-            rolled = rolling_average(counts, window, RIGHT)[window:]
-
-            egg_prod_datasets.append(
-                {
-                    "label": hen.name,
-                    "data": rolled,
-                    "tension": 0.3,
-                    "pointRadius": 0,
-                    "borderColor": colour,
-                    "backgroundColor": colour,
-                }
-            )
-
-        # Unknown-chicken eggs — one extra series
-        if include_unknown:
-            unknown_egg_qs = (
-                Egg.objects.filter(
-                    chicken__isnull=True,
-                    laid_at__date__range=(data_start, end),
-                )
-                .values("laid_at__date")
-                .annotate(cnt=Count("id"))
-            )
-            unknown_daily: dict[date, int] = {}
-            for row in unknown_egg_qs:
-                unknown_daily[row["laid_at__date"]] = row["cnt"]
-
-            unknown_counts = [unknown_daily.get(d, 0) for d in data_date_labels]
-            raw_counts_per_hen.append(unknown_counts)
-            rolled_unknown = rolling_average(unknown_counts, window, RIGHT)[window:]
-            egg_prod_datasets.append(
-                {
-                    "label": "Unknown",
-                    "data": rolled_unknown,
-                    "tension": 0.3,
-                    "pointRadius": 0,
-                    "borderColor": UNKNOWN_COLOUR,
-                    "backgroundColor": UNKNOWN_COLOUR,
-                }
-            )
-
-        # Sum / Mean aggregates
-        if show_sum or show_mean:
-            # Per-day totals across chosen hens (None if ALL hens are None that day)
-            n_hens = len(raw_counts_per_hen)
-            sum_counts: list[float | None] = []
-            for day_idx in range(len(data_date_labels)):
-                vals = [
-                    raw_counts_per_hen[h][day_idx]
-                    for h in range(n_hens)
-                    if raw_counts_per_hen[h][day_idx] is not None
-                ]
-                sum_counts.append(sum(vals) if vals else None)
-
-            if show_sum:
-                rolled_sum = rolling_average(sum_counts, window, RIGHT)[window:]
-                egg_prod_datasets.append(
-                    {
-                        "label": "Sum",
-                        "data": rolled_sum,
-                        "tension": 0.3,
-                        "pointRadius": 0,
-                        "borderColor": SUM_COLOUR,
-                        "backgroundColor": SUM_COLOUR,
-                        "borderDash": [4, 4],
-                        "borderWidth": 3,
-                    }
-                )
-
-            if show_mean:
-                n_active = [
-                    sum(
-                        1
-                        for h in range(n_hens)
-                        if raw_counts_per_hen[h][day_idx] is not None
-                    )
-                    for day_idx in range(len(data_date_labels))
-                ]
-                mean_counts: list[float | None] = [
-                    (sum_counts[i] / n_active[i])
-                    if (sum_counts[i] is not None and n_active[i] > 0)
-                    else None
-                    for i in range(len(data_date_labels))
-                ]
-                rolled_mean = rolling_average(mean_counts, window, RIGHT)[window:]
-                egg_prod_datasets.append(
-                    {
-                        "label": "Mean",
-                        "data": rolled_mean,
-                        "tension": 0.3,
-                        "pointRadius": 0,
-                        "borderColor": MEAN_COLOUR,
-                        "backgroundColor": MEAN_COLOUR,
-                        "borderWidth": 3,
-                    }
-                )
+        # ── Dud egg production chart ──────────────────────────────────────────
+        dud_prod_datasets = _build_egg_prod_datasets(
+            chosen=chosen,
+            data_date_labels=data_date_labels,
+            window=window,
+            base_egg_filter=Q(dud=True),
+            show_sum=show_sum,
+            show_mean=show_mean,
+            include_unknown=include_unknown,
+            data_start=data_start,
+            end=end,
+            unknown_colour=DUD_COLOUR,
+        )
 
         # ── Time-of-day shared labels ─────────────────────────────────────────
         tod_labels = [
@@ -314,7 +360,7 @@ class MetricsView(TemplateView):
         for idx, hen in enumerate(chosen):
             colour = PALETTE[idx % len(PALETTE)]
             hen_eggs = Egg.objects.filter(
-                chicken=hen,
+                Q(chicken=hen) & normal_egg_filter,
                 laid_at__date__range=(start, end),
             )
             kde = egg_time_of_day_kde(hen_eggs, bandwidth=kde_bandwidth)
@@ -336,7 +382,7 @@ class MetricsView(TemplateView):
         # Unknown-chicken egg KDE series
         if include_unknown:
             unknown_eggs = Egg.objects.filter(
-                chicken__isnull=True,
+                Q(chicken__isnull=True) & normal_egg_filter,
                 laid_at__date__range=(start, end),
             )
             unknown_kde = egg_time_of_day_kde(unknown_eggs, bandwidth=kde_bandwidth)
@@ -507,9 +553,9 @@ class MetricsView(TemplateView):
             )
 
         # Eggs per nesting box
-        egg_box_filter = Q(chicken__in=chosen)
+        egg_box_filter = Q(chicken__in=chosen) & normal_egg_filter
         if include_unknown:
-            egg_box_filter |= Q(chicken__isnull=True)
+            egg_box_filter |= Q(chicken__isnull=True) & normal_egg_filter
         egg_box_qs = (
             Egg.objects.filter(
                 egg_box_filter,
@@ -572,6 +618,7 @@ class MetricsView(TemplateView):
                 "show_sum": show_sum,
                 "show_mean": show_mean,
                 "include_unknown": include_unknown,
+                "include_duds": include_duds,
                 "today": date.today().isoformat(),
                 "earliest_dob": (
                     min((c.date_of_birth for c in all_chickens), default=date.today())
@@ -589,6 +636,7 @@ class MetricsView(TemplateView):
                     [d.isoformat() for d in date_labels]
                 ),
                 "egg_prod_datasets_json": json.dumps(egg_prod_datasets),
+                "dud_prod_datasets_json": json.dumps(dud_prod_datasets),
                 "flock_count_dataset_json": json.dumps(flock_count_dataset),
                 "tod_labels_json": json.dumps(tod_labels),
                 "tod_egg_datasets_json": json.dumps(tod_egg_datasets),

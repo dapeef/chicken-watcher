@@ -77,15 +77,22 @@
         </div>
       </div>
 
-      <!-- Unattributed eggs -->
+      <!-- Egg filters -->
       <div class="mb-3">
-        <strong class="small d-block mb-1">Unattributed eggs</strong>
+        <strong class="small d-block mb-1">Include in charts</strong>
         <div class="form-check">
           <input class="form-check-input" type="checkbox" name="include_unknown"
                  value="1" id="id_include_unknown"
                  {% if include_unknown %}checked{% endif %}
                  onchange="submitForm()">
-          <label class="form-check-label small" for="id_include_unknown">Include unattributed</label>
+          <label class="form-check-label small" for="id_include_unknown">Unattributed eggs</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="include_duds"
+                 value="1" id="id_include_duds"
+                 {% if include_duds %}checked{% endif %}
+                 onchange="submitForm()">
+          <label class="form-check-label small" for="id_include_duds">Dud eggs</label>
         </div>
       </div>
 
@@ -162,6 +169,24 @@
         </div>
       </div>
       <canvas id="eggProdChart" height="140"></canvas>
+    </div>
+
+    <div class="chart-card p-0">
+      <div class="d-flex align-items-center px-3 py-2"
+           role="button"
+           style="cursor: pointer;"
+           data-bs-toggle="collapse"
+           data-bs-target="#dudProdCollapse"
+           aria-expanded="false"
+           aria-controls="dudProdCollapse">
+        <h6 class="mb-0 fw-semibold">Dud egg production</h6>
+        <small class="text-muted ms-2">(click to expand)</small>
+      </div>
+      <div class="collapse" id="dudProdCollapse">
+        <div class="px-3 pb-3">
+          <canvas id="dudProdChart" height="100"></canvas>
+        </div>
+      </div>
     </div>
 
     <div class="chart-card p-0">
@@ -339,6 +364,29 @@ document.addEventListener("DOMContentLoaded", () => {
         y: {
           beginAtZero: true,
           title: { display: true, text: "eggs / day" }
+        },
+        x: { ticks: { maxTicksLimit: 15 } }
+      },
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: { intersect: false, mode: "index" }
+      }
+    }
+  });
+
+  // Dud egg production
+  new Chart(document.getElementById("dudProdChart"), {
+    type: "line",
+    data: {
+      labels: {{ egg_prod_labels_json|safe }},
+      datasets: applyMeanFade({{ dud_prod_datasets_json|safe }})
+    },
+    options: {
+      ...noAnimation,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: "duds / day" }
         },
         x: { ticks: { maxTicksLimit: 15 } }
       },
