@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 from ..factories import (
     ChickenFactory,
+    EggFactory,
     HardwareSensorFactory,
     NestingBoxFactory,
     NestingBoxPresencePeriodFactory,
@@ -148,3 +149,55 @@ class TestDashboardViews:
             url = reverse(p)
             response = client.get(url)
             assert response.status_code == 200
+
+
+@pytest.mark.django_db
+class TestLatestEventsPartial:
+    url = reverse("partial_latest_events")
+
+    def test_known_chicken_and_box_uses_names(self, client):
+        hen = ChickenFactory(name="Hoppy")
+        box = NestingBoxFactory(name="left")
+        EggFactory(chicken=hen, nesting_box=box)
+
+        response = client.get(self.url)
+        content = response.content.decode()
+        assert "Hoppy" in content
+        assert "laid an egg in" in content
+        assert "left box" in content
+
+    def test_unknown_chicken_shows_unknown_hen(self, client):
+        box = NestingBoxFactory(name="left")
+        EggFactory(chicken=None, nesting_box=box)
+
+        response = client.get(self.url)
+        content = response.content.decode()
+        assert "Unknown hen" in content
+        assert "laid an egg in" in content
+        assert "left box" in content
+
+    def test_unknown_nesting_box_shows_unknown_box(self, client):
+        hen = ChickenFactory(name="Isla")
+        EggFactory(chicken=hen, nesting_box=None)
+
+        response = client.get(self.url)
+        content = response.content.decode()
+        assert "Isla" in content
+        assert "unknown box" in content
+
+    def test_both_unknown_shows_both_fallbacks(self, client):
+        EggFactory(chicken=None, nesting_box=None)
+
+        response = client.get(self.url)
+        content = response.content.decode()
+        assert "Unknown hen" in content
+        assert "unknown box" in content
+
+    def test_no_bare_chicken_name_without_context(self, client):
+        """The old template rendered nothing for a null chicken; verify it no longer does."""
+        EggFactory(chicken=None, nesting_box=None)
+
+        response = client.get(self.url)
+        content = response.content.decode()
+        # Should not silently render an empty <strong></strong> for the chicken
+        assert "<strong></strong>" not in content

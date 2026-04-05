@@ -4,8 +4,9 @@
     <ul class="list-group list-group-flush">
       {% for egg in latest_events %}
         <li class="list-group-item">
-          <strong>{{ egg.chicken.name }}</strong> laid an egg in
-          <strong>{{ egg.nesting_box.name }}</strong>
+          <strong>{% if egg.chicken %}{{ egg.chicken.name }}{% else %}Unknown hen{% endif %}</strong>
+          laid an egg in
+          <strong>{% if egg.nesting_box %}{{ egg.nesting_box.name }}{% else %}unknown{% endif %} box</strong>
           <span class="text-muted">— {{ egg.laid_at|timesince }} ago</span>
         </li>
       {% empty %}
