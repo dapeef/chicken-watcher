@@ -77,6 +77,18 @@
         </div>
       </div>
 
+      <!-- Unattributed eggs -->
+      <div class="mb-3">
+        <strong class="small d-block mb-1">Unattributed eggs</strong>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="include_unknown"
+                 value="1" id="id_include_unknown"
+                 {% if include_unknown %}checked{% endif %}
+                 onchange="submitForm()">
+          <label class="form-check-label small" for="id_include_unknown">Include unattributed</label>
+        </div>
+      </div>
+
       <!-- Aggregates -->
       <div class="mb-3">
         <strong class="small d-block mb-1">Aggregates</strong>

@@ -16,7 +16,7 @@ import json
 import math
 from datetime import timedelta, date, datetime, timezone as dt_timezone
 
-from django.db.models import Count, Sum, F, ExpressionWrapper, DurationField
+from django.db.models import Count, Sum, F, ExpressionWrapper, DurationField, Q
 from django.views.generic import TemplateView
 
 from ..models import Chicken, Egg, NestingBoxPresencePeriod
@@ -56,6 +56,7 @@ PALETTE = [
 
 SUM_COLOUR = "#adb5bd"  # grey  — dotted, secondary
 MEAN_COLOUR = "#212529"  # near-black — solid/bold, primary aggregate
+UNKNOWN_COLOUR = "#adb5bd"  # grey — unattributed eggs series / pie slices
 
 
 def _gaussian_smooth_circular(counts: list[int], sigma_minutes: int) -> list[float]:
@@ -129,6 +130,10 @@ class MetricsView(TemplateView):
         show_sum = req.get("show_sum", "") == "1"
         # Default mean to on for fresh page loads; respect the form value once submitted
         show_mean = req.get("show_mean", "" if chickens_sent else "1") == "1"
+        # Default include_unknown to on for fresh page loads
+        include_unknown = (
+            req.get("include_unknown", "" if chickens_sent else "1") == "1"
+        )
 
         # Date range
         end = _parse_date(req.get("end")) or date.today()
@@ -209,6 +214,34 @@ class MetricsView(TemplateView):
                     "pointRadius": 0,
                     "borderColor": colour,
                     "backgroundColor": colour,
+                }
+            )
+
+        # Unknown-chicken eggs — one extra series
+        if include_unknown:
+            unknown_egg_qs = (
+                Egg.objects.filter(
+                    chicken__isnull=True,
+                    laid_at__date__range=(data_start, end),
+                )
+                .values("laid_at__date")
+                .annotate(cnt=Count("id"))
+            )
+            unknown_daily: dict[date, int] = {}
+            for row in unknown_egg_qs:
+                unknown_daily[row["laid_at__date"]] = row["cnt"]
+
+            unknown_counts = [unknown_daily.get(d, 0) for d in data_date_labels]
+            raw_counts_per_hen.append(unknown_counts)
+            rolled_unknown = rolling_average(unknown_counts, window, RIGHT)[window:]
+            egg_prod_datasets.append(
+                {
+                    "label": "Unknown",
+                    "data": rolled_unknown,
+                    "tension": 0.3,
+                    "pointRadius": 0,
+                    "borderColor": UNKNOWN_COLOUR,
+                    "backgroundColor": UNKNOWN_COLOUR,
                 }
             )
 
@@ -300,9 +333,31 @@ class MetricsView(TemplateView):
                 }
             )
 
+        # Unknown-chicken egg KDE series
+        if include_unknown:
+            unknown_eggs = Egg.objects.filter(
+                chicken__isnull=True,
+                laid_at__date__range=(start, end),
+            )
+            unknown_kde = egg_time_of_day_kde(unknown_eggs, bandwidth=kde_bandwidth)
+            # Include in kde_per_hen so Sum/Mean aggregates pick it up.
+            # Mean keeps len(chosen) as denominator (unknown is not a named chicken).
+            kde_per_hen.append(unknown_kde)
+            tod_egg_datasets.append(
+                {
+                    "label": "Unknown",
+                    "data": unknown_kde,
+                    "borderColor": UNKNOWN_COLOUR,
+                    "backgroundColor": UNKNOWN_COLOUR,
+                    "fill": False,
+                    "tension": 0.4,
+                    "pointRadius": 0,
+                }
+            )
+
         if show_sum or show_mean:
             kde_sum = [
-                sum(kde_per_hen[h][b] for h in range(len(chosen)))
+                sum(kde_per_hen[h][b] for h in range(len(kde_per_hen)))
                 for b in range(BUCKETS_PER_DAY)
             ]
             if show_sum:
@@ -452,9 +507,12 @@ class MetricsView(TemplateView):
             )
 
         # Eggs per nesting box
+        egg_box_filter = Q(chicken__in=chosen)
+        if include_unknown:
+            egg_box_filter |= Q(chicken__isnull=True)
         egg_box_qs = (
             Egg.objects.filter(
-                chicken__in=chosen,
+                egg_box_filter,
                 laid_at__date__range=(start, end),
             )
             .values("nesting_box__name")
@@ -472,8 +530,14 @@ class MetricsView(TemplateView):
 
         # Colour palette for pie slices — use the same PALETTE so colours are
         # consistent if a user ever cross-references with line charts.
-        pie_colours = PALETTE[: len(box_labels)]
-        egg_pie_colours = PALETTE[: len(egg_box_labels)]
+        # "Unknown" slices are always grey regardless of their position.
+        def _pie_colour(label: str, idx: int) -> str:
+            return UNKNOWN_COLOUR if label == "Unknown" else PALETTE[idx % len(PALETTE)]
+
+        pie_colours = [_pie_colour(label, i) for i, label in enumerate(box_labels)]
+        egg_pie_colours = [
+            _pie_colour(label, i) for i, label in enumerate(egg_box_labels)
+        ]
 
         nesting_box_visits_json = json.dumps(
             {
@@ -507,6 +571,7 @@ class MetricsView(TemplateView):
                 "chickens_sent": chickens_sent,
                 "show_sum": show_sum,
                 "show_mean": show_mean,
+                "include_unknown": include_unknown,
                 "today": date.today().isoformat(),
                 "earliest_dob": (
                     min((c.date_of_birth for c in all_chickens), default=date.today())
