@@ -191,8 +191,18 @@ def populate_data():
                     seconds=seconds_in_box - 5
                 )  # Egg laid 5s before departure
 
+                # Hoppy occasionally lays a dud (1 in 20 chance)
+                is_dud = chicken.name == "Hoppy" and random() < 0.05
+
+                # Occasionally record an egg with an unknown chicken and/or box
+                egg_chicken = None if random() < 0.05 else chicken
+                egg_box = None if random() < 0.05 else nesting_box
+
                 Egg.objects.create(
-                    chicken=chicken, laid_at=egg_time, nesting_box=nesting_box
+                    chicken=egg_chicken,
+                    laid_at=egg_time,
+                    nesting_box=egg_box,
+                    dud=is_dud,
                 )
 
     logger.info("DB populated")
