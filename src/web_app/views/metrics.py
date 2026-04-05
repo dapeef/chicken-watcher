@@ -31,6 +31,7 @@ from .chickens import (
 )
 
 DEFAULT_WINDOW = 7
+DEFAULT_AGE_WINDOW = 30
 DEFAULT_SPAN = 90
 WINDOW_CHOICES = (1, 3, 7, 10, 30, 90)
 
@@ -286,13 +287,21 @@ class MetricsView(TemplateView):
         if not start or start >= end:
             start = end - timedelta(days=DEFAULT_SPAN - 1)
 
-        # Rolling window (egg production chart only)
+        # Rolling window for egg production / dud / flock charts
         try:
             window = int(req.get("w", DEFAULT_WINDOW))
         except (ValueError, TypeError):
             window = DEFAULT_WINDOW
         if window not in WINDOW_CHOICES:
             window = DEFAULT_WINDOW
+
+        # Rolling window for egg production vs age chart (independent param)
+        try:
+            age_window = int(req.get("age_w", DEFAULT_AGE_WINDOW))
+        except (ValueError, TypeError):
+            age_window = DEFAULT_AGE_WINDOW
+        if age_window not in WINDOW_CHOICES:
+            age_window = DEFAULT_AGE_WINDOW
 
         # Nesting smoothing bandwidth (minutes)
         try:
@@ -309,6 +318,8 @@ class MetricsView(TemplateView):
             kde_bandwidth = DEFAULT_KDE_BANDWIDTH
         if kde_bandwidth not in KDE_BANDWIDTH_CHOICES:
             kde_bandwidth = DEFAULT_KDE_BANDWIDTH
+
+        today = date.today()
 
         # ── Egg production chart ──────────────────────────────────────────────
         data_start = start - timedelta(days=window)
@@ -498,7 +509,6 @@ class MetricsView(TemplateView):
         # ── Flock count chart ─────────────────────────────────────────────────
         # For each day in the display range, count how many of the *chosen*
         # chickens were alive (dob <= day <= dod-or-today).
-        today = date.today()
         flock_counts = [
             sum(
                 1
@@ -608,6 +618,123 @@ class MetricsView(TemplateView):
             }
         )
 
+        # ── Egg production vs age chart ───────────────────────────────────────
+        # X-axis: age in days (0, 1, 2, …) across each hen's *full* lifetime.
+        # The selected date range does not apply here — we always fetch all eggs
+        # so that hens older than `start` don't show a false flat line at 0.
+        # Only the include_duds filter is applied.
+
+        # Determine the age range: use full lifetime, not clipped to [start, end].
+        max_age_days = 0
+        for hen in chosen:
+            dod = hen.date_of_death or today
+            if dod >= hen.date_of_birth:
+                max_age_days = max(max_age_days, (dod - hen.date_of_birth).days)
+
+        # age_display_labels: [0, 1, …, max_age]  (x-axis)
+        # age_data_labels: [-age_window, …, max_age]  (warm-up + display)
+        # After rolling and [age_window:], output index i maps to age i.
+        age_display_labels = list(range(max_age_days + 1))
+        age_data_labels = list(range(-age_window, max_age_days + 1))
+
+        age_prod_datasets = []
+        age_raw_counts_per_hen: list[list] = []
+        if chosen and max_age_days > 0:
+            for idx, hen in enumerate(chosen):
+                colour = PALETTE[idx % len(PALETTE)]
+                dob = hen.date_of_birth
+                dod = hen.date_of_death or today
+
+                # All eggs for this hen across her full lifetime
+                hen_eggs_qs = (
+                    Egg.objects.filter(Q(chicken=hen) & normal_egg_filter)
+                    .values("laid_at__date")
+                    .annotate(cnt=Count("id"))
+                )
+                # Map age_day → count
+                age_counts: dict[int, int] = {}
+                for row in hen_eggs_qs:
+                    age_day = (row["laid_at__date"] - dob).days
+                    age_counts[age_day] = row["cnt"]
+
+                # Mask days outside this hen's lifetime with None.
+                max_alive_age = (dod - dob).days
+                counts_by_age = [
+                    age_counts.get(a, 0) if 0 <= a <= max_alive_age else None
+                    for a in age_data_labels
+                ]
+                age_raw_counts_per_hen.append(counts_by_age)
+
+                rolled = rolling_average(counts_by_age, age_window, RIGHT)[age_window:]
+                age_prod_datasets.append(
+                    {
+                        "label": hen.name,
+                        "data": rolled,
+                        "tension": 0.3,
+                        "pointRadius": 0,
+                        "borderColor": colour,
+                        "backgroundColor": colour,
+                    }
+                )
+
+            if show_sum or show_mean:
+                n_hens = len(age_raw_counts_per_hen)
+                age_sum_counts = []
+                for day_idx in range(len(age_data_labels)):
+                    vals = [
+                        age_raw_counts_per_hen[h][day_idx]
+                        for h in range(n_hens)
+                        if age_raw_counts_per_hen[h][day_idx] is not None
+                    ]
+                    age_sum_counts.append(sum(vals) if vals else None)
+
+                if show_sum:
+                    rolled_sum = rolling_average(age_sum_counts, age_window, RIGHT)[
+                        age_window:
+                    ]
+                    age_prod_datasets.append(
+                        {
+                            "label": "Sum",
+                            "data": rolled_sum,
+                            "tension": 0.3,
+                            "pointRadius": 0,
+                            "borderColor": SUM_COLOUR,
+                            "backgroundColor": SUM_COLOUR,
+                            "borderDash": [4, 4],
+                            "borderWidth": 3,
+                        }
+                    )
+
+                if show_mean:
+                    n_active = [
+                        sum(
+                            1
+                            for h in range(n_hens)
+                            if age_raw_counts_per_hen[h][day_idx] is not None
+                        )
+                        for day_idx in range(len(age_data_labels))
+                    ]
+                    age_mean_counts = [
+                        (age_sum_counts[i] / n_active[i])
+                        if (age_sum_counts[i] is not None and n_active[i] > 0)
+                        else None
+                        for i in range(len(age_data_labels))
+                    ]
+                    rolled_mean = rolling_average(age_mean_counts, age_window, RIGHT)[
+                        age_window:
+                    ]
+                    age_prod_datasets.append(
+                        {
+                            "label": "Mean",
+                            "data": rolled_mean,
+                            "tension": 0.3,
+                            "pointRadius": 0,
+                            "borderColor": MEAN_COLOUR,
+                            "backgroundColor": MEAN_COLOUR,
+                            "borderWidth": 3,
+                        }
+                    )
+
         # ── Context ───────────────────────────────────────────────────────────
         ctx.update(
             {
@@ -627,6 +754,7 @@ class MetricsView(TemplateView):
                 "end": end.isoformat(),
                 "window": window,
                 "window_choices": WINDOW_CHOICES,
+                "age_window": age_window,
                 "nest_sigma": nest_sigma,
                 "nest_sigma_choices": NEST_SIGMA_CHOICES,
                 "kde_bandwidth": kde_bandwidth,
@@ -651,6 +779,8 @@ class MetricsView(TemplateView):
                         ],
                     }
                 ),
+                "age_prod_labels_json": json.dumps(age_display_labels),
+                "age_prod_datasets_json": json.dumps(age_prod_datasets),
             }
         )
         return ctx

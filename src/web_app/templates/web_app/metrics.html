@@ -271,6 +271,35 @@
       </div>
     </div>
 
+    <div class="chart-card p-0">
+      <div class="d-flex align-items-center px-3 py-2"
+           role="button"
+           style="cursor: pointer;"
+           data-bs-toggle="collapse"
+           data-bs-target="#ageProdCollapse"
+           aria-expanded="false"
+           aria-controls="ageProdCollapse">
+        <h6 class="mb-0 fw-semibold">Egg production vs age</h6>
+        <small class="text-muted ms-2">(click to expand)</small>
+      </div>
+      <div class="collapse" id="ageProdCollapse">
+        <div class="px-3 pb-3">
+          <div class="d-flex align-items-center justify-content-end gap-2 mb-3 pt-2">
+            <label class="form-label small mb-0 text-nowrap" for="id_age_w">Rolling window</label>
+            <select class="form-select form-select-sm w-auto" id="id_age_w"
+                    name="age_w" form="metrics-form" onchange="submitForm()">
+              {% for n in window_choices %}
+              <option value="{{ n }}" {% if n == age_window %}selected{% endif %}>
+                {{ n }} day{{ n|pluralize }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <canvas id="ageProdChart" height="140"></canvas>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -374,51 +403,68 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Dud egg production
-  new Chart(document.getElementById("dudProdChart"), {
-    type: "line",
-    data: {
-      labels: {{ egg_prod_labels_json|safe }},
-      datasets: applyMeanFade({{ dud_prod_datasets_json|safe }})
-    },
-    options: {
-      ...noAnimation,
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: "duds / day" }
-        },
-        x: { ticks: { maxTicksLimit: 15 } }
-      },
-      plugins: {
-        legend: { position: "bottom" },
-        tooltip: { intersect: false, mode: "index" }
+  // Helper: initialise a chart the first time its collapse panel is opened.
+  function lazyChart(collapseId, factory) {
+    const el = document.getElementById(collapseId);
+    if (!el) return;
+    let initialised = false;
+    el.addEventListener("show.bs.collapse", () => {
+      if (!initialised) {
+        initialised = true;
+        factory();
       }
-    }
+    });
+  }
+
+  // Dud egg production (collapsed by default — lazy)
+  lazyChart("dudProdCollapse", () => {
+    new Chart(document.getElementById("dudProdChart"), {
+      type: "line",
+      data: {
+        labels: {{ egg_prod_labels_json|safe }},
+        datasets: applyMeanFade({{ dud_prod_datasets_json|safe }})
+      },
+      options: {
+        ...noAnimation,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: "duds / day" }
+          },
+          x: { ticks: { maxTicksLimit: 15 } }
+        },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: { intersect: false, mode: "index" }
+        }
+      }
+    });
   });
 
-  // Flock count
-  new Chart(document.getElementById("flockCountChart"), {
-    type: "line",
-    data: {
-      labels: {{ egg_prod_labels_json|safe }},
-      datasets: [{{ flock_count_dataset_json|safe }}]
-    },
-    options: {
-      ...noAnimation,
-      scales: {
-        y: {
-          beginAtZero: true,
-          precision: 0,
-          title: { display: true, text: "chickens alive" }
-        },
-        x: { ticks: { maxTicksLimit: 15 } }
+  // Flock count (collapsed by default — lazy)
+  lazyChart("flockSizeCollapse", () => {
+    new Chart(document.getElementById("flockCountChart"), {
+      type: "line",
+      data: {
+        labels: {{ egg_prod_labels_json|safe }},
+        datasets: [{{ flock_count_dataset_json|safe }}]
       },
-      plugins: {
-        legend: { display: false },
-        tooltip: { intersect: false, mode: "index" }
+      options: {
+        ...noAnimation,
+        scales: {
+          y: {
+            beginAtZero: true,
+            precision: 0,
+            title: { display: true, text: "chickens alive" }
+          },
+          x: { ticks: { maxTicksLimit: 15 } }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { intersect: false, mode: "index" }
+        }
       }
-    }
+    });
   });
 
   // Egg time-of-day KDE
@@ -511,6 +557,34 @@ document.addEventListener("DOMContentLoaded", () => {
     type: "pie",
     data: {{ nesting_box_eggs_json|safe }},
     options: pieOptions(v => `${v} egg${v !== 1 ? "s" : ""}`),
+  });
+
+  // Egg production vs age (collapsed by default — lazy)
+  lazyChart("ageProdCollapse", () => {
+    new Chart(document.getElementById("ageProdChart"), {
+      type: "line",
+      data: {
+        labels: {{ age_prod_labels_json|safe }},
+        datasets: applyMeanFade({{ age_prod_datasets_json|safe }})
+      },
+      options: {
+        ...noAnimation,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: "eggs / day" }
+          },
+          x: {
+            ticks: { maxTicksLimit: 15 },
+            title: { display: true, text: "age (days)" }
+          }
+        },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: { intersect: false, mode: "index" }
+        }
+      }
+    });
   });
 });
 </script>

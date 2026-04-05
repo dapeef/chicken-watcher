@@ -8,6 +8,7 @@ from web_app.views.metrics import (
     _build_egg_prod_datasets,
     DEFAULT_SPAN,
     DEFAULT_WINDOW,
+    DEFAULT_AGE_WINDOW,
     DEFAULT_NEST_SIGMA,
     DEFAULT_KDE_BANDWIDTH,
 )
@@ -138,6 +139,10 @@ class TestMetricsViewDefaults:
     def test_default_rolling_window(self, client):
         response = client.get(reverse("metrics"))
         assert response.context["window"] == DEFAULT_WINDOW
+
+    def test_default_age_rolling_window(self, client):
+        response = client.get(reverse("metrics"))
+        assert response.context["age_window"] == DEFAULT_AGE_WINDOW
 
     def test_default_nest_sigma(self, client):
         response = client.get(reverse("metrics"))
@@ -1416,3 +1421,292 @@ class TestMetricsViewDudEggs:
         )
         values = [v for v in datasets[0]["data"] if v is not None]
         assert values[-1] == 5  # 2 duds + 3 non-duds
+
+
+# ── Egg production vs age chart ───────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestMetricsViewAgeProd:
+    """
+    Tests for the egg-production-vs-age chart:
+    - context keys present
+    - x-axis labels are age-in-days integers
+    - each hen's series is keyed by age, not calendar date
+    - eggs outside the selected date range are excluded
+    - chicken selection is respected
+    - rolling window is applied correctly
+    - hens not alive in the selected date range produce all-None/zero series
+    - include_duds filter is respected
+    """
+
+    def _params(self, start, end, chickens, window=1):
+        p = {
+            "chickens_sent": "1",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "age_w": str(window),
+        }
+        if chickens:
+            p["chickens"] = [str(c.pk) for c in chickens]
+        return p
+
+    # ── context keys ─────────────────────────────────────────────────────────
+
+    def test_age_prod_labels_json_in_context(self, client):
+        response = client.get(reverse("metrics"))
+        assert "age_prod_labels_json" in response.context
+
+    def test_age_prod_datasets_json_in_context(self, client):
+        response = client.get(reverse("metrics"))
+        assert "age_prod_datasets_json" in response.context
+
+    def test_age_prod_labels_are_integers(self, client):
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
+        response = client.get(reverse("metrics"), self._params(start, today, [hen]))
+        labels = json.loads(response.context["age_prod_labels_json"])
+        assert all(isinstance(v, int) for v in labels)
+        assert labels == list(range(len(labels)))
+
+    # ── x-axis is age, not calendar date ─────────────────────────────────────
+
+    def test_egg_counted_at_correct_age(self, client):
+        """An egg laid when the hen is 100 days old appears at age index 100."""
+        today = date.today()
+        dob = today - timedelta(days=200)
+        hen = ChickenFactory(date_of_birth=dob)
+        egg_date = dob + timedelta(days=100)
+        start = egg_date - timedelta(days=6)
+        end = egg_date + timedelta(days=6)
+
+        egg_dt = datetime.combine(egg_date, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory(chicken=hen, laid_at=egg_dt)
+
+        response = client.get(reverse("metrics"), self._params(start, end, [hen]))
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        assert len(datasets) == 1
+        data = datasets[0]["data"]
+        labels = json.loads(response.context["age_prod_labels_json"])
+
+        # Find index in labels for age=100
+        age_idx = labels.index(100)
+        assert data[age_idx] == 1
+
+    def test_two_hens_same_calendar_date_different_age(self, client):
+        """
+        Two hens born at different times lay on the same calendar day.
+        They should appear at different age indices on the shared axis.
+        """
+        today = date.today()
+        egg_date = today - timedelta(days=5)
+        dob_old = egg_date - timedelta(days=200)
+        dob_young = egg_date - timedelta(days=50)
+        hen_old = ChickenFactory(date_of_birth=dob_old)
+        hen_young = ChickenFactory(date_of_birth=dob_young)
+
+        start = egg_date - timedelta(days=1)
+        end = egg_date + timedelta(days=1)
+        egg_dt = datetime.combine(egg_date, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory(chicken=hen_old, laid_at=egg_dt)
+        EggFactory(chicken=hen_young, laid_at=egg_dt)
+
+        response = client.get(
+            reverse("metrics"), self._params(start, end, [hen_old, hen_young])
+        )
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels = json.loads(response.context["age_prod_labels_json"])
+
+        old_data = next(d["data"] for d in datasets if d["label"] == hen_old.name)
+        young_data = next(d["data"] for d in datasets if d["label"] == hen_young.name)
+
+        # hen_old's egg is at age 200, hen_young's at age 50
+        assert old_data[labels.index(200)] == 1
+        assert young_data[labels.index(50)] == 1
+        # hen_old at age 50: alive, no egg there → 0
+        assert old_data[labels.index(50)] == 0
+        # hen_young at age 200: doesn't exist yet → None (outside lifetime)
+        assert young_data[labels.index(200)] is None
+
+    # ── date range is intentionally ignored ──────────────────────────────────
+
+    def test_eggs_before_start_still_appear_in_age_chart(self, client):
+        """
+        The age chart ignores the date range filter and shows the full lifetime,
+        so eggs before `start` DO appear at the correct age index.
+        """
+        today = date.today()
+        dob = today - timedelta(days=200)
+        hen = ChickenFactory(date_of_birth=dob)
+        start = today - timedelta(days=6)
+
+        # Egg laid well before the display start date, at hen age 100
+        age_100_date = dob + timedelta(days=100)
+        egg_dt = datetime.combine(
+            age_100_date, datetime.min.time(), tzinfo=dt_timezone.utc
+        )
+        EggFactory(chicken=hen, laid_at=egg_dt)
+
+        response = client.get(reverse("metrics"), self._params(start, today, [hen]))
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels = json.loads(response.context["age_prod_labels_json"])
+        data = datasets[0]["data"]
+
+        # Egg at age 100 should be visible despite being before `start`
+        assert data[labels.index(100)] == 1
+
+    # ── chicken selection ─────────────────────────────────────────────────────
+
+    def test_unselected_hen_absent_from_datasets(self, client):
+        today = date.today()
+        start = today - timedelta(days=6)
+        c1 = ChickenFactory(date_of_birth=start - timedelta(days=50))
+        c2 = ChickenFactory(date_of_birth=start - timedelta(days=50))
+
+        response = client.get(reverse("metrics"), self._params(start, today, [c1]))
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels_in_data = {d["label"] for d in datasets}
+        assert c1.name in labels_in_data
+        assert c2.name not in labels_in_data
+
+    def test_no_chickens_selected_gives_empty_datasets(self, client):
+        ChickenFactory()
+        response = client.get(
+            reverse("metrics"),
+            {"chickens_sent": "1"},  # no chickens param
+        )
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        assert datasets == []
+
+    # ── rolling window ────────────────────────────────────────────────────────
+
+    def test_rolling_window_smooths_age_prod(self, client):
+        """
+        With window=1 the raw daily count is returned.
+        With window=3 the value at a given age is the 3-day rolling average.
+        """
+        today = date.today()
+        dob = today - timedelta(days=200)
+        hen = ChickenFactory(date_of_birth=dob)
+        start = today - timedelta(days=6)
+
+        # 3 eggs on three consecutive days ending today
+        for offset in range(3):
+            egg_dt = datetime.combine(
+                today - timedelta(days=2 - offset),
+                datetime.min.time(),
+                tzinfo=dt_timezone.utc,
+            )
+            EggFactory(chicken=hen, laid_at=egg_dt)
+
+        params_w1 = self._params(start, today, [hen], window=1)
+        params_w3 = self._params(start, today, [hen], window=3)
+
+        r1 = client.get(reverse("metrics"), params_w1)
+        r3 = client.get(reverse("metrics"), params_w3)
+
+        data_w1 = json.loads(r1.context["age_prod_datasets_json"])[0]["data"]
+        data_w3 = json.loads(r3.context["age_prod_datasets_json"])[0]["data"]
+
+        # With w=1, last three non-None values are [1, 1, 1]
+        non_none_w1 = [v for v in data_w1 if v is not None]
+        assert non_none_w1[-3:] == [1.0, 1.0, 1.0]
+
+        # With w=3, the rolling average of [1, 1, 1] = 1.0 at the last position
+        non_none_w3 = [v for v in data_w3 if v is not None]
+        assert non_none_w3[-1] == 1.0
+
+    # ── include_duds filter ───────────────────────────────────────────────────
+
+    def test_duds_excluded_from_age_prod_by_default(self, client):
+        """Dud eggs don't appear in the age chart unless include_duds=1."""
+        today = date.today()
+        dob = today - timedelta(days=200)
+        hen = ChickenFactory(date_of_birth=dob)
+        start = today - timedelta(days=6)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+
+        EggFactory(chicken=hen, laid_at=egg_dt, dud=False)
+        EggFactory(chicken=hen, laid_at=egg_dt, dud=True)
+
+        base = self._params(start, today, [hen])
+
+        r_off = client.get(reverse("metrics"), base)
+        r_on = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+
+        def last_non_none(response):
+            data = json.loads(response.context["age_prod_datasets_json"])[0]["data"]
+            return next(v for v in reversed(data) if v is not None)
+
+        assert last_non_none(r_off) == 1  # only non-dud
+        assert last_non_none(r_on) == 2  # both eggs
+
+    # ── sum and mean series ───────────────────────────────────────────────────
+
+    def test_show_mean_adds_mean_to_age_prod(self, client):
+        """With show_mean=1, a Mean series is appended to the age prod datasets."""
+        today = date.today()
+        dob = today - timedelta(days=100)
+        hen = ChickenFactory(date_of_birth=dob)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory(chicken=hen, laid_at=egg_dt)
+
+        params = {
+            **self._params(today - timedelta(days=6), today, [hen]),
+            "show_mean": "1",
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels = {d["label"] for d in datasets}
+        assert "Mean" in labels
+
+    def test_show_sum_adds_sum_to_age_prod(self, client):
+        """With show_sum=1, a Sum series is appended to the age prod datasets."""
+        today = date.today()
+        dob = today - timedelta(days=100)
+        hen = ChickenFactory(date_of_birth=dob)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory(chicken=hen, laid_at=egg_dt)
+
+        params = {
+            **self._params(today - timedelta(days=6), today, [hen]),
+            "show_sum": "1",
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels = {d["label"] for d in datasets}
+        assert "Sum" in labels
+
+    def test_mean_value_is_average_across_hens(self, client):
+        """Mean at a given age = sum of all hen counts / number of hens alive at that age."""
+        today = date.today()
+        dob = today - timedelta(days=100)
+        c1 = ChickenFactory(date_of_birth=dob)
+        c2 = ChickenFactory(date_of_birth=dob)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        # c1 lays 2 eggs today, c2 lays 4
+        EggFactory.create_batch(2, chicken=c1, laid_at=egg_dt)
+        EggFactory.create_batch(4, chicken=c2, laid_at=egg_dt)
+
+        params = {
+            **self._params(today - timedelta(days=6), today, [c1, c2]),
+            "show_mean": "1",
+        }
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels = json.loads(response.context["age_prod_labels_json"])
+        mean_data = next(d["data"] for d in datasets if d["label"] == "Mean")
+        # Age 100 = today; mean of (2, 4) = 3.0
+        assert mean_data[labels.index(100)] == 3.0
+
+    def test_no_sum_or_mean_without_flags(self, client):
+        """By default (no show_sum/show_mean), neither Sum nor Mean appears."""
+        today = date.today()
+        hen = ChickenFactory(date_of_birth=today - timedelta(days=100))
+        params = self._params(today - timedelta(days=6), today, [hen])
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels = {d["label"] for d in datasets}
+        assert "Sum" not in labels
+        assert "Mean" not in labels
