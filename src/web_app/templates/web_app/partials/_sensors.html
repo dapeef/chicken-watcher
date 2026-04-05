@@ -9,11 +9,13 @@
               {{ sensor.is_connected|yesno:"Online,Offline" }}
             </span>
             <strong>{{ sensor.name }}</strong>
-            {% if sensor.last_event_at %}
-              <div class="text-muted" style="font-size: 0.8em">
+            <div class="text-muted" style="font-size: 0.8em">
+              {% if sensor.last_event_at %}
                 Last activity: {{ sensor.last_event_at|timesince }} ago
-              </div>
-            {% endif %}
+              {% else %}
+                No activity yet
+              {% endif %}
+            </div>
             {% if not sensor.is_connected and sensor.status_message %}
               <div class="text-danger" style="font-size: 0.8em">
                 {{ sensor.status_message }}
