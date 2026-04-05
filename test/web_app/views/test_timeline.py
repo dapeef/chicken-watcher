@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.urls import reverse
 from django.utils import timezone
 from ..factories import (
+    ChickenFactory,
     EggFactory,
     NestingBoxPresenceFactory,
     NestingBoxImageFactory,
@@ -141,3 +142,149 @@ class TestTimelineViews:
         assert "timeline-period" in period_item["className"]
         assert "box-right" in presence_item["className"]
         assert "timeline-presence-dot" in presence_item["className"]
+
+    # ── dud egg rendering ─────────────────────────────────────────────────────
+
+    def test_non_dud_egg_has_base_class_only(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        egg = EggFactory(laid_at=now, dud=False)
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"egg_{egg.id}")
+        assert item["className"] == "timeline-egg"
+
+    def test_dud_egg_has_dud_class(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        egg = EggFactory(laid_at=now, dud=True)
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"egg_{egg.id}")
+        assert "timeline-egg" in item["className"]
+        assert "timeline-egg--dud" in item["className"]
+
+    def test_dud_and_non_dud_eggs_both_appear(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        dud = EggFactory(laid_at=now, dud=True)
+        normal = EggFactory(laid_at=now, dud=False)
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        ids = {i["id"] for i in data}
+        assert f"egg_{dud.id}" in ids
+        assert f"egg_{normal.id}" in ids
+
+    # ── presence periods in timeline data ─────────────────────────────────────
+
+    def test_period_appears_in_timeline_data(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        period = NestingBoxPresencePeriodFactory(
+            started_at=now, ended_at=now + timedelta(minutes=2)
+        )
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        ids = {i["id"] for i in data}
+        assert f"period_{period.id}" in ids
+
+    def test_period_outside_range_excluded(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        NestingBoxPresencePeriodFactory(
+            started_at=now - timedelta(hours=5),
+            ended_at=now - timedelta(hours=4),
+        )
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        assert all(not i["id"].startswith("period_") for i in data)
+
+    def test_period_item_has_range_type(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        period = NestingBoxPresencePeriodFactory(
+            started_at=now, ended_at=now + timedelta(minutes=2)
+        )
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"period_{period.id}")
+        assert item["type"] == "range"
+
+    def test_period_item_group_set_to_chicken(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        chicken = ChickenFactory()
+        period = NestingBoxPresencePeriodFactory(
+            chicken=chicken, started_at=now, ended_at=now + timedelta(minutes=2)
+        )
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"period_{period.id}")
+        assert item["group"] == f"chicken_{chicken.pk}"
+
+    # ── egg group assignment ──────────────────────────────────────────────────
+
+    def test_egg_group_set_to_chicken(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        chicken = ChickenFactory()
+        egg = EggFactory(chicken=chicken, laid_at=now)
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"egg_{egg.id}")
+        assert item["group"] == f"chicken_{chicken.pk}"
+
+    def test_egg_without_chicken_group_is_unknown(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        egg = EggFactory(chicken=None, laid_at=now)
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"egg_{egg.id}")
+        assert item["group"] == "unknown"
+
+    # ── timeline_images sampling ──────────────────────────────────────────────
+
+    def test_timeline_images_sampling_covers_end(self, client):
+        """When more images exist than n, the last image in range is always included."""
+        url = reverse("timeline_images")
+        now = timezone.now()
+        images = [
+            NestingBoxImageFactory(created_at=now + timedelta(minutes=i))
+            for i in range(10)
+        ]
+        start = (now - timedelta(minutes=1)).isoformat()
+        end = (now + timedelta(minutes=11)).isoformat()
+
+        response = client.get(f"{url}?start={start}&end={end}&n=3")
+        data = response.json()
+        returned_timestamps = {d["timestamp"] for d in data}
+        assert images[-1].created_at.isoformat() in returned_timestamps
+
+    def test_timeline_images_no_images_returns_empty(self, client):
+        url = reverse("timeline_images")
+        now = timezone.now()
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+        assert client.get(f"{url}?start={start}&end={end}").json() == []
+
+    def test_timeline_images_missing_params_returns_empty(self, client):
+        assert client.get(reverse("timeline_images")).json() == []
