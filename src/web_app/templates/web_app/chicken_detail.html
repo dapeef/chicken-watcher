@@ -3,7 +3,6 @@
 {% load humanize %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {% include 'web_app/partials/_timeline_assets.html' %}
 <style>
   #nest-visualization {
@@ -44,37 +43,28 @@
           <li>Last 30 d: <strong>{{ stats.last30 }}</strong></li>
           <li>Last egg: <strong>{{ stats.last|date:"Y-m-d H:i" }}</strong></li>
         </ul>
+
+        <hr>
+        <a class="btn btn-outline-primary btn-sm w-100"
+           href="{% url 'metrics' %}?chickens_sent=1&chickens={{ hen.pk }}">
+          View metrics for {{ hen.name }} &rarr;
+        </a>
       </div>
     </div>
   </div>
 
-  <!-- right column -->
+  <!-- right column: nesting behaviour timeline -->
   <div class="col-md-8">
     <div class="border p-3 bg-white shadow-sm">
-      <h6 class="mb-2">Egg output</h6>
-      <canvas id="eggChart" height="120"></canvas>
-
-      <hr>
-
-      <h6 class="mb-2">Egg laying time of day</h6>
-      <canvas id="todEggChart" height="80"></canvas>
-
-      <hr>
-
-      <h6 class="mb-2">Time of day in nesting box</h6>
-      <canvas id="todNestChart" height="80"></canvas>
-
-      <hr>
-
       <h6 class="mb-2">Nesting behaviour</h6>
       <div id="nest-visualization"></div>
     </div>
   </div>
+
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  // ── Nesting behaviour mini-timeline ────────────────────────────────────────
   const nestContainer = document.getElementById("nest-visualization");
   const nestItems = new vis.DataSet([]);
   const nestTimeline = new vis.Timeline(nestContainer, nestItems, {
@@ -109,98 +99,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const now = new Date();
     if (now >= w.start && now <= w.end) loadNestData(w);
   }, 10000);
-
-  const todAxisTitle = { display: true, text: "Time of day (UTC — not adjusted for BST)" };
-  const todXScale = { ticks: { maxTicksLimit: 12 }, title: todAxisTitle };
-  const todLabels = {{ tod_labels|safe }};
-
-  // ── Egg laying time of day (KDE) ──────────────────────────────────────────
-  new Chart(document.getElementById("todEggChart"), {
-    type: "line",
-    data: {
-      labels: todLabels,
-      datasets: [{
-        label: "Egg laying density",
-        data: {{ tod_egg_kde|safe }},
-        borderColor: "rgba(255,140,0,0.9)",
-        backgroundColor: "rgba(255,140,0,0.1)",
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-      }]
-    },
-    options: {
-      scales: {
-        x: todXScale,
-        y: { beginAtZero: true, ticks: { display: false } }
-      },
-      plugins: { legend: { display: false } }
-    }
-  });
-
-  // ── Time-of-day nesting frequency chart ───────────────────────────────────
-  new Chart(document.getElementById("todNestChart"), {
-    type: "line",
-    data: {
-      labels: todLabels,
-      datasets: [{
-        label: "Days present at this time",
-        data: {{ tod_nesting_counts|safe }},
-        borderColor: "rgba(102,16,242,0.8)",
-        backgroundColor: "rgba(102,16,242,0.1)",
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-      }]
-    },
-    options: {
-      scales: {
-        x: todXScale,
-        y: { beginAtZero: true, precision: 0 }
-      },
-      plugins: { legend: { display: false } }
-    }
-  });
-
-  // ── Egg output chart ───────────────────────────────────────────────────────
-  const ctx = document.getElementById("eggChart");
-
-  const labels  = {{ chart_labels|safe }};
-  const daily   = {{ chart_daily|safe }};
-  const rolling = {{ chart_rolling|safe }};
-
-  new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Eggs per day",
-          data: daily,
-          backgroundColor: "rgba(0,123,255,0.4)",
-          borderColor: "rgba(0,123,255,1)",
-          borderWidth: 1
-        },
-        {
-          label: "10-day rolling avg",
-          data: rolling,
-          type: "line",
-          borderColor: "rgba(220,53,69,1)",
-          fill: false,
-          tension: 0.3
-        }
-      ]
-    },
-    options: {
-      scales: {
-        x: { ticks: { maxTicksLimit: 8 } },
-        y: { beginAtZero: true, precision: 0 }
-      },
-      plugins: {
-        legend: { position: "bottom" }
-      }
-    }
-  });
 });
 </script>
 {% endblock %}

@@ -110,12 +110,6 @@ class TestChickenViews:
         assert response.context["hen"] == chicken
         assert response.context["stats"]["total"] == 5
 
-        # Check chart data
-        assert "chart_labels" in response.context
-        assert "chart_daily" in response.context
-        daily = json.loads(response.context["chart_daily"])
-        assert sum(daily) == 5
-
     def test_chicken_timeline_data_returns_periods_and_eggs(self, client):
         chicken = ChickenFactory()
         box = NestingBoxFactory(name="left")

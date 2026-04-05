@@ -48,10 +48,10 @@ class TestE2E:
         assert b"Eggs" in response.content
         assert b"Create new egg" in response.content
 
-        # 5. Egg Production (Analytics)
-        response = client.get(reverse("egg_production"))
+        # 5. Metrics
+        response = client.get(reverse("metrics"))
         assert response.status_code == 200
-        assert b"Egg Production" in response.content
+        assert b"Metrics" in response.content
         assert b"Rolling window" in response.content
 
     def test_egg_creation_workflow(self, client):
