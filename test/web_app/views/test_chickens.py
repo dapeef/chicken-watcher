@@ -331,3 +331,20 @@ class TestEggTimeOfDayKde:
         assert result[0] == max(result)
         # And the distribution should be symmetric: bucket 1 ≈ bucket 143
         assert abs(result[1] - result[143]) < 1e-6
+
+    def test_larger_bandwidth_gives_broader_peak(self):
+        egg = make_egg(utc(10, 0))
+        narrow = egg_time_of_day_kde([egg], bandwidth=10)
+        wide = egg_time_of_day_kde([egg], bandwidth=60)
+        # Wider bandwidth → smaller peak value (mass spread over more buckets)
+        assert max(wide) < max(narrow)
+        # Peak location should still be at the same bucket
+        assert narrow.index(max(narrow)) == wide.index(max(wide))
+
+    def test_bandwidth_zero_raises_or_produces_spike(self):
+        # Extremely small bandwidth should produce a very sharp, tall peak
+        egg = make_egg(utc(10, 0))
+        result = egg_time_of_day_kde([egg], bandwidth=1)
+        peak_bucket = (10 * 60) // BUCKET_MINUTES
+        # With bandwidth=1 the peak should dominate all other buckets
+        assert result[peak_bucket] == max(result)

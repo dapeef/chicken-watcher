@@ -37,6 +37,9 @@ WINDOW_CHOICES = (1, 3, 7, 10, 30, 90)
 NEST_SIGMA_CHOICES = (0, 10, 20, 30, 60)
 DEFAULT_NEST_SIGMA = 20
 
+KDE_BANDWIDTH_CHOICES = (5, 10, 25, 45, 60)
+DEFAULT_KDE_BANDWIDTH = 25
+
 # One colour per chicken (cycles if more than 10)
 PALETTE = [
     "#0d6efd",  # blue
@@ -148,6 +151,14 @@ class MetricsView(TemplateView):
             nest_sigma = DEFAULT_NEST_SIGMA
         if nest_sigma not in NEST_SIGMA_CHOICES:
             nest_sigma = DEFAULT_NEST_SIGMA
+
+        # KDE bandwidth for egg time-of-day chart (minutes)
+        try:
+            kde_bandwidth = int(req.get("kde_bw", DEFAULT_KDE_BANDWIDTH))
+        except (ValueError, TypeError):
+            kde_bandwidth = DEFAULT_KDE_BANDWIDTH
+        if kde_bandwidth not in KDE_BANDWIDTH_CHOICES:
+            kde_bandwidth = DEFAULT_KDE_BANDWIDTH
 
         # ── Egg production chart ──────────────────────────────────────────────
         data_start = start - timedelta(days=window)
@@ -273,7 +284,7 @@ class MetricsView(TemplateView):
                 chicken=hen,
                 laid_at__date__range=(start, end),
             )
-            kde = egg_time_of_day_kde(hen_eggs)
+            kde = egg_time_of_day_kde(hen_eggs, bandwidth=kde_bandwidth)
             kde_per_hen.append(kde)
             tod_egg_datasets.append(
                 {
@@ -500,6 +511,8 @@ class MetricsView(TemplateView):
                 "window_choices": WINDOW_CHOICES,
                 "nest_sigma": nest_sigma,
                 "nest_sigma_choices": NEST_SIGMA_CHOICES,
+                "kde_bandwidth": kde_bandwidth,
+                "kde_bandwidth_choices": KDE_BANDWIDTH_CHOICES,
                 # Chart data
                 "egg_prod_labels_json": json.dumps(
                     [d.isoformat() for d in date_labels]

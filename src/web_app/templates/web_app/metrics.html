@@ -171,9 +171,22 @@
     </div>
 
     <div class="chart-card">
-      <h6 class="mb-3">Egg laying time of day
-        <small class="text-muted fw-normal">(UTC)</small>
-      </h6>
+      <div class="d-flex align-items-baseline justify-content-between mb-3">
+        <h6 class="mb-0">Egg laying time of day
+          <small class="text-muted fw-normal">(UTC)</small>
+        </h6>
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label small mb-0 text-nowrap" for="id_kde_bw">Smoothness</label>
+          <select class="form-select form-select-sm w-auto" id="id_kde_bw"
+                  name="kde_bw" form="metrics-form" onchange="submitForm()">
+            {% for b in kde_bandwidth_choices %}
+            <option value="{{ b }}" {% if b == kde_bandwidth %}selected{% endif %}>
+              {{ b }} min
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
       <canvas id="todEggChart" height="100"></canvas>
     </div>
 

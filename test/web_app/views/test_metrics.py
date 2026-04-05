@@ -8,6 +8,7 @@ from web_app.views.metrics import (
     DEFAULT_SPAN,
     DEFAULT_WINDOW,
     DEFAULT_NEST_SIGMA,
+    DEFAULT_KDE_BANDWIDTH,
 )
 from web_app.views.chickens import BUCKETS_PER_DAY, BUCKET_MINUTES
 from ..factories import (
@@ -689,4 +690,56 @@ class TestMetricsViewNestingBoxPreference:
             },
         )
         eggs_data = json.loads(response.context["nesting_box_eggs_json"])
-        assert eggs_data["labels"] == []
+        assert eggs_data["labels"] == []  # c2's egg excluded
+
+
+@pytest.mark.django_db
+class TestMetricsViewKdeBandwidth:
+    def test_default_bandwidth_in_context(self, client):
+        response = client.get(reverse("metrics"))
+        assert response.context["kde_bandwidth"] == DEFAULT_KDE_BANDWIDTH
+
+    def test_explicit_bandwidth_respected(self, client):
+        response = client.get(reverse("metrics"), {"kde_bw": "10"})
+        assert response.context["kde_bandwidth"] == 10
+
+    def test_invalid_bandwidth_falls_back_to_default(self, client):
+        response = client.get(reverse("metrics"), {"kde_bw": "99"})
+        assert response.context["kde_bandwidth"] == DEFAULT_KDE_BANDWIDTH
+
+    def test_non_numeric_bandwidth_falls_back_to_default(self, client):
+        response = client.get(reverse("metrics"), {"kde_bw": "smooth"})
+        assert response.context["kde_bandwidth"] == DEFAULT_KDE_BANDWIDTH
+
+    def test_bandwidth_choices_in_context(self, client):
+        response = client.get(reverse("metrics"))
+        assert "kde_bandwidth_choices" in response.context
+
+    def test_wider_bandwidth_produces_broader_kde(self, client):
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(5, chicken=hen, laid_at=today_dt)
+
+        url = reverse("metrics")
+        params = {
+            "chickens_sent": "1",
+            "chickens": [str(hen.pk)],
+            "start": start.isoformat(),
+            "end": today.isoformat(),
+        }
+
+        r_narrow = client.get(url, {**params, "kde_bw": "5"})
+        r_wide = client.get(url, {**params, "kde_bw": "60"})
+
+        datasets_narrow = json.loads(r_narrow.context["tod_egg_datasets_json"])
+        datasets_wide = json.loads(r_wide.context["tod_egg_datasets_json"])
+
+        assert len(datasets_narrow) == 1
+        assert len(datasets_wide) == 1
+
+        # Narrow bandwidth → taller, sharper peak
+        peak_narrow = max(datasets_narrow[0]["data"])
+        peak_wide = max(datasets_wide[0]["data"])
+        assert peak_narrow > peak_wide

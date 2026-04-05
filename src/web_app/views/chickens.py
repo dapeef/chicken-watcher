@@ -128,7 +128,7 @@ def nesting_time_of_day(periods):
 KDE_BANDWIDTH_MINUTES = 25
 
 
-def egg_time_of_day_kde(eggs):
+def egg_time_of_day_kde(eggs, bandwidth: int = KDE_BANDWIDTH_MINUTES):
     """
     Given an iterable of Egg instances, return a list of BUCKETS_PER_DAY
     density values using a circular Gaussian KDE.
@@ -139,6 +139,8 @@ def egg_time_of_day_kde(eggs):
     (in minutes). The day is treated as circular (1440 minutes), so kernels
     wrap correctly at midnight. The final curve is the sum of all kernels,
     normalised so that the area under it equals 1.
+
+    bandwidth: Gaussian sigma in minutes. Larger values give a smoother curve.
 
     Returns a list of BUCKETS_PER_DAY floats rounded to 4 decimal places.
     """
@@ -153,7 +155,7 @@ def egg_time_of_day_kde(eggs):
     if not times:
         return [0.0] * BUCKETS_PER_DAY
 
-    sigma = KDE_BANDWIDTH_MINUTES
+    sigma = bandwidth
     n = len(times)
 
     result = []
