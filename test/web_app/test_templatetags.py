@@ -150,24 +150,32 @@ class TestChickenListAgeColumn:
 
 
 class TestDurationHms:
-    # --- seconds only ---
+    # --- sub-minute: shown to 1 dp ---
 
     def test_zero(self):
-        assert duration_hms(timedelta(0)) == "0 secs"
+        assert duration_hms(timedelta(0)) == "0.0 secs"
 
-    def test_one_second(self):
-        assert duration_hms(timedelta(seconds=1)) == "1 sec"
+    def test_one_second_exact(self):
+        assert duration_hms(timedelta(seconds=1)) == "1.0 sec"
 
-    def test_plural_seconds(self):
-        assert duration_hms(timedelta(seconds=10)) == "10 secs"
+    def test_sub_minute_fractional(self):
+        assert duration_hms(timedelta(seconds=8.3)) == "8.3 secs"
+
+    def test_sub_minute_rounds_to_1dp(self):
+        assert duration_hms(timedelta(seconds=8.36)) == "8.4 secs"
 
     def test_59_seconds(self):
-        assert duration_hms(timedelta(seconds=59)) == "59 secs"
+        assert duration_hms(timedelta(seconds=59)) == "59.0 secs"
 
-    # --- minutes + seconds ---
+    def test_sub_minute_plural(self):
+        assert duration_hms(timedelta(seconds=10)) == "10.0 secs"
+
+    # --- at the boundary: exactly 60 s switches to integer mode ---
 
     def test_exactly_one_minute(self):
         assert duration_hms(timedelta(minutes=1)) == "1 min, 0 secs"
+
+    # --- 1 minute or more: whole seconds ---
 
     def test_one_minute_one_second(self):
         assert duration_hms(timedelta(minutes=1, seconds=1)) == "1 min, 1 sec"
@@ -177,6 +185,10 @@ class TestDurationHms:
 
     def test_minutes_shown_with_zero_seconds(self):
         assert duration_hms(timedelta(minutes=5)) == "5 mins, 0 secs"
+
+    def test_fractional_seconds_rounded_when_over_1_min(self):
+        # 75.6 s -> round to 76 s -> "1 min, 16 secs"
+        assert duration_hms(timedelta(seconds=75.6)) == "1 min, 16 secs"
 
     # --- hours + minutes + seconds ---
 
@@ -201,16 +213,16 @@ class TestDurationHms:
     # --- edge / error inputs ---
 
     def test_none_returns_zero_secs(self):
-        assert duration_hms(None) == "0 secs"
+        assert duration_hms(None) == "0.0 secs"
 
     def test_negative_clamps_to_zero(self):
-        assert duration_hms(timedelta(seconds=-5)) == "0 secs"
+        assert duration_hms(timedelta(seconds=-5)) == "0.0 secs"
 
     def test_integer_input_seconds(self):
         assert duration_hms(75) == "1 min, 15 secs"
 
     def test_non_numeric_string_returns_zero_secs(self):
-        assert duration_hms("bad") == "0 secs"
+        assert duration_hms("bad") == "0.0 secs"
 
 
 # ---------------------------------------------------------------------------

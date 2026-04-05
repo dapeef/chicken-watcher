@@ -59,25 +59,38 @@ def duration_hms(value) -> str:
     Render a timedelta as a human-readable duration string, omitting leading
     zero components.  The smallest unit always shown is seconds.
 
+    Seconds precision:
+      - Under 1 minute: shown to 1 decimal place (e.g. "8.3 secs")
+      - 1 minute or more: rounded to the nearest whole second
+
     Examples:
-        timedelta(seconds=10)            -> "10 secs"
+        timedelta(seconds=8.3)           -> "8.3 secs"
+        timedelta(seconds=1)             -> "1.0 sec"
         timedelta(seconds=75)            -> "1 min, 15 secs"
         timedelta(seconds=3661)          -> "1 hr, 1 min, 1 sec"
         timedelta(hours=2, minutes=30)   -> "2 hrs, 30 mins, 0 secs"
-        timedelta(0) / None / bad input  -> "0 secs"
+        timedelta(0) / None / bad input  -> "0.0 secs"
     """
     if value is None:
-        return "0 secs"
+        return "0.0 secs"
     try:
-        total_seconds = int(
-            value.total_seconds() if isinstance(value, timedelta) else int(value)
+        total_seconds_f = (
+            value.total_seconds() if isinstance(value, timedelta) else float(value)
         )
     except (TypeError, ValueError, AttributeError):
-        return "0 secs"
+        return "0.0 secs"
 
-    if total_seconds < 0:
-        total_seconds = 0
+    if total_seconds_f < 0:
+        total_seconds_f = 0.0
 
+    if total_seconds_f < 60:
+        # Sub-minute: show one decimal place
+        s = round(total_seconds_f, 1)
+        label = "sec" if s == 1.0 else "secs"
+        return f"{s} {label}"
+
+    # 1 minute or more: work in whole seconds
+    total_seconds = round(total_seconds_f)
     hours, remainder = divmod(total_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
 
