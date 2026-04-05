@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Union
 
 from django import template
 
@@ -50,3 +51,41 @@ def duration_ymd(value) -> str:
     parts.append(f"{days}d")
 
     return " ".join(parts)
+
+
+@register.filter
+def duration_hms(value) -> str:
+    """
+    Render a timedelta as a human-readable duration string, omitting leading
+    zero components.  The smallest unit always shown is seconds.
+
+    Examples:
+        timedelta(seconds=10)            -> "10 secs"
+        timedelta(seconds=75)            -> "1 min, 15 secs"
+        timedelta(seconds=3661)          -> "1 hr, 1 min, 1 sec"
+        timedelta(hours=2, minutes=30)   -> "2 hrs, 30 mins, 0 secs"
+        timedelta(0) / None / bad input  -> "0 secs"
+    """
+    if value is None:
+        return "0 secs"
+    try:
+        total_seconds = int(
+            value.total_seconds() if isinstance(value, timedelta) else int(value)
+        )
+    except (TypeError, ValueError, AttributeError):
+        return "0 secs"
+
+    if total_seconds < 0:
+        total_seconds = 0
+
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    parts = []
+    if hours:
+        parts.append(f"{hours} {'hr' if hours == 1 else 'hrs'}")
+    if minutes or hours:
+        parts.append(f"{minutes} {'min' if minutes == 1 else 'mins'}")
+    parts.append(f"{seconds} {'sec' if seconds == 1 else 'secs'}")
+
+    return ", ".join(parts)

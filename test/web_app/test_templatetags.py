@@ -5,8 +5,16 @@ from datetime import timedelta, date
 import pytest
 from django.urls import reverse
 
-from web_app.templatetags.chicken_extras import duration_ymd, _years_months_days
-from .factories import ChickenFactory
+from web_app.templatetags.chicken_extras import (
+    duration_ymd,
+    duration_hms,
+    _years_months_days,
+)
+from .factories import (
+    ChickenFactory,
+    NestingBoxPresencePeriodFactory,
+    NestingBoxFactory,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -134,3 +142,110 @@ class TestChickenListAgeColumn:
         ChickenFactory(date_of_birth=dob, date_of_death=dod)
         response = client.get(self.url)
         assert b"1y" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for the duration_hms filter
+# ---------------------------------------------------------------------------
+
+
+class TestDurationHms:
+    # --- seconds only ---
+
+    def test_zero(self):
+        assert duration_hms(timedelta(0)) == "0 secs"
+
+    def test_one_second(self):
+        assert duration_hms(timedelta(seconds=1)) == "1 sec"
+
+    def test_plural_seconds(self):
+        assert duration_hms(timedelta(seconds=10)) == "10 secs"
+
+    def test_59_seconds(self):
+        assert duration_hms(timedelta(seconds=59)) == "59 secs"
+
+    # --- minutes + seconds ---
+
+    def test_exactly_one_minute(self):
+        assert duration_hms(timedelta(minutes=1)) == "1 min, 0 secs"
+
+    def test_one_minute_one_second(self):
+        assert duration_hms(timedelta(minutes=1, seconds=1)) == "1 min, 1 sec"
+
+    def test_plural_minutes(self):
+        assert duration_hms(timedelta(minutes=2, seconds=30)) == "2 mins, 30 secs"
+
+    def test_minutes_shown_with_zero_seconds(self):
+        assert duration_hms(timedelta(minutes=5)) == "5 mins, 0 secs"
+
+    # --- hours + minutes + seconds ---
+
+    def test_exactly_one_hour(self):
+        assert duration_hms(timedelta(hours=1)) == "1 hr, 0 mins, 0 secs"
+
+    def test_one_hour_one_minute_one_second(self):
+        assert (
+            duration_hms(timedelta(hours=1, minutes=1, seconds=1))
+            == "1 hr, 1 min, 1 sec"
+        )
+
+    def test_plural_hours(self):
+        assert (
+            duration_hms(timedelta(hours=2, minutes=30, seconds=5))
+            == "2 hrs, 30 mins, 5 secs"
+        )
+
+    def test_hours_with_zero_minutes(self):
+        assert duration_hms(timedelta(hours=3)) == "3 hrs, 0 mins, 0 secs"
+
+    # --- edge / error inputs ---
+
+    def test_none_returns_zero_secs(self):
+        assert duration_hms(None) == "0 secs"
+
+    def test_negative_clamps_to_zero(self):
+        assert duration_hms(timedelta(seconds=-5)) == "0 secs"
+
+    def test_integer_input_seconds(self):
+        assert duration_hms(75) == "1 min, 15 secs"
+
+    def test_non_numeric_string_returns_zero_secs(self):
+        assert duration_hms("bad") == "0 secs"
+
+
+# ---------------------------------------------------------------------------
+# Integration: duration shown in the latest presence partial
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestLatestPresenceDurationFormat:
+    def test_duration_rendered_as_hms(self, client):
+        from django.utils import timezone as tz
+
+        now = tz.now()
+        period = NestingBoxPresencePeriodFactory(
+            started_at=now - timedelta(hours=1, minutes=2, seconds=10),
+            ended_at=now,
+        )
+        url = reverse("partial_latest_presence")
+        response = client.get(url)
+        assert response.status_code == 200
+        assert b"1 hr" in response.content
+        assert b"2 mins" in response.content
+        assert b"10 secs" in response.content
+
+    def test_raw_timedelta_str_not_shown(self, client):
+        from django.utils import timezone as tz
+
+        now = tz.now()
+        NestingBoxPresencePeriodFactory(
+            started_at=now - timedelta(minutes=5),
+            ended_at=now,
+        )
+        url = reverse("partial_latest_presence")
+        response = client.get(url)
+        assert response.status_code == 200
+        # Django's default timedelta str looks like "0:05:00" — should not appear
+        assert b"0:05:00" not in response.content
+        assert b"5 mins" in response.content

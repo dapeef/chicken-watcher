@@ -1,3 +1,4 @@
+{% load chicken_extras %}
 <div class="card shadow-sm h-100">
   <div class="card-body">
     <h5 class="card-title">Most recently in a nesting box</h5>
@@ -10,7 +11,7 @@
             <tr>
               <td>{{ p.chicken.name }}</td>
               <td>{{ p.nesting_box.name }}</td>
-              <td>{{ p.duration }}</td>
+              <td>{{ p.duration|duration_hms }}</td>
               <td>{{ p.ended_at|timesince }} ago</td>
             </tr>
           {% endfor %}
