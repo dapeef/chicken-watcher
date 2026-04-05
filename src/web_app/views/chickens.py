@@ -21,12 +21,10 @@ class ChickenListView(ListView):
 
     def get_queryset(self):
         qs = (
-            Chicken.objects.with_egg_metrics(30)
-            .annotate(
+            Chicken.objects.annotate(
                 eggs_total=Count("egg"),
                 last_egg=Max("egg__laid_at"),
-            )
-            .select_related()  # nothing to prefetch here but keeps pattern
+            ).select_related()  # nothing to prefetch here but keeps pattern
         )
 
         sort_param = self.request.GET.get("sort", "name")
@@ -39,7 +37,6 @@ class ChickenListView(ListView):
         ctx["sort"] = self.request.GET.get("sort", "name")
         ctx["headers"] = [
             ("name", "Name"),
-            ("eggs_per_day", "Eggs/d (last 30 days)"),
             ("eggs_total", "Eggs total"),
             ("last_egg", "Last egg"),
             ("date_of_birth", "DoB"),

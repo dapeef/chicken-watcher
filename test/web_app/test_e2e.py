@@ -33,7 +33,7 @@ class TestE2E:
         assert response.status_code == 200
         assert b"Chickens" in response.content
         assert b"Bertha" in response.content
-        assert b"Eggs/d" in response.content
+        assert b"Eggs total" in response.content
 
         # 3. Chicken Detail
         response = client.get(reverse("chicken_detail", kwargs={"pk": chicken.pk}))

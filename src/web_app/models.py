@@ -1,31 +1,7 @@
-from datetime import date, timedelta
+from datetime import date
 
 from django.db import models
-from django.db.models import Count, ExpressionWrapper, FloatField, Value, Q
 from django.utils import timezone
-
-
-class ChickenQuerySet(models.QuerySet):
-    """
-    Extra query helpers; returned via Chicken.objects.
-    """
-
-    def with_egg_metrics(self, days: int = 30):
-        """
-        Adds:
-          • eggs_window      – eggs laid in the last <days>
-          • eggs_per_day     – avg eggs / day over that window
-        """
-        window_start = timezone.localtime() - timedelta(days=days)
-
-        return self.annotate(
-            eggs_window=Count("egg", filter=Q(egg__laid_at__gte=window_start)),
-            eggs_per_day=ExpressionWrapper(
-                Count("egg", filter=Q(egg__laid_at__gte=window_start))
-                / Value(float(days)),
-                output_field=FloatField(),
-            ),
-        )
 
 
 class Tag(models.Model):
@@ -43,8 +19,6 @@ class Chicken(models.Model):
     tag = models.ForeignKey(
         Tag, on_delete=models.SET_NULL, null=True, blank=True, related_name="chickens"
     )
-
-    objects = ChickenQuerySet.as_manager()
 
     @property
     def age(self) -> int:
