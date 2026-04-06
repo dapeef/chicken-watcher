@@ -135,3 +135,45 @@ class TestPresenceItem:
         presence = NestingBoxPresenceFactory()
         item = presence_item(presence)
         assert item["content"] == ""
+
+    def test_no_sensor_id_omits_sensor_class(self):
+        """When sensor_id is empty, no sensor-* class is added."""
+        box = NestingBoxFactory(name="left")
+        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="")
+        item = presence_item(presence)
+        assert "sensor-" not in item["className"]
+
+    def test_sensor_id_adds_sensor_class(self):
+        """When sensor_id is set, a sensor-* CSS class is added."""
+        box = NestingBoxFactory(name="left")
+        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_a")
+        item = presence_item(presence)
+        assert "sensor-left-a" in item["className"]
+
+    def test_sensor_id_underscore_replaced_with_hyphen(self):
+        """Underscores in sensor_id are replaced with hyphens for valid CSS."""
+        box = NestingBoxFactory(name="left")
+        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_b")
+        item = presence_item(presence)
+        assert "sensor-left-b" in item["className"]
+        assert "sensor-left_b" not in item["className"]
+
+    def test_sensor_id_class_alongside_box_class(self):
+        """Both box-* and sensor-* classes are present when sensor_id is set."""
+        box = NestingBoxFactory(name="left")
+        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_a")
+        item = presence_item(presence)
+        assert "box-left" in item["className"]
+        assert "sensor-left-a" in item["className"]
+        assert "timeline-presence-dot" in item["className"]
+
+    def test_sensor_b_has_distinct_css_class_from_sensor_a(self):
+        """Sensor A and B get different CSS classes for individual colouring."""
+        box = NestingBoxFactory(name="left")
+        presence_a = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_a")
+        presence_b = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_b")
+        item_a = presence_item(presence_a)
+        item_b = presence_item(presence_b)
+        assert item_a["className"] != item_b["className"]
+        assert "sensor-left-a" in item_a["className"]
+        assert "sensor-left-b" in item_b["className"]

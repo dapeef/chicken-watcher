@@ -31,6 +31,17 @@
     border-radius: 3px;
     border-color: #198754;
   }
+  /* Per-sensor overrides: sensor A → blue, sensor B → green.
+     These take precedence over the box-level colours above when a sensor_id
+     suffix is present (e.g. left_a / left_b both in the left nesting box). */
+  .timeline-presence-dot.sensor-left-a .vis-dot,
+  .timeline-presence-dot.sensor-right-a .vis-dot {
+    border-color: #0d6efd;
+  }
+  .timeline-presence-dot.sensor-left-b .vis-dot,
+  .timeline-presence-dot.sensor-right-b .vis-dot {
+    border-color: #198754;
+  }
   .timeline-presence-dot .vis-item-content {
     padding: 0;
   }

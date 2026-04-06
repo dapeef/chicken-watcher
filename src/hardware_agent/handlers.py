@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import re
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -47,12 +48,36 @@ def report_event(full_name: str):
 NESTING_BOX_PRESENCE_TIMEOUT = 60
 
 
+def _nesting_box_name_for_sensor(sensor_name: str) -> str:
+    """Derive the nesting box name from a sensor name.
+
+    Sensors may be named with an alphabetic suffix to distinguish multiple
+    sensors in the same box (e.g. ``"left_a"``, ``"left_b"`` → ``"left"``).
+    If the name has no such suffix the name itself is used as-is (e.g.
+    ``"left"`` → ``"left"``).
+    """
+    # Strip a trailing ``_<single-letter>`` suffix (case-insensitive).
+    match = re.fullmatch(r"(.+)_([a-zA-Z])$", sensor_name)
+    if match:
+        return match.group(1)
+    return sensor_name
+
+
 @transaction.atomic
 def handle_tag_read(name: str, tag: str):
+    """Handle an RFID tag read event from a sensor named *name*.
+
+    *name* is the sensor identifier (e.g. ``"left"``, ``"left_a"``,
+    ``"left_b"``).  The corresponding nesting box is looked up by deriving
+    the box name from *name* via :func:`_nesting_box_name_for_sensor`.
+    The original sensor name is stored on the presence records so that
+    individual sensors can be distinguished on the timeline.
+    """
     report_event(f"rfid_{name}")
     logger.info("[%s] Nesting box detected tag: %s", name, tag)
+    box_name = _nesting_box_name_for_sensor(name)
     try:
-        nesting_box = NestingBox.objects.get(name=name)
+        nesting_box = NestingBox.objects.get(name=box_name)
         tag_obj = Tag.objects.get(rfid_string=tag)
         chicken = Chicken.objects.get(tag=tag_obj, date_of_death__isnull=True)
 
@@ -86,7 +111,10 @@ def handle_tag_read(name: str, tag: str):
             period = recent_period
         else:
             period = NestingBoxPresencePeriod.objects.create(
-                chicken=chicken, nesting_box=nesting_box, started_at=now, ended_at=now
+                chicken=chicken,
+                nesting_box=nesting_box,
+                started_at=now,
+                ended_at=now,
             )
 
         NestingBoxPresence.objects.create(
@@ -94,6 +122,7 @@ def handle_tag_read(name: str, tag: str):
             chicken=chicken,
             present_at=now,
             presence_period=period,
+            sensor_id=name,
         )
 
         logger.info(
@@ -109,7 +138,7 @@ def handle_tag_read(name: str, tag: str):
     except Chicken.DoesNotExist:
         logger.error("No live chicken found assigned to tag: %s", tag)
     except NestingBox.DoesNotExist:
-        logger.error("No matching nesting box found matching name: %s", name)
+        logger.error("No matching nesting box found matching name: %s", box_name)
 
 
 def save_frame_to_file(cam_name, frame):

@@ -60,13 +60,24 @@ def period_item(period, *, include_group=False):
 
 
 def presence_item(presence):
-    """Serialise a NestingBoxPresence instance as a vis-timeline point item dict."""
+    """Serialise a NestingBoxPresence instance as a vis-timeline point item dict.
+
+    When a ``sensor_id`` is recorded on the presence (e.g. ``"left_a"``,
+    ``"left_b"``) an additional ``sensor-<id>`` CSS class is added so that
+    individual sensors within the same nesting box can be styled with distinct
+    colours.  Underscores in the sensor id are replaced with hyphens to follow
+    CSS naming conventions (e.g. ``sensor-left-a``).
+    """
+    class_name = f"timeline-presence-dot box-{presence.nesting_box.name}"
+    if presence.sensor_id:
+        css_sensor_id = presence.sensor_id.replace("_", "-")
+        class_name += f" sensor-{css_sensor_id}"
     return {
         "id": f"presence_{presence.id}",
         "content": "",
         "start": presence.present_at.isoformat(),
         "type": "point",
-        "className": f"timeline-presence-dot box-{presence.nesting_box.name}",
+        "className": class_name,
         "group": f"chicken_{presence.chicken_id}",
     }
 

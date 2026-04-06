@@ -15,8 +15,13 @@ logger = logging.getLogger(__name__)
 def run_agent():
     manager = HardwareManager()
 
-    manager.add_rfid_reader("left", os.environ.get("RFID_PORT_BY_ID_LEFT"))
-    manager.add_rfid_reader("right", os.environ.get("RFID_PORT_BY_ID_RIGHT"))
+    # Spike: both physical RFID readers are in the left nesting box.
+    # Sensor "left_a" uses the port previously known as RFID_PORT_BY_ID_LEFT and
+    # sensor "left_b" uses the port previously known as RFID_PORT_BY_ID_RIGHT.
+    # The handler derives the nesting box name ("left") from both sensor names
+    # automatically, so no .env changes are required.
+    manager.add_rfid_reader("left_a", os.environ.get("RFID_PORT_BY_ID_LEFT"))
+    manager.add_rfid_reader("left_b", os.environ.get("RFID_PORT_BY_ID_RIGHT"))
 
     manager.add_camera("cam", os.environ.get("CAMERA_DEVICE_BY_ID"))
 

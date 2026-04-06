@@ -55,6 +55,7 @@ class NestingBoxPresenceFactory(factory.django.DjangoModelFactory):
     chicken = factory.SubFactory(ChickenFactory)
     nesting_box = factory.SubFactory(NestingBoxFactory)
     present_at = factory.LazyFunction(timezone.now)
+    sensor_id = ""
 
 
 class NestingBoxPresencePeriodFactory(factory.django.DjangoModelFactory):

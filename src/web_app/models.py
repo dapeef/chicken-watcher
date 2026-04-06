@@ -81,6 +81,9 @@ class NestingBoxPresence(models.Model):
         blank=True,
         related_name="presences",
     )
+    # The sensor that triggered this individual ping (e.g. "left_a", "left_b").
+    # Null for legacy records or when the sensor is not known.
+    sensor_id = models.CharField(max_length=200, blank=True, default="")
 
     def __str__(self):
         return (

@@ -9,6 +9,7 @@ from hardware_agent.handlers import (
     report_status,
     report_event,
     save_frame_to_file,
+    _nesting_box_name_for_sensor,
 )
 from web_app.models import (
     NestingBoxPresence,
@@ -269,6 +270,111 @@ class TestHardwareHandlers:
             report_event("test_sensor")
         assert any(
             "Error reporting event for test_sensor" in r.message
+            and r.levelno == logging.ERROR
+            for r in caplog.records
+        )
+
+
+class TestNestingBoxNameForSensor:
+    """Unit tests for _nesting_box_name_for_sensor()."""
+
+    def test_plain_name_returned_unchanged(self):
+        assert _nesting_box_name_for_sensor("left") == "left"
+        assert _nesting_box_name_for_sensor("right") == "right"
+
+    def test_single_letter_suffix_stripped(self):
+        assert _nesting_box_name_for_sensor("left_a") == "left"
+        assert _nesting_box_name_for_sensor("left_b") == "left"
+        assert _nesting_box_name_for_sensor("right_a") == "right"
+        assert _nesting_box_name_for_sensor("right_b") == "right"
+
+    def test_uppercase_suffix_stripped(self):
+        assert _nesting_box_name_for_sensor("left_A") == "left"
+        assert _nesting_box_name_for_sensor("left_B") == "left"
+
+    def test_multi_char_suffix_not_stripped(self):
+        # "_ab" is two characters — should not be treated as a sensor suffix
+        assert _nesting_box_name_for_sensor("left_ab") == "left_ab"
+
+    def test_numeric_suffix_not_stripped(self):
+        # Numbers are not single-letter alphabetic suffixes
+        assert _nesting_box_name_for_sensor("left_1") == "left_1"
+
+    def test_arbitrary_box_names(self):
+        assert _nesting_box_name_for_sensor("Box1") == "Box1"
+        assert _nesting_box_name_for_sensor("UnknownBox") == "UnknownBox"
+
+
+@pytest.mark.django_db
+class TestMultiSensorTagRead:
+    """Tests for RFID reads from multiple sensors in the same nesting box."""
+
+    def test_sensor_id_recorded_on_presence(self):
+        """The sensor name is stored in sensor_id on NestingBoxPresence."""
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        NestingBoxFactory(name="left")
+        HardwareSensor.objects.create(name="rfid_left_a")
+
+        handle_tag_read("left_a", "12345")
+
+        presence = NestingBoxPresence.objects.get(chicken=chicken)
+        assert presence.sensor_id == "left_a"
+
+    def test_nesting_box_resolved_from_sensor_suffix(self):
+        """Sensor 'left_a' reads into the 'left' nesting box."""
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        box = NestingBoxFactory(name="left")
+        HardwareSensor.objects.create(name="rfid_left_a")
+
+        handle_tag_read("left_a", "12345")
+
+        presence = NestingBoxPresence.objects.get(chicken=chicken)
+        assert presence.nesting_box == box
+
+    def test_two_sensors_in_same_box_both_create_presences(self):
+        """Reads from left_a and left_b both create presences linked to the left box."""
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        box = NestingBoxFactory(name="left")
+        HardwareSensor.objects.create(name="rfid_left_a")
+        HardwareSensor.objects.create(name="rfid_left_b")
+
+        handle_tag_read("left_a", "12345")
+        handle_tag_read("left_b", "12345")
+
+        presences = NestingBoxPresence.objects.filter(nesting_box=box).order_by(
+            "present_at"
+        )
+        assert presences.count() == 2
+        assert presences[0].sensor_id == "left_a"
+        assert presences[1].sensor_id == "left_b"
+        assert all(p.nesting_box == box for p in presences)
+
+    def test_two_sensors_in_same_box_share_presence_period(self):
+        """Back-to-back reads from left_a and left_b extend the same period."""
+        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        NestingBoxFactory(name="left")
+        HardwareSensor.objects.create(name="rfid_left_a")
+        HardwareSensor.objects.create(name="rfid_left_b")
+
+        handle_tag_read("left_a", "12345")
+        handle_tag_read("left_b", "12345")
+
+        from web_app.models import NestingBoxPresencePeriod
+
+        # Both presences should belong to the same period because both sensors
+        # are in the same box and reads happen within the 60-second window.
+        assert NestingBoxPresencePeriod.objects.count() == 1
+        assert NestingBoxPresence.objects.count() == 2
+
+    def test_unknown_box_error_uses_derived_name(self, caplog):
+        """When the nesting box is not found, the error log uses the derived box name."""
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        # No nesting box created — lookup should fail for "left" (derived from "left_a")
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+            handle_tag_read("left_a", "12345")
+        assert NestingBoxPresence.objects.count() == 0
+        assert any(
+            "No matching nesting box found matching name: left" in r.message
             and r.levelno == logging.ERROR
             for r in caplog.records
         )
