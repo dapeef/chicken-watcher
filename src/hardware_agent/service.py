@@ -2,7 +2,10 @@ import logging
 import os
 import signal
 
-from gpiozero.pins.lgpio import LGPIOFactory
+try:
+    from gpiozero.pins.lgpio import LGPIOFactory
+except ImportError:
+    LGPIOFactory = None
 
 from hardware_agent.manager import HardwareManager
 
@@ -17,11 +20,15 @@ def run_agent():
 
     manager.add_camera("cam", os.environ.get("CAMERA_DEVICE_BY_ID"))
 
-    try:
-        pin_factory = LGPIOFactory(chip=0)
-    except Exception as e:
-        logger.warning("Could not initialize LGPIOFactory: %s", e)
+    if LGPIOFactory is None:
+        logger.warning("lgpio is not available; GPIO/beam sensors will be disabled")
         pin_factory = None
+    else:
+        try:
+            pin_factory = LGPIOFactory(chip=0)
+        except Exception as e:
+            logger.warning("Could not initialize LGPIOFactory: %s", e)
+            pin_factory = None
 
     manager.add_beam_sensor("left", os.environ.get("BEAM_BREAK_GPIO_LEFT"), pin_factory)
     manager.add_beam_sensor(
