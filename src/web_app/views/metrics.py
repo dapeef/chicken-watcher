@@ -32,7 +32,7 @@ from .chickens import (
 
 DEFAULT_WINDOW = 7
 DEFAULT_AGE_WINDOW = 30
-DEFAULT_SPAN = 90
+DEFAULT_SPAN = 7
 WINDOW_CHOICES = (1, 3, 7, 10, 30, 90)
 
 # Smoothing bandwidth choices for nesting time-of-day chart, in minutes.
@@ -284,7 +284,7 @@ class MetricsView(TemplateView):
         # Date range
         end = _parse_date(req.get("end")) or date.today()
         start = _parse_date(req.get("start"))
-        if not start or start >= end:
+        if not start or start > end:
             start = end - timedelta(days=DEFAULT_SPAN - 1)
 
         # Rolling window for egg production / dud / flock charts

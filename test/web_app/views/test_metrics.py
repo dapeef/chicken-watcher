@@ -316,13 +316,6 @@ class TestMetricsViewParamValidation:
         start = date.fromisoformat(response.context["start"])
         assert (end - start).days == DEFAULT_SPAN - 1
 
-    def test_start_equal_to_end_falls_back_to_default_range(self, client):
-        today = date.today().isoformat()
-        response = client.get(reverse("metrics"), {"start": today, "end": today})
-        start = date.fromisoformat(response.context["start"])
-        end = date.fromisoformat(response.context["end"])
-        assert (end - start).days == DEFAULT_SPAN - 1
-
     def test_start_after_end_falls_back_to_default_range(self, client):
         today = date.today()
         response = client.get(

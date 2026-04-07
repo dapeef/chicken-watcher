@@ -122,6 +122,8 @@
         <label class="form-label small mb-1" for="id_start">From</label>
         <div class="filter-pills d-flex flex-wrap gap-1 mb-1">
           <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="setStart({% now "Y" %}, {% now "m" %}, {% now "d" %}, +1)">1d</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
                   onclick="setStart({% now "Y" %}, {% now "m" %}, {% now "d" %}, -7)">1w</button>
           <button type="button" class="btn btn-outline-secondary btn-sm"
                   onclick="setStart({% now "Y" %}, {% now "m" %}, {% now "d" %}, -30)">1m</button>
