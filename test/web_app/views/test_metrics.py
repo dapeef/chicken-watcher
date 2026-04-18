@@ -1093,16 +1093,17 @@ class TestMetricsViewUnknownChicken:
         assert box_count(r_on) == 6
 
 
-# ── Dud egg charts ────────────────────────────────────────────────────────────
+# ── Quality egg charts ────────────────────────────────────────────────────────
 
 
 @pytest.mark.django_db
-class TestMetricsViewDudEggs:
+class TestMetricsViewQualityEggs:
     """
     Tests for:
-    - include_duds param parsing
-    - dud_prod_datasets_json context key and its contents
-    - include_duds effect on egg_prod, tod_egg, and nesting box pie charts
+    - include_non_saleable param parsing
+    - per-quality-tier context keys (saleable/edible/messy _prod_datasets_json)
+      and their contents
+    - include_non_saleable effect on egg_prod, tod_egg, and nesting box pie charts
     """
 
     # ── helpers ──────────────────────────────────────────────────────────────
@@ -1115,168 +1116,195 @@ class TestMetricsViewDudEggs:
             "w": "1",  # window=1 so rolling avg == raw count
         }
 
-    # ── include_duds param parsing ────────────────────────────────────────────
+    # ── include_non_saleable param parsing ────────────────────────────────────
 
-    def test_fresh_load_include_duds_defaults_false(self, client):
+    def test_fresh_load_include_non_saleable_defaults_false(self, client):
         response = client.get(reverse("metrics"))
-        assert response.context["include_duds"] is False
+        assert response.context["include_non_saleable"] is False
 
-    def test_form_submission_include_duds_off_by_default(self, client):
+    def test_form_submission_include_non_saleable_off_by_default(self, client):
         response = client.get(reverse("metrics"), {"chickens_sent": "1"})
-        assert response.context["include_duds"] is False
+        assert response.context["include_non_saleable"] is False
 
-    def test_include_duds_explicit_on(self, client):
+    def test_include_non_saleable_explicit_on(self, client):
         response = client.get(
-            reverse("metrics"), {"chickens_sent": "1", "include_duds": "1"}
+            reverse("metrics"), {"chickens_sent": "1", "include_non_saleable": "1"}
         )
-        assert response.context["include_duds"] is True
+        assert response.context["include_non_saleable"] is True
 
-    # ── dud production chart context key ─────────────────────────────────────
+    # ── quality production chart context keys ─────────────────────────────────
 
-    def test_dud_prod_datasets_json_present_in_context(self, client):
+    def test_quality_prod_context_keys_present(self, client):
         response = client.get(reverse("metrics"))
-        assert "dud_prod_datasets_json" in response.context
+        assert "saleable_prod_datasets_json" in response.context
+        assert "edible_prod_datasets_json" in response.context
+        assert "messy_prod_datasets_json" in response.context
 
-    def test_dud_prod_datasets_json_is_valid_json(self, client):
+    def test_quality_prod_context_keys_are_valid_json(self, client):
         response = client.get(reverse("metrics"))
-        # Should not raise
-        datasets = json.loads(response.context["dud_prod_datasets_json"])
-        assert isinstance(datasets, list)
+        for key in (
+            "saleable_prod_datasets_json",
+            "edible_prod_datasets_json",
+            "messy_prod_datasets_json",
+        ):
+            datasets = json.loads(response.context[key])
+            assert isinstance(datasets, list)
 
-    # ── dud production chart counts ───────────────────────────────────────────
+    # ── per-quality chart counts ──────────────────────────────────────────────
 
-    def test_dud_prod_chart_counts_only_dud_eggs(self, client):
-        """Only dud=True eggs appear in the dud production chart."""
+    def test_messy_chart_counts_only_messy_eggs(self, client):
+        """Only quality='messy' eggs appear in the messy production chart."""
         today = date.today()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
 
-        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, dud=True)
-        EggFactory.create_batch(5, chicken=hen, laid_at=today_dt, dud=False)
+        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, quality="messy")
+        EggFactory.create_batch(5, chicken=hen, laid_at=today_dt, quality="saleable")
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, quality="edible")
 
-        params = {
-            **self._base_params(start, today),
-            "chickens": str(hen.pk),
-        }
+        params = {**self._base_params(start, today), "chickens": str(hen.pk)}
         response = client.get(reverse("metrics"), params)
-        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        datasets = json.loads(response.context["messy_prod_datasets_json"])
         hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
-        # With w=1 rolling avg, last entry = count on that day
         assert hen_data[-1] == 3
 
-    def test_dud_prod_chart_zero_when_no_duds(self, client):
-        """All-zero series when a hen has no dud eggs."""
+    def test_edible_chart_counts_only_edible_eggs(self, client):
+        """Only quality='edible' eggs appear in the edible production chart."""
         today = date.today()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
-        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, dud=False)
 
-        params = {
-            **self._base_params(start, today),
-            "chickens": str(hen.pk),
-        }
+        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, quality="edible")
+        EggFactory.create_batch(6, chicken=hen, laid_at=today_dt, quality="saleable")
+
+        params = {**self._base_params(start, today), "chickens": str(hen.pk)}
         response = client.get(reverse("metrics"), params)
-        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        datasets = json.loads(response.context["edible_prod_datasets_json"])
+        hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
+        assert hen_data[-1] == 4
+
+    def test_saleable_chart_counts_only_saleable_eggs(self, client):
+        """Only quality='saleable' eggs appear in the saleable production chart."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+
+        EggFactory.create_batch(7, chicken=hen, laid_at=today_dt, quality="saleable")
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, quality="messy")
+
+        params = {**self._base_params(start, today), "chickens": str(hen.pk)}
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["saleable_prod_datasets_json"])
+        hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
+        assert hen_data[-1] == 7
+
+    def test_messy_chart_zero_when_no_messy_eggs(self, client):
+        """All-zero series when a hen has no messy eggs."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, quality="saleable")
+
+        params = {**self._base_params(start, today), "chickens": str(hen.pk)}
+        response = client.get(reverse("metrics"), params)
+        datasets = json.loads(response.context["messy_prod_datasets_json"])
         hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
         assert all(v == 0 or v is None for v in hen_data)
 
-    def test_dud_prod_chart_respects_date_range(self, client):
-        """Dud eggs outside the date range do not appear."""
+    def test_quality_chart_respects_date_range(self, client):
+        """Messy eggs outside the date range do not appear."""
         today = date.today()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
         before_range = datetime.combine(
             start - timedelta(days=1), datetime.min.time(), tzinfo=dt_timezone.utc
         )
-        EggFactory.create_batch(3, chicken=hen, laid_at=before_range, dud=True)
+        EggFactory.create_batch(3, chicken=hen, laid_at=before_range, quality="messy")
 
-        params = {
-            **self._base_params(start, today),
-            "chickens": str(hen.pk),
-        }
+        params = {**self._base_params(start, today), "chickens": str(hen.pk)}
         response = client.get(reverse("metrics"), params)
-        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        datasets = json.loads(response.context["messy_prod_datasets_json"])
         hen_data = next(d["data"] for d in datasets if d["label"] == hen.name)
         assert all(v == 0 or v is None for v in hen_data)
 
-    def test_dud_prod_chart_respects_chicken_selection(self, client):
-        """Only selected chickens appear in the dud production chart."""
+    def test_quality_chart_respects_chicken_selection(self, client):
+        """Only selected chickens appear in the quality production chart."""
         today = date.today()
         start = today - timedelta(days=6)
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
-        EggFactory.create_batch(2, chicken=c2, laid_at=today_dt, dud=True)
+        EggFactory.create_batch(2, chicken=c2, laid_at=today_dt, quality="messy")
 
-        params = {
-            **self._base_params(start, today),
-            "chickens": str(c1.pk),  # only c1 selected
-        }
+        params = {**self._base_params(start, today), "chickens": str(c1.pk)}
         response = client.get(reverse("metrics"), params)
-        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        datasets = json.loads(response.context["messy_prod_datasets_json"])
         labels = {d["label"] for d in datasets}
         assert c1.name in labels
         assert c2.name not in labels
 
-    def test_dud_prod_chart_multiple_hens(self, client):
-        """Each selected hen gets its own series with correct dud counts."""
+    def test_quality_chart_multiple_hens(self, client):
+        """Each selected hen gets its own series with correct quality counts."""
         today = date.today()
         start = today - timedelta(days=6)
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
-        EggFactory.create_batch(2, chicken=c1, laid_at=today_dt, dud=True)
-        EggFactory.create_batch(4, chicken=c2, laid_at=today_dt, dud=True)
+        EggFactory.create_batch(2, chicken=c1, laid_at=today_dt, quality="messy")
+        EggFactory.create_batch(4, chicken=c2, laid_at=today_dt, quality="messy")
 
         params = {
             **self._base_params(start, today),
             "chickens": [str(c1.pk), str(c2.pk)],
         }
         response = client.get(reverse("metrics"), params)
-        datasets = json.loads(response.context["dud_prod_datasets_json"])
+        datasets = json.loads(response.context["messy_prod_datasets_json"])
         c1_data = next(d["data"] for d in datasets if d["label"] == c1.name)
         c2_data = next(d["data"] for d in datasets if d["label"] == c2.name)
         assert c1_data[-1] == 2
         assert c2_data[-1] == 4
 
-    # ── include_duds effect on egg production chart ───────────────────────────
+    # ── include_non_saleable effect on main egg production chart ─────────────
 
-    def test_include_duds_adds_duds_to_egg_prod(self, client):
-        """Without include_duds, dud eggs are absent from the egg production series."""
+    def test_include_non_saleable_adds_non_saleable_to_egg_prod(self, client):
+        """Without include_non_saleable, only saleable eggs appear in production chart."""
         today = date.today()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
-        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, dud=False)
-        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, dud=True)
+        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, quality="saleable")
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, quality="messy")
+        EggFactory.create_batch(1, chicken=hen, laid_at=today_dt, quality="edible")
 
         base = {**self._base_params(start, today), "chickens": str(hen.pk)}
 
-        r_without_duds = client.get(reverse("metrics"), base)
-        r_with_duds = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+        r_without = client.get(reverse("metrics"), base)
+        r_with = client.get(reverse("metrics"), {**base, "include_non_saleable": "1"})
 
         def last_value(response):
             datasets = json.loads(response.context["egg_prod_datasets_json"])
             return next(d["data"] for d in datasets if d["label"] == hen.name)[-1]
 
-        # duds excluded by default → 3; duds included → 5
-        assert last_value(r_without_duds) == 3
-        assert last_value(r_with_duds) == 5
+        # non-saleable excluded → 3 (saleable only); included → 6 (all)
+        assert last_value(r_without) == 3
+        assert last_value(r_with) == 6
 
-    def test_include_duds_off_does_not_affect_non_dud_count(self, client):
-        """Non-dud eggs are counted identically whether include_duds is on or off."""
+    def test_include_non_saleable_off_does_not_affect_saleable_count(self, client):
+        """Saleable eggs are counted identically whether include_non_saleable is on or off."""
         today = date.today()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
-        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, dud=False)
+        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, quality="saleable")
 
         base = {**self._base_params(start, today), "chickens": str(hen.pk)}
 
         r_off = client.get(reverse("metrics"), base)
-        r_on = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+        r_on = client.get(reverse("metrics"), {**base, "include_non_saleable": "1"})
 
         def last_value(response):
             datasets = json.loads(response.context["egg_prod_datasets_json"])
@@ -1285,32 +1313,33 @@ class TestMetricsViewDudEggs:
         assert last_value(r_off) == 4
         assert last_value(r_on) == 4
 
-    # ── include_duds effect on egg time-of-day KDE ────────────────────────────
+    # ── include_non_saleable effect on egg time-of-day KDE ───────────────────
 
-    def test_include_duds_changes_tod_egg_kde(self, client):
+    def test_include_non_saleable_changes_tod_egg_kde(self, client):
         """
-        With duds included, the KDE shape changes because dud eggs are at a
-        different time of day. Normal eggs at midnight, dud eggs at noon.
-        Without include_duds the peak is near midnight; with it the shape differs.
+        With non-saleable included, the KDE shape changes because messy eggs are
+        at a different time of day. Saleable eggs at midnight, messy at noon.
+        Without include_non_saleable the peak is near midnight; with it differs.
         """
         today = date.today()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
 
-        # Normal eggs at 00:00 UTC
         midnight_dt = datetime.combine(
             today, datetime.min.time(), tzinfo=dt_timezone.utc
         )
-        # Dud eggs at 12:00 UTC (bucket 72 = 720 minutes / 10)
+        # Messy eggs at 12:00 UTC (bucket 72 = 720 minutes / 10)
         noon_dt = midnight_dt.replace(hour=12)
 
-        EggFactory.create_batch(10, chicken=hen, laid_at=midnight_dt, dud=False)
-        EggFactory.create_batch(10, chicken=hen, laid_at=noon_dt, dud=True)
+        EggFactory.create_batch(
+            10, chicken=hen, laid_at=midnight_dt, quality="saleable"
+        )
+        EggFactory.create_batch(10, chicken=hen, laid_at=noon_dt, quality="messy")
 
         base = {**self._base_params(start, today), "chickens": str(hen.pk)}
 
         r_without = client.get(reverse("metrics"), base)
-        r_with = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+        r_with = client.get(reverse("metrics"), {**base, "include_non_saleable": "1"})
 
         def hen_kde(response):
             datasets = json.loads(response.context["tod_egg_datasets_json"])
@@ -1319,33 +1348,33 @@ class TestMetricsViewDudEggs:
         kde_without = hen_kde(r_without)
         kde_with = hen_kde(r_with)
 
-        # The two KDEs should differ (adding duds at noon changes the shape)
+        # The two KDEs should differ (adding messy eggs at noon changes the shape)
         assert kde_with != kde_without
-        # Without duds, the peak should be near midnight (bucket 0), not noon
+        # Without non-saleable, the peak should be near midnight (bucket 0), not noon
         peak_without = kde_without.index(max(kde_without))
         NOON_BUCKET = 72
         assert peak_without != NOON_BUCKET
 
-    # ── include_duds effect on nesting box eggs pie chart ─────────────────────
+    # ── include_non_saleable effect on nesting box eggs pie chart ─────────────
 
-    def test_include_duds_adds_duds_to_box_pie(self, client):
-        """Without include_duds, dud eggs are excluded from the nesting box pie."""
+    def test_include_non_saleable_adds_non_saleable_to_box_pie(self, client):
+        """Without include_non_saleable, non-saleable eggs are excluded from the box pie."""
         today = date.today()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box = NestingBoxFactory(name="left")
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
         EggFactory.create_batch(
-            3, chicken=hen, nesting_box=box, laid_at=today_dt, dud=False
+            3, chicken=hen, nesting_box=box, laid_at=today_dt, quality="saleable"
         )
         EggFactory.create_batch(
-            2, chicken=hen, nesting_box=box, laid_at=today_dt, dud=True
+            2, chicken=hen, nesting_box=box, laid_at=today_dt, quality="messy"
         )
 
         base = {**self._base_params(start, today), "chickens": str(hen.pk)}
 
         r_off = client.get(reverse("metrics"), base)
-        r_on = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+        r_on = client.get(reverse("metrics"), {**base, "include_non_saleable": "1"})
 
         def box_count(response):
             data = json.loads(response.context["nesting_box_eggs_json"])
@@ -1357,15 +1386,15 @@ class TestMetricsViewDudEggs:
     # ── _build_egg_prod_datasets unit tests ───────────────────────────────────
 
     @pytest.mark.django_db
-    def test_build_helper_dud_filter_isolates_duds(self):
-        """_build_egg_prod_datasets with Q(dud=True) returns only dud counts."""
+    def test_build_helper_quality_filter_isolates_messy(self):
+        """_build_egg_prod_datasets with Q(quality='messy') returns only messy counts."""
         today = date.today()
         start = today - timedelta(days=6)
         data_start = start - timedelta(days=1)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
-        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, dud=True)
-        EggFactory.create_batch(5, chicken=hen, laid_at=today_dt, dud=False)
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, quality="messy")
+        EggFactory.create_batch(5, chicken=hen, laid_at=today_dt, quality="saleable")
 
         days = (today - start).days + 1
         data_date_labels = [data_start + timedelta(days=i) for i in range(days + 1)]
@@ -1374,7 +1403,7 @@ class TestMetricsViewDudEggs:
             chosen=[hen],
             data_date_labels=data_date_labels,
             window=1,
-            base_egg_filter=Q(dud=True),
+            base_egg_filter=Q(quality="messy"),
             show_sum=False,
             show_mean=False,
             include_unknown=False,
@@ -1383,9 +1412,37 @@ class TestMetricsViewDudEggs:
         )
         assert len(datasets) == 1
         assert datasets[0]["label"] == hen.name
-        # Last non-None value should be 2 (only dud eggs)
+        # Last non-None value should be 2 (only messy eggs)
         values = [v for v in datasets[0]["data"] if v is not None]
         assert values[-1] == 2
+
+    @pytest.mark.django_db
+    def test_build_helper_quality_filter_isolates_edible(self):
+        """_build_egg_prod_datasets with Q(quality='edible') returns only edible counts."""
+        today = date.today()
+        start = today - timedelta(days=6)
+        data_start = start - timedelta(days=1)
+        hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, quality="edible")
+        EggFactory.create_batch(4, chicken=hen, laid_at=today_dt, quality="saleable")
+
+        days = (today - start).days + 1
+        data_date_labels = [data_start + timedelta(days=i) for i in range(days + 1)]
+
+        datasets = _build_egg_prod_datasets(
+            chosen=[hen],
+            data_date_labels=data_date_labels,
+            window=1,
+            base_egg_filter=Q(quality="edible"),
+            show_sum=False,
+            show_mean=False,
+            include_unknown=False,
+            data_start=data_start,
+            end=today,
+        )
+        values = [v for v in datasets[0]["data"] if v is not None]
+        assert values[-1] == 3
 
     @pytest.mark.django_db
     def test_build_helper_empty_filter_counts_all(self):
@@ -1395,8 +1452,8 @@ class TestMetricsViewDudEggs:
         data_start = start - timedelta(days=1)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
-        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, dud=True)
-        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, dud=False)
+        EggFactory.create_batch(2, chicken=hen, laid_at=today_dt, quality="messy")
+        EggFactory.create_batch(3, chicken=hen, laid_at=today_dt, quality="saleable")
 
         days = (today - start).days + 1
         data_date_labels = [data_start + timedelta(days=i) for i in range(days + 1)]
@@ -1413,7 +1470,7 @@ class TestMetricsViewDudEggs:
             end=today,
         )
         values = [v for v in datasets[0]["data"] if v is not None]
-        assert values[-1] == 5  # 2 duds + 3 non-duds
+        assert values[-1] == 5  # 2 messy + 3 saleable
 
 
 # ── Egg production vs age chart ───────────────────────────────────────────────
@@ -1430,7 +1487,7 @@ class TestMetricsViewAgeProd:
     - chicken selection is respected
     - rolling window is applied correctly
     - hens not alive in the selected date range produce all-None/zero series
-    - include_duds filter is respected
+    - include_non_saleable filter is respected
     """
 
     def _params(self, start, end, chickens, window=1):
@@ -1610,30 +1667,30 @@ class TestMetricsViewAgeProd:
         non_none_w3 = [v for v in data_w3 if v is not None]
         assert non_none_w3[-1] == 1.0
 
-    # ── include_duds filter ───────────────────────────────────────────────────
+    # ── include_non_saleable filter ───────────────────────────────────────────
 
-    def test_duds_excluded_from_age_prod_by_default(self, client):
-        """Dud eggs don't appear in the age chart unless include_duds=1."""
+    def test_non_saleable_excluded_from_age_prod_by_default(self, client):
+        """Non-saleable eggs don't appear in the age chart unless include_non_saleable=1."""
         today = date.today()
         dob = today - timedelta(days=200)
         hen = ChickenFactory(date_of_birth=dob)
         start = today - timedelta(days=6)
         egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
 
-        EggFactory(chicken=hen, laid_at=egg_dt, dud=False)
-        EggFactory(chicken=hen, laid_at=egg_dt, dud=True)
+        EggFactory(chicken=hen, laid_at=egg_dt, quality="saleable")
+        EggFactory(chicken=hen, laid_at=egg_dt, quality="messy")
 
         base = self._params(start, today, [hen])
 
         r_off = client.get(reverse("metrics"), base)
-        r_on = client.get(reverse("metrics"), {**base, "include_duds": "1"})
+        r_on = client.get(reverse("metrics"), {**base, "include_non_saleable": "1"})
 
         def last_non_none(response):
             data = json.loads(response.context["age_prod_datasets_json"])[0]["data"]
             return next(v for v in reversed(data) if v is not None)
 
-        assert last_non_none(r_off) == 1  # only non-dud
-        assert last_non_none(r_on) == 2  # both eggs
+        assert last_non_none(r_off) == 1  # only saleable
+        assert last_non_none(r_on) == 2  # saleable + messy
 
     # ── sum and mean series ───────────────────────────────────────────────────
 

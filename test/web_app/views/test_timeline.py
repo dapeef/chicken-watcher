@@ -143,43 +143,58 @@ class TestTimelineViews:
         assert "box-right" in presence_item["className"]
         assert "timeline-presence-dot" in presence_item["className"]
 
-    # ── dud egg rendering ─────────────────────────────────────────────────────
+    # ── egg quality rendering ─────────────────────────────────────────────────
 
-    def test_non_dud_egg_has_base_class_only(self, client):
+    def test_saleable_egg_has_saleable_class(self, client):
         url = reverse("timeline_data")
         now = timezone.now()
-        egg = EggFactory(laid_at=now, dud=False)
-        start = (now - timedelta(hours=1)).isoformat()
-        end = (now + timedelta(hours=1)).isoformat()
-
-        data = client.get(f"{url}?start={start}&end={end}").json()
-        item = next(i for i in data if i["id"] == f"egg_{egg.id}")
-        assert item["className"] == "timeline-egg"
-
-    def test_dud_egg_has_dud_class(self, client):
-        url = reverse("timeline_data")
-        now = timezone.now()
-        egg = EggFactory(laid_at=now, dud=True)
+        egg = EggFactory(laid_at=now, quality="saleable")
         start = (now - timedelta(hours=1)).isoformat()
         end = (now + timedelta(hours=1)).isoformat()
 
         data = client.get(f"{url}?start={start}&end={end}").json()
         item = next(i for i in data if i["id"] == f"egg_{egg.id}")
         assert "timeline-egg" in item["className"]
-        assert "timeline-egg--dud" in item["className"]
+        assert "timeline-egg--saleable" in item["className"]
 
-    def test_dud_and_non_dud_eggs_both_appear(self, client):
+    def test_edible_egg_has_edible_class(self, client):
         url = reverse("timeline_data")
         now = timezone.now()
-        dud = EggFactory(laid_at=now, dud=True)
-        normal = EggFactory(laid_at=now, dud=False)
+        egg = EggFactory(laid_at=now, quality="edible")
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"egg_{egg.id}")
+        assert "timeline-egg" in item["className"]
+        assert "timeline-egg--edible" in item["className"]
+
+    def test_messy_egg_has_messy_class(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        egg = EggFactory(laid_at=now, quality="messy")
+        start = (now - timedelta(hours=1)).isoformat()
+        end = (now + timedelta(hours=1)).isoformat()
+
+        data = client.get(f"{url}?start={start}&end={end}").json()
+        item = next(i for i in data if i["id"] == f"egg_{egg.id}")
+        assert "timeline-egg" in item["className"]
+        assert "timeline-egg--messy" in item["className"]
+
+    def test_eggs_of_all_quality_tiers_appear_in_timeline(self, client):
+        url = reverse("timeline_data")
+        now = timezone.now()
+        messy = EggFactory(laid_at=now, quality="messy")
+        edible = EggFactory(laid_at=now, quality="edible")
+        saleable = EggFactory(laid_at=now, quality="saleable")
         start = (now - timedelta(hours=1)).isoformat()
         end = (now + timedelta(hours=1)).isoformat()
 
         data = client.get(f"{url}?start={start}&end={end}").json()
         ids = {i["id"] for i in data}
-        assert f"egg_{dud.id}" in ids
-        assert f"egg_{normal.id}" in ids
+        assert f"egg_{messy.id}" in ids
+        assert f"egg_{edible.id}" in ids
+        assert f"egg_{saleable.id}" in ids
 
     # ── presence periods in timeline data ─────────────────────────────────────
 

@@ -41,6 +41,11 @@ class NestingBox(models.Model):
 
 
 class Egg(models.Model):
+    class Quality(models.TextChoices):
+        SALEABLE = "saleable", "Saleable"
+        EDIBLE = "edible", "Edible"
+        MESSY = "messy", "Messy"
+
     chicken = models.ForeignKey(
         Chicken, on_delete=models.CASCADE, null=True, blank=True
     )
@@ -48,7 +53,24 @@ class Egg(models.Model):
         NestingBox, on_delete=models.CASCADE, null=True, blank=True
     )
     laid_at = models.DateTimeField(default=timezone.now, db_index=True)
-    dud = models.BooleanField(default=False)
+    quality = models.CharField(
+        max_length=10,
+        choices=Quality.choices,
+        default=Quality.SALEABLE,
+        db_index=True,
+    )
+
+    @property
+    def is_saleable(self) -> bool:
+        return self.quality == self.Quality.SALEABLE
+
+    @property
+    def is_edible(self) -> bool:
+        return self.quality == self.Quality.EDIBLE
+
+    @property
+    def is_messy(self) -> bool:
+        return self.quality == self.Quality.MESSY
 
     def __str__(self):
         chicken = self.chicken.name if self.chicken else "Unknown chicken"

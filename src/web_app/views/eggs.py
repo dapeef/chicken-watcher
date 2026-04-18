@@ -24,7 +24,7 @@ class EggListView(ListView):
             ("chicken", "Chicken"),
             ("nesting_box", "Nesting box"),
             ("laid_at", "Laid at"),
-            ("dud", "Dud"),
+            ("quality", "Quality"),
         ]
         return ctx
 

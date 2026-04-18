@@ -23,17 +23,23 @@ class TestEggItem:
         assert item["content"] == "🥚"
         assert item["start"] == egg.laid_at.isoformat()
 
-    def test_non_dud_has_base_class_only(self):
-        egg = EggFactory(dud=False)
-        item = egg_item(egg)
-        assert item["className"] == "timeline-egg"
-        assert "dud" not in item["className"]
-
-    def test_dud_has_dud_class(self):
-        egg = EggFactory(dud=True)
+    def test_saleable_egg_has_saleable_class(self):
+        egg = EggFactory(quality="saleable")
         item = egg_item(egg)
         assert "timeline-egg" in item["className"]
-        assert "timeline-egg--dud" in item["className"]
+        assert "timeline-egg--saleable" in item["className"]
+
+    def test_edible_egg_has_edible_class(self):
+        egg = EggFactory(quality="edible")
+        item = egg_item(egg)
+        assert "timeline-egg" in item["className"]
+        assert "timeline-egg--edible" in item["className"]
+
+    def test_messy_egg_has_messy_class(self):
+        egg = EggFactory(quality="messy")
+        item = egg_item(egg)
+        assert "timeline-egg" in item["className"]
+        assert "timeline-egg--messy" in item["className"]
 
     def test_include_group_false_omits_group(self):
         egg = EggFactory()
@@ -51,11 +57,11 @@ class TestEggItem:
         item = egg_item(egg, include_group=True)
         assert item["group"] == "unknown"
 
-    def test_dud_with_include_group(self):
+    def test_messy_with_include_group(self):
         chicken = ChickenFactory()
-        egg = EggFactory(chicken=chicken, dud=True)
+        egg = EggFactory(chicken=chicken, quality="messy")
         item = egg_item(egg, include_group=True)
-        assert "timeline-egg--dud" in item["className"]
+        assert "timeline-egg--messy" in item["className"]
         assert item["group"] == f"chicken_{chicken.pk}"
 
 

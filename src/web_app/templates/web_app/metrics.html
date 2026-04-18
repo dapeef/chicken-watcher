@@ -88,11 +88,11 @@
           <label class="form-check-label small" for="id_include_unknown">Unattributed eggs</label>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="include_duds"
-                 value="1" id="id_include_duds"
-                 {% if include_duds %}checked{% endif %}
+          <input class="form-check-input" type="checkbox" name="include_non_saleable"
+                 value="1" id="id_include_non_saleable"
+                 {% if include_non_saleable %}checked{% endif %}
                  onchange="submitForm()">
-          <label class="form-check-label small" for="id_include_duds">Dud eggs</label>
+          <label class="form-check-label small" for="id_include_non_saleable">Non-saleable eggs</label>
         </div>
       </div>
 
@@ -178,15 +178,20 @@
            role="button"
            style="cursor: pointer;"
            data-bs-toggle="collapse"
-           data-bs-target="#dudProdCollapse"
+           data-bs-target="#qualityProdCollapse"
            aria-expanded="false"
-           aria-controls="dudProdCollapse">
-        <h6 class="mb-0 fw-semibold">Dud egg production</h6>
+           aria-controls="qualityProdCollapse">
+        <h6 class="mb-0 fw-semibold">Egg quality breakdown</h6>
         <small class="text-muted ms-2">(click to expand)</small>
       </div>
-      <div class="collapse" id="dudProdCollapse">
+      <div class="collapse" id="qualityProdCollapse">
         <div class="px-3 pb-3">
-          <canvas id="dudProdChart" height="100"></canvas>
+          <p class="small text-muted mb-1 mt-2">Saleable</p>
+          <canvas id="saleableProdChart" height="60"></canvas>
+          <p class="small text-muted mb-1 mt-3">Edible</p>
+          <canvas id="edibleProdChart" height="60"></canvas>
+          <p class="small text-muted mb-1 mt-3">Messy</p>
+          <canvas id="messyProdChart" height="60"></canvas>
         </div>
       </div>
     </div>
@@ -418,28 +423,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Dud egg production (collapsed by default — lazy)
-  lazyChart("dudProdCollapse", () => {
-    new Chart(document.getElementById("dudProdChart"), {
-      type: "line",
-      data: {
-        labels: {{ egg_prod_labels_json|safe }},
-        datasets: applyMeanFade({{ dud_prod_datasets_json|safe }})
-      },
-      options: {
-        ...noAnimation,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: { display: true, text: "duds / day" }
-          },
-          x: { ticks: { maxTicksLimit: 15 } }
+  // Egg quality breakdown charts — all three share one collapsible panel
+  const qualityChartDefs = [
+    { canvasId: "saleableProdChart", datasetsJson: {{ saleable_prod_datasets_json|safe }}, yLabel: "saleable / day" },
+    { canvasId: "edibleProdChart",   datasetsJson: {{ edible_prod_datasets_json|safe }},   yLabel: "edible / day" },
+    { canvasId: "messyProdChart",    datasetsJson: {{ messy_prod_datasets_json|safe }},    yLabel: "messy / day" },
+  ];
+  lazyChart("qualityProdCollapse", () => {
+    qualityChartDefs.forEach(({ canvasId, datasetsJson, yLabel }) => {
+      new Chart(document.getElementById(canvasId), {
+        type: "line",
+        data: {
+          labels: {{ egg_prod_labels_json|safe }},
+          datasets: applyMeanFade(datasetsJson)
         },
-        plugins: {
-          legend: { position: "bottom" },
-          tooltip: { intersect: false, mode: "index" }
+        options: {
+          ...noAnimation,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: yLabel }
+            },
+            x: { ticks: { maxTicksLimit: 15 } }
+          },
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: { intersect: false, mode: "index" }
+          }
         }
-      }
+      });
     });
   });
 

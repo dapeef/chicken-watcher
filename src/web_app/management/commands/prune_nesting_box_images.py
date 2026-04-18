@@ -23,9 +23,7 @@ class Command(BaseCommand):
         NestingBoxPresencePeriod or Egg within WINDOW of their created_at.
         """
 
-        logger.info(
-            "Collecting NestingBoxImage records with no nearby presence or egg"
-        )
+        logger.info("Collecting NestingBoxImage records with no nearby presence or egg")
 
         images_to_delete = get_images_to_delete()
         count = images_to_delete.count()

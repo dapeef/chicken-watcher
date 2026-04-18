@@ -26,21 +26,34 @@ class TestEggForm:
         assert egg.laid_at.month == now.month
         assert egg.laid_at.day == now.day
 
-    def test_valid_form_dud_true(self):
+    def test_valid_form_quality_messy(self):
         now = timezone.now().replace(second=0, microsecond=0)
         data = {
             "chicken": "",
             "nesting_box": "",
             "laid_at": now.strftime("%Y-%m-%dT%H:%M"),
-            "dud": True,
+            "quality": "messy",
         }
         form = EggForm(data=data)
         assert form.is_valid(), form.errors
         egg = form.save()
-        assert egg.dud is True
+        assert egg.quality == "messy"
 
-    def test_valid_form_dud_defaults_to_false(self):
-        # Omitting 'dud' from POST data simulates an unchecked checkbox
+    def test_valid_form_quality_edible(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": now.strftime("%Y-%m-%dT%H:%M"),
+            "quality": "edible",
+        }
+        form = EggForm(data=data)
+        assert form.is_valid(), form.errors
+        egg = form.save()
+        assert egg.quality == "edible"
+
+    def test_valid_form_quality_defaults_to_saleable(self):
+        # Omitting 'quality' from POST data should use the model default
         now = timezone.now().replace(second=0, microsecond=0)
         data = {
             "chicken": "",
@@ -50,7 +63,19 @@ class TestEggForm:
         form = EggForm(data=data)
         assert form.is_valid(), form.errors
         egg = form.save()
-        assert egg.dud is False
+        assert egg.quality == "saleable"
+
+    def test_invalid_quality_fails_validation(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": now.strftime("%Y-%m-%dT%H:%M"),
+            "quality": "bad_value",
+        }
+        form = EggForm(data=data)
+        assert not form.is_valid()
+        assert "quality" in form.errors
 
     def test_invalid_form(self):
         # laid_at is required in the form

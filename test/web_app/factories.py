@@ -45,7 +45,7 @@ class EggFactory(factory.django.DjangoModelFactory):
     chicken = factory.SubFactory(ChickenFactory)
     nesting_box = factory.SubFactory(NestingBoxFactory)
     laid_at = factory.LazyFunction(timezone.now)
-    dud = False
+    quality = "saleable"
 
 
 class NestingBoxPresenceFactory(factory.django.DjangoModelFactory):

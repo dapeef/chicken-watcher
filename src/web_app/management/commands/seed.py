@@ -191,8 +191,14 @@ def populate_data():
                     seconds=seconds_in_box - 5
                 )  # Egg laid 5s before departure
 
-                # Hoppy occasionally lays a dud (1 in 20 chance)
-                is_dud = chicken.name == "Hoppy" and random() < 0.05
+                # Quality distribution: Hoppy occasionally lays messy eggs
+                # (1 in 20 chance), any hen may lay edible-only eggs (1 in 10)
+                if chicken.name == "Hoppy" and random() < 0.05:
+                    quality = Egg.Quality.MESSY
+                elif random() < 0.1:
+                    quality = Egg.Quality.EDIBLE
+                else:
+                    quality = Egg.Quality.SALEABLE
 
                 # Occasionally record an egg with an unknown chicken and/or box
                 egg_chicken = None if random() < 0.05 else chicken
@@ -202,7 +208,7 @@ def populate_data():
                     chicken=egg_chicken,
                     laid_at=egg_time,
                     nesting_box=egg_box,
-                    dud=is_dud,
+                    quality=quality,
                 )
 
     logger.info("DB populated")

@@ -4,14 +4,15 @@ and nesting time-of-day frequency.
 
 URL params
 ----------
-chickens      – repeated: ?chickens=1&chickens=3  (pk list; empty = all)
-show_sum      – "1" to include a sum series
-show_mean     – "1" to include a mean series
+chickens        – repeated: ?chickens=1&chickens=3  (pk list; empty = all)
+show_sum        – "1" to include a sum series
+show_mean       – "1" to include a mean series
 include_unknown – "1" to include unattributed eggs
-include_duds  – "1" to include dud eggs in all charts (default: off)
-start         – YYYY-MM-DD  (default: 90 days ago)
-end           – YYYY-MM-DD  (default: today)
-w             – rolling window in days for egg production chart (default: 7)
+include_non_saleable – "1" to include edible + messy eggs in main production
+                       chart and time-of-day / nesting box charts (default: off)
+start           – YYYY-MM-DD  (default: 90 days ago)
+end             – YYYY-MM-DD  (default: today)
+w               – rolling window in days for egg production chart (default: 7)
 """
 
 import json
@@ -60,7 +61,18 @@ PALETTE = [
 SUM_COLOUR = "#adb5bd"  # grey  — dotted, secondary
 MEAN_COLOUR = "#212529"  # near-black — solid/bold, primary aggregate
 UNKNOWN_COLOUR = "#adb5bd"  # grey — unattributed eggs series / pie slices
-DUD_COLOUR = "#dc3545"  # red — dud egg series
+
+# Per-quality colours for the quality breakdown charts
+QUALITY_COLOURS = {
+    "saleable": "#198754",  # green
+    "edible": "#fd7e14",  # orange
+    "messy": "#dc3545",  # red
+}
+QUALITY_LABELS = {
+    "saleable": "Saleable",
+    "edible": "Edible",
+    "messy": "Messy",
+}
 
 
 def _gaussian_smooth_circular(counts: list[int], sigma_minutes: int) -> list[float]:
@@ -119,7 +131,7 @@ def _build_egg_prod_datasets(
     Build Chart.js dataset dicts for an egg-production-over-time chart.
 
     base_egg_filter is a Q object that is ANDed with the chicken/date filter
-    before querying eggs — use it to restrict to e.g. dud=True or dud=False.
+    before querying eggs — use it to restrict to e.g. quality='messy'.
     """
     eggs_qs = (
         Egg.objects.filter(
@@ -278,8 +290,10 @@ class MetricsView(TemplateView):
         include_unknown = (
             req.get("include_unknown", "" if chickens_sent else "1") == "1"
         )
-        # include_duds: off by default on fresh load and form submissions
-        include_duds = req.get("include_duds", "") == "1"
+        # include_non_saleable: off by default on fresh load and form submissions.
+        # When on, edible + messy eggs are included in the main egg production
+        # chart, the time-of-day KDE, and the nesting-box preference pie.
+        include_non_saleable = req.get("include_non_saleable", "") == "1"
 
         # Date range
         end = _parse_date(req.get("end")) or date.today()
@@ -287,7 +301,7 @@ class MetricsView(TemplateView):
         if not start or start > end:
             start = end - timedelta(days=DEFAULT_SPAN - 1)
 
-        # Rolling window for egg production / dud / flock charts
+        # Rolling window for egg production / quality / flock charts
         try:
             window = int(req.get("w", DEFAULT_WINDOW))
         except (ValueError, TypeError):
@@ -329,8 +343,10 @@ class MetricsView(TemplateView):
             data_start + timedelta(days=i) for i in range(days + window)
         ]
 
-        # Base filter for "normal" egg production: optionally exclude duds
-        normal_egg_filter = Q() if include_duds else Q(dud=False)
+        # Base filter for the main egg production chart.
+        # By default only saleable eggs are shown; include_non_saleable widens
+        # this to all eggs.
+        normal_egg_filter = Q() if include_non_saleable else Q(quality="saleable")
 
         egg_prod_datasets = _build_egg_prod_datasets(
             chosen=chosen,
@@ -344,19 +360,21 @@ class MetricsView(TemplateView):
             end=end,
         )
 
-        # ── Dud egg production chart ──────────────────────────────────────────
-        dud_prod_datasets = _build_egg_prod_datasets(
-            chosen=chosen,
-            data_date_labels=data_date_labels,
-            window=window,
-            base_egg_filter=Q(dud=True),
-            show_sum=show_sum,
-            show_mean=show_mean,
-            include_unknown=include_unknown,
-            data_start=data_start,
-            end=end,
-            unknown_colour=DUD_COLOUR,
-        )
+        # ── Per-quality breakdown charts (one chart per quality tier) ─────────
+        # Each chart shows per-chicken counts for one quality tier.
+        quality_prod_datasets: dict[str, list[dict]] = {}
+        for quality_value in ("saleable", "edible", "messy"):
+            quality_prod_datasets[quality_value] = _build_egg_prod_datasets(
+                chosen=chosen,
+                data_date_labels=data_date_labels,
+                window=window,
+                base_egg_filter=Q(quality=quality_value),
+                show_sum=show_sum,
+                show_mean=show_mean,
+                include_unknown=include_unknown,
+                data_start=data_start,
+                end=end,
+            )
 
         # ── Time-of-day shared labels ─────────────────────────────────────────
         tod_labels = [
@@ -622,7 +640,7 @@ class MetricsView(TemplateView):
         # X-axis: age in days (0, 1, 2, …) across each hen's *full* lifetime.
         # The selected date range does not apply here — we always fetch all eggs
         # so that hens older than `start` don't show a false flat line at 0.
-        # Only the include_duds filter is applied.
+        # The same normal_egg_filter (saleable only, or all) is applied.
 
         # Determine the age range: use full lifetime, not clipped to [start, end].
         max_age_days = 0
@@ -745,7 +763,7 @@ class MetricsView(TemplateView):
                 "show_sum": show_sum,
                 "show_mean": show_mean,
                 "include_unknown": include_unknown,
-                "include_duds": include_duds,
+                "include_non_saleable": include_non_saleable,
                 "today": date.today().isoformat(),
                 "earliest_dob": (
                     min((c.date_of_birth for c in all_chickens), default=date.today())
@@ -764,7 +782,13 @@ class MetricsView(TemplateView):
                     [d.isoformat() for d in date_labels]
                 ),
                 "egg_prod_datasets_json": json.dumps(egg_prod_datasets),
-                "dud_prod_datasets_json": json.dumps(dud_prod_datasets),
+                "saleable_prod_datasets_json": json.dumps(
+                    quality_prod_datasets["saleable"]
+                ),
+                "edible_prod_datasets_json": json.dumps(
+                    quality_prod_datasets["edible"]
+                ),
+                "messy_prod_datasets_json": json.dumps(quality_prod_datasets["messy"]),
                 "flock_count_dataset_json": json.dumps(flock_count_dataset),
                 "tod_labels_json": json.dumps(tod_labels),
                 "tod_egg_datasets_json": json.dumps(tod_egg_datasets),

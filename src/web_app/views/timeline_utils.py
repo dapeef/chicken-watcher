@@ -32,7 +32,7 @@ def parse_date_range(request):
 
 def egg_item(egg, *, include_group=False):
     """Serialise an Egg instance as a vis-timeline item dict."""
-    class_name = "timeline-egg timeline-egg--dud" if egg.dud else "timeline-egg"
+    class_name = f"timeline-egg timeline-egg--{egg.quality}"
     item = {
         "id": f"egg_{egg.id}",
         "content": "🥚",
