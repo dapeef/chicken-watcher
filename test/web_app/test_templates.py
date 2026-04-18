@@ -41,7 +41,6 @@ class TestNoLargeInlineScripts:
     # entry will be removed by its corresponding Wave 4 extraction
     # commit.
     STILL_INLINE: set[str] = {
-        "metrics.html",  # Wave 4 item 3
         "chicken_detail.html",  # Wave 4 item 4
         "dashboard.html",  # Wave 4 item 4 (DOMParser image-swap helper)
     }

@@ -857,6 +857,8 @@ class MetricsView(TemplateView):
                 "kde_bandwidth": kde_bandwidth,
                 "kde_bandwidth_choices": KDE_BANDWIDTH_CHOICES,
                 # Chart data
+                # Per-chart JSON strings, retained for the in-context
+                # assertions that the test suite relies on.
                 "egg_prod_labels_json": json.dumps(
                     [d.isoformat() for d in date_labels]
                 ),
@@ -884,6 +886,31 @@ class MetricsView(TemplateView):
                 ),
                 "age_prod_labels_json": json.dumps(age_display_labels),
                 "age_prod_datasets_json": json.dumps(age_prod_datasets),
+                # Consolidated native-Python blob for the metrics_charts.js
+                # bootstrap. Emitted into the template via json_script so
+                # chart data never gets interpolated into JS source directly.
+                "metrics_chart_data": {
+                    "show_mean": show_mean,
+                    "egg_prod_labels": [d.isoformat() for d in date_labels],
+                    "egg_prod_datasets": egg_prod_datasets,
+                    "saleable_prod_datasets": quality_prod_datasets["saleable"],
+                    "edible_prod_datasets": quality_prod_datasets["edible"],
+                    "messy_prod_datasets": quality_prod_datasets["messy"],
+                    "flock_count_dataset": flock_count_dataset,
+                    "tod_labels": tod_labels,
+                    "tod_egg_datasets": tod_egg_datasets,
+                    "tod_nest_datasets": tod_nest_datasets,
+                    "nesting_box_time": json.loads(nesting_box_time_json),
+                    "nesting_box_visits": json.loads(nesting_box_visits_json),
+                    "nesting_box_eggs": {
+                        "labels": egg_box_labels,
+                        "datasets": [
+                            {"data": egg_box_counts, "backgroundColor": egg_pie_colours}
+                        ],
+                    },
+                    "age_prod_labels": age_display_labels,
+                    "age_prod_datasets": age_prod_datasets,
+                },
             }
         )
         return ctx
