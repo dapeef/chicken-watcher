@@ -6,7 +6,6 @@ from django.shortcuts import render
 from ..models import (
     Egg,
     Chicken,
-    NestingBoxPresence,
     NestingBoxPresencePeriod,
     HardwareSensor,
     NestingBoxImage,

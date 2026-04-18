@@ -16,7 +16,7 @@ w             – rolling window in days for egg production chart (default: 7)
 
 import json
 import math
-from datetime import timedelta, date, datetime, timezone as dt_timezone
+from datetime import timedelta, date, datetime
 
 from django.db.models import Count, Sum, F, ExpressionWrapper, DurationField, Q
 from django.views.generic import TemplateView

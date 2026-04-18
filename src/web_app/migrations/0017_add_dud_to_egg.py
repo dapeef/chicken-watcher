@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('web_app', '0016_change_chicken_tag_to_foreignkey'),
+        ("web_app", "0016_change_chicken_tag_to_foreignkey"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='egg',
-            name='dud',
+            model_name="egg",
+            name="dud",
             field=models.BooleanField(default=False),
         ),
     ]

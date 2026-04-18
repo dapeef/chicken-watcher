@@ -1,5 +1,5 @@
 import math
-from datetime import timedelta, datetime, timezone as dt_timezone
+from datetime import timedelta, timezone as dt_timezone
 from django.db.models import (
     Count,
     DateField,

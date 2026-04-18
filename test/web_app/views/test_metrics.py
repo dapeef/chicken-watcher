@@ -12,7 +12,7 @@ from web_app.views.metrics import (
     DEFAULT_NEST_SIGMA,
     DEFAULT_KDE_BANDWIDTH,
 )
-from web_app.views.chickens import BUCKETS_PER_DAY, BUCKET_MINUTES
+from web_app.views.chickens import BUCKETS_PER_DAY
 from django.db.models import Q
 from ..factories import (
     ChickenFactory,

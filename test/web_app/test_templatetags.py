@@ -13,7 +13,6 @@ from web_app.templatetags.chicken_extras import (
 from .factories import (
     ChickenFactory,
     NestingBoxPresencePeriodFactory,
-    NestingBoxFactory,
 )
 
 

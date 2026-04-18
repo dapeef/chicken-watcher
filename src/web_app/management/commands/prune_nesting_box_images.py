@@ -24,7 +24,7 @@ class Command(BaseCommand):
         """
 
         logger.info(
-            f"Collecting NestingBoxImage records with no nearby presence or egg"
+            "Collecting NestingBoxImage records with no nearby presence or egg"
         )
 
         images_to_delete = get_images_to_delete()
