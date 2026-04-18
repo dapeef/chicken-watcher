@@ -46,7 +46,7 @@ class TestE2E:
         response = client.get(reverse("egg_list"))
         assert response.status_code == 200
         assert b"Eggs" in response.content
-        assert b"Create new egg" in response.content
+        assert b"Add egg" in response.content
 
         # 5. Metrics
         response = client.get(reverse("metrics"))

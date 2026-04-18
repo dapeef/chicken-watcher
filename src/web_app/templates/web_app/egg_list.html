@@ -2,9 +2,10 @@
 {% block title %}Chickens | Coop{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Eggs</h1>
-
-<a href="{% url 'egg_create' %}">Create new egg</a>
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h1 class="mb-0">Eggs</h1>
+  <a href="{% url 'egg_create' %}" class="btn btn-primary">+ Add egg</a>
+</div>
 
 <div class="table-responsive">
 <table class="table table-sm table-hover align-middle">

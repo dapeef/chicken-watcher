@@ -1,7 +1,9 @@
 <div class="card shadow-sm h-100">
   <div class="card-body">
-    <h5 class="card-title">Who has already laid?</h5>
-    <a href="{% url 'egg_create' %}" class="small">Manually add egg</a>
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h5 class="card-title mb-0">Who has already laid?</h5>
+      <a href="{% url 'egg_create' %}" class="btn btn-sm btn-primary">+ Add egg</a>
+    </div>
 
     {% if laid_chickens %}
       <ul class="list-inline mb-0">
