@@ -98,7 +98,7 @@ class TestChickenListView:
 
     def test_all_expected_headers_present(self, client):
         response = client.get(self.url)
-        header_keys = [col for col, _ in response.context["headers"]]
+        header_keys = [col for col, _, _mobile in response.context["headers"]]
         assert "name" in header_keys
         assert "age_duration" in header_keys
         assert "tag__number" in header_keys

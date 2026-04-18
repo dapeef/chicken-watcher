@@ -14,11 +14,11 @@
         <tr>
           {% for col, label in headers %}
             {% if sort == col %}
-              <th class="fw-semibold"><a class="text-decoration-none text-body" href="?sort=-{{ col }}">{{ label }} ▲</a></th>
+              <th class="fw-semibold{% if forloop.counter > 2 %} d-none d-md-table-cell{% endif %}"><a class="text-decoration-none text-body" href="?sort=-{{ col }}">{{ label }} ▲</a></th>
             {% elif sort == '-'|add:col %}
-              <th class="fw-semibold"><a class="text-decoration-none text-body" href="?sort={{ col }}">{{ label }} ▼</a></th>
+              <th class="fw-semibold{% if forloop.counter > 2 %} d-none d-md-table-cell{% endif %}"><a class="text-decoration-none text-body" href="?sort={{ col }}">{{ label }} ▼</a></th>
             {% else %}
-              <th class="fw-semibold text-muted"><a class="text-decoration-none text-muted" href="?sort={{ col }}">{{ label }}</a></th>
+              <th class="fw-semibold text-muted{% if forloop.counter > 2 %} d-none d-md-table-cell{% endif %}"><a class="text-decoration-none text-muted" href="?sort={{ col }}">{{ label }}</a></th>
             {% endif %}
           {% endfor %}
           <th class="w-auto"></th>
@@ -30,8 +30,8 @@
         <tr>
           <td>{{ egg.chicken|default:'—' }}</td>
           <td>{{ egg.nesting_box|default:'—' }}</td>
-          <td class="text-nowrap">{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
-          <td>
+          <td class="text-nowrap d-none d-md-table-cell">{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
+          <td class="d-none d-md-table-cell">
             {% if egg.quality == 'saleable' %}
               <span class="badge rounded-pill text-bg-success">Saleable</span>
             {% elif egg.quality == 'edible' %}

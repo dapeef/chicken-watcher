@@ -50,14 +50,15 @@ class ChickenListView(ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["sort"] = self.request.GET.get("sort", "name")
+        # Tuples: (sort_key, label, show_on_mobile)
         ctx["headers"] = [
-            ("name", "Name"),
-            ("age_duration", "Age"),
-            ("tag__number", "Tag number"),
-            ("eggs_total", "Eggs total"),
-            ("last_egg", "Last egg"),
-            ("date_of_birth", "DoB"),
-            ("date_of_death", "DoD"),
+            ("name", "Name", True),
+            ("age_duration", "Age", True),
+            ("tag__number", "Tag number", True),
+            ("eggs_total", "Eggs total", False),
+            ("last_egg", "Last egg", False),
+            ("date_of_birth", "DoB", False),
+            ("date_of_death", "DoD", False),
         ]
         return ctx
 

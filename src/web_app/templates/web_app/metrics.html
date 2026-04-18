@@ -4,14 +4,16 @@
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-  /* Sidebar */
-  #metrics-sidebar {
-    min-width: 220px;
-    max-width: 260px;
-    position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 5rem);
-    overflow-y: auto;
+  /* Sidebar — desktop: sticky column; mobile: collapsible panel above charts */
+  @media (min-width: 768px) {
+    #metrics-sidebar {
+      min-width: 220px;
+      max-width: 260px;
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100vh - 5rem);
+      overflow-y: auto;
+    }
   }
   .chicken-list {
     max-height: 280px;
@@ -30,12 +32,25 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Metrics</h1>
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h1 class="mb-0">Metrics</h1>
+  <!-- Mobile filter toggle — hidden on md+ -->
+  <button class="btn btn-outline-secondary btn-sm d-md-none"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#metrics-sidebar-collapse"
+          aria-expanded="false"
+          aria-controls="metrics-sidebar-collapse">
+    Filters
+  </button>
+</div>
 
-<div class="d-flex gap-4 align-items-start">
+<div class="d-md-flex gap-4 align-items-start">
 
   <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
   <aside id="metrics-sidebar" class="flex-shrink-0">
+    <!-- On mobile the form collapses; on md+ it's always visible -->
+    <div class="collapse d-md-block mb-4 mb-md-0" id="metrics-sidebar-collapse">
     <form id="metrics-form" method="get">
       {# Sentinel: always present so the view can tell a form submission from a fresh page load #}
       <input type="hidden" name="chickens_sent" value="1">
@@ -146,6 +161,7 @@
       </div>
 
     </form>
+    </div>
   </aside>
 
   <!-- ── Charts ──────────────────────────────────────────────────────────── -->
