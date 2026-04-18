@@ -31,16 +31,24 @@
     border-radius: 3px;
     border-color: #198754;
   }
-  /* Per-sensor overrides: sensor A → blue, sensor B → green.
+  /* Per-sensor colours (sensor _1 → blue, _2 → green, _3 → orange, _4 → purple).
      These take precedence over the box-level colours above when a sensor_id
-     suffix is present (e.g. left_a / left_b both in the left nesting box). */
-  .timeline-presence-dot.sensor-left-a .vis-dot,
-  .timeline-presence-dot.sensor-right-a .vis-dot {
+     suffix is present (e.g. left_1 / left_2 both in the left nesting box). */
+  .timeline-presence-dot.sensor-left-1 .vis-dot,
+  .timeline-presence-dot.sensor-right-1 .vis-dot {
     border-color: #0d6efd;
   }
-  .timeline-presence-dot.sensor-left-b .vis-dot,
-  .timeline-presence-dot.sensor-right-b .vis-dot {
+  .timeline-presence-dot.sensor-left-2 .vis-dot,
+  .timeline-presence-dot.sensor-right-2 .vis-dot {
     border-color: #198754;
+  }
+  .timeline-presence-dot.sensor-left-3 .vis-dot,
+  .timeline-presence-dot.sensor-right-3 .vis-dot {
+    border-color: #fd7e14;
+  }
+  .timeline-presence-dot.sensor-left-4 .vis-dot,
+  .timeline-presence-dot.sensor-right-4 .vis-dot {
+    border-color: #6f42c1;
   }
   .timeline-presence-dot .vis-item-content {
     padding: 0;

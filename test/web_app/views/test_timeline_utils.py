@@ -146,34 +146,37 @@ class TestPresenceItem:
     def test_sensor_id_adds_sensor_class(self):
         """When sensor_id is set, a sensor-* CSS class is added."""
         box = NestingBoxFactory(name="left")
-        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_a")
+        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_1")
         item = presence_item(presence)
-        assert "sensor-left-a" in item["className"]
+        assert "sensor-left-1" in item["className"]
 
     def test_sensor_id_underscore_replaced_with_hyphen(self):
         """Underscores in sensor_id are replaced with hyphens for valid CSS."""
         box = NestingBoxFactory(name="left")
-        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_b")
+        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_2")
         item = presence_item(presence)
-        assert "sensor-left-b" in item["className"]
-        assert "sensor-left_b" not in item["className"]
+        assert "sensor-left-2" in item["className"]
+        assert "sensor-left_2" not in item["className"]
 
     def test_sensor_id_class_alongside_box_class(self):
         """Both box-* and sensor-* classes are present when sensor_id is set."""
         box = NestingBoxFactory(name="left")
-        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_a")
+        presence = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_1")
         item = presence_item(presence)
         assert "box-left" in item["className"]
-        assert "sensor-left-a" in item["className"]
+        assert "sensor-left-1" in item["className"]
         assert "timeline-presence-dot" in item["className"]
 
-    def test_sensor_b_has_distinct_css_class_from_sensor_a(self):
-        """Sensor A and B get different CSS classes for individual colouring."""
+    def test_all_four_sensors_have_distinct_css_classes(self):
+        """All four sensors in a box get distinct CSS classes for individual colouring."""
         box = NestingBoxFactory(name="left")
-        presence_a = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_a")
-        presence_b = NestingBoxPresenceFactory(nesting_box=box, sensor_id="left_b")
-        item_a = presence_item(presence_a)
-        item_b = presence_item(presence_b)
-        assert item_a["className"] != item_b["className"]
-        assert "sensor-left-a" in item_a["className"]
-        assert "sensor-left-b" in item_b["className"]
+        presences = [
+            NestingBoxPresenceFactory(nesting_box=box, sensor_id=f"left_{n}")
+            for n in range(1, 5)
+        ]
+        items = [presence_item(p) for p in presences]
+        class_names = [i["className"] for i in items]
+        # All four class strings are distinct
+        assert len(set(class_names)) == 4
+        for n in range(1, 5):
+            assert f"sensor-left-{n}" in class_names[n - 1]
