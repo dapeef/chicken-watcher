@@ -478,3 +478,64 @@ class TestTimezoneSettings:
         assert offset is not None
         offset_hours = offset.total_seconds() / 3600
         assert offset_hours == 0.0, f"Expected UTC+0 in winter, got UTC+{offset_hours}"
+
+
+# ---------------------------------------------------------------------------
+# 7. Chicken.age – must use local date, not UTC date
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestChickenAgeTimezone:
+    """Chicken.age must be calculated against the local date, not the UTC
+    date. Using date.today() would return the UTC date, which can be a day
+    behind (or ahead of) the local date near midnight.
+
+    Scenario: at 00:30 BST on day D, UTC is still on day D-1 at 23:30.
+    A chicken born on day D has an age of 0 days (local) or -1 days (UTC).
+    """
+
+    def test_age_at_bst_midnight_boundary_uses_local_date(self, mocker):
+        """At 00:30 BST on 2025-06-16 (== 23:30 UTC on 2025-06-15), a chicken
+        born on 2025-06-15 is 1 day old locally.
+
+        This test verifies that Chicken.age uses timezone.localdate() (which
+        respects TIME_ZONE=Europe/London) rather than the old implementation
+        that used date.today() (which depends on the process's system clock).
+        """
+        # Fake "now" at 00:30 BST = 23:30 UTC the previous day. Django's
+        # timezone.localdate() derives its date from timezone.now(), so
+        # mocking the latter is sufficient.
+        fake_utc_now = datetime(2025, 6, 15, 23, 30, tzinfo=UTC)
+        mocker.patch(
+            "django.utils.timezone.now",
+            return_value=fake_utc_now,
+        )
+
+        # Sanity: localdate() should give London-date = 2025-06-16
+        assert timezone.localdate() == datetime(2025, 6, 16).date()
+
+        # Born on 2025-06-15 → age = 1 day at 00:30 BST on 2025-06-16
+        chicken = ChickenFactory(date_of_birth=datetime(2025, 6, 15).date())
+
+        assert chicken.age == 1, (
+            f"Expected age=1 (local date is 2025-06-16), got {chicken.age}. "
+            "If this fails with age=0, Chicken.age is likely using date.today() "
+            "which returns the UTC date (2025-06-15) instead of the local date."
+        )
+
+    def test_age_at_gmt_midnight_matches_utc(self):
+        """During GMT, local date == UTC date, so behaviour matches naive date.today()."""
+        # Use a plain "today in London" DoB; age should be 0
+        today_london = timezone.localdate()
+        chicken = ChickenFactory(date_of_birth=today_london)
+        assert chicken.age == 0
+
+    def test_age_with_death_unaffected_by_timezone(self):
+        """Dead chickens' ages are frozen and depend only on dob / dod."""
+        chicken = ChickenFactory(
+            date_of_birth=datetime(2024, 1, 1).date(),
+            date_of_death=datetime(2024, 6, 1).date(),
+        )
+        expected = (datetime(2024, 6, 1).date() - datetime(2024, 1, 1).date()).days
+        assert chicken.age == expected

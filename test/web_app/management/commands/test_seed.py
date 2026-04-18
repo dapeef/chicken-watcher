@@ -17,8 +17,9 @@ from test.web_app.factories import (
 
 
 @pytest.mark.django_db
-def test_seed_command_spawn_test_data():
-    call_command("seed", mode="spawn_test_data")
+def test_seed_command_spawn_test_data(settings):
+    settings.DEBUG = True  # required by the dev-mode guard
+    call_command("seed", mode="spawn_test_data", yes=True)
 
     assert Chicken.objects.count() > 0
     assert NestingBox.objects.count() == 2
@@ -43,11 +44,12 @@ def test_seed_command_spawn_test_data():
 
 
 @pytest.mark.django_db
-def test_seed_command_clear():
-    call_command("seed", mode="spawn_test_data")
+def test_seed_command_clear(settings):
+    settings.DEBUG = True  # spawn_test_data requires DEBUG=True
+    call_command("seed", mode="spawn_test_data", yes=True)
     assert Chicken.objects.count() > 0
 
-    call_command("seed", mode="clear")
+    call_command("seed", mode="clear", yes=True)
     assert Chicken.objects.count() == 0
     assert Tag.objects.count() == 0
     assert NestingBox.objects.count() == 0
@@ -270,3 +272,93 @@ def test_seed_chickens_via_call_command(tmp_path):
     )
     call_command("seed", mode="seed_chickens", csv_file=str(csv_path))
     assert Chicken.objects.count() == 6
+
+
+# ---------------------------------------------------------------------------
+# Destructive-mode guard tests
+# ---------------------------------------------------------------------------
+
+
+from django.core.management.base import CommandError  # noqa: E402
+
+
+@pytest.mark.django_db
+class TestDestructiveModeGuards:
+    """Destructive seed modes (clear, spawn_test_data) must not run
+    accidentally. Guards:
+
+    - spawn_test_data requires DEBUG=True regardless of --yes.
+    - clear and spawn_test_data require --yes (or interactive confirmation
+      with 'yes') when invoked.
+    - Non-interactive (no TTY) callers must use --yes.
+    """
+
+    def test_spawn_test_data_refuses_when_debug_false(self, settings, mocker):
+        settings.DEBUG = False
+        # Even with --yes, spawn_test_data must refuse.
+        with pytest.raises(CommandError, match="DEBUG=True"):
+            call_command("seed", mode="spawn_test_data", yes=True)
+        assert Chicken.objects.count() == 0
+
+    def test_clear_allowed_when_debug_false_with_yes(self, settings):
+        """clear does not require DEBUG=True; it's a legitimate (if scary)
+        operation in production. --yes is still required."""
+        settings.DEBUG = False
+        ChickenFactory()
+        assert Chicken.objects.count() == 1
+
+        call_command("seed", mode="clear", yes=True)
+
+        assert Chicken.objects.count() == 0
+
+    def test_clear_refuses_without_yes_in_non_interactive(self, mocker):
+        mocker.patch("sys.stdin.isatty", return_value=False)
+        ChickenFactory()
+
+        with pytest.raises(CommandError, match="--yes"):
+            call_command("seed", mode="clear")
+
+        # Data untouched
+        assert Chicken.objects.count() == 1
+
+    def test_spawn_test_data_refuses_without_yes_in_non_interactive(
+        self, mocker, settings
+    ):
+        """Even with DEBUG=True, spawn_test_data requires --yes when
+        non-interactive. The DEBUG guard is layered on top of, not a
+        replacement for, the confirmation guard."""
+        settings.DEBUG = True  # pass the DEBUG check so we exercise the yes check
+        mocker.patch("sys.stdin.isatty", return_value=False)
+
+        with pytest.raises(CommandError, match="--yes"):
+            call_command("seed", mode="spawn_test_data")
+
+    def test_clear_interactive_proceeds_on_yes(self, mocker):
+        mocker.patch("sys.stdin.isatty", return_value=True)
+        mocker.patch("builtins.input", return_value="yes")
+        ChickenFactory()
+
+        call_command("seed", mode="clear")
+
+        assert Chicken.objects.count() == 0
+
+    def test_clear_interactive_aborts_on_other_input(self, mocker):
+        mocker.patch("sys.stdin.isatty", return_value=True)
+        mocker.patch("builtins.input", return_value="no")
+        ChickenFactory()
+
+        with pytest.raises(CommandError, match="Aborted"):
+            call_command("seed", mode="clear")
+
+        assert Chicken.objects.count() == 1
+
+    def test_non_destructive_modes_need_no_confirmation(self, mocker):
+        """seed_nesting_boxes, seed_tags, seed_chickens don't wipe anything
+        and so must run without --yes or any prompt."""
+        mocker.patch("sys.stdin.isatty", return_value=False)
+        mock_input = mocker.patch("builtins.input")
+
+        call_command("seed", mode="seed_nesting_boxes")
+
+        assert mock_input.call_count == 0
+        assert NestingBox.objects.count() == 2

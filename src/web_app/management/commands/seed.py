@@ -1,10 +1,12 @@
 import csv
 import datetime
+import sys
 from enum import StrEnum
 from pathlib import Path
 from random import randrange, randint, choice, random
 
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from web_app.models import (
@@ -19,8 +21,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# uv run manage.py seed --mode=refresh
-
 
 class SeedMode(StrEnum):
     SPAWN_TEST_DATA = "spawn_test_data"  # Clear all data and populate with fake test data (non-prod only)
@@ -30,12 +30,21 @@ class SeedMode(StrEnum):
     SEED_TAGS = "seed_tags"  # Upsert tags from tags.csv
 
 
+# Destructive modes wipe production data. They require explicit confirmation
+# (interactive prompt or --yes) and — for spawn_test_data — DEBUG=True.
+DESTRUCTIVE_MODES = {SeedMode.CLEAR, SeedMode.SPAWN_TEST_DATA}
+DEV_ONLY_MODES = {SeedMode.SPAWN_TEST_DATA}
+
 CHICKENS_CSV = Path(__file__).parent / "chickens.csv"
 TAGS_CSV = Path(__file__).parent / "tags.csv"
 
 
 class Command(BaseCommand):
-    help = "seed database for testing and development."
+    help = (
+        "Seed / clear / import the database. Destructive modes (clear, "
+        "spawn_test_data) require --yes in non-interactive contexts. "
+        "spawn_test_data additionally requires DEBUG=True."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -57,17 +66,42 @@ class Command(BaseCommand):
             default=None,
             help=f"Path to tags CSV file (used with --mode={SeedMode.SEED_TAGS}). Defaults to the bundled tags.csv.",
         )
+        parser.add_argument(
+            "--yes",
+            action="store_true",
+            default=False,
+            help=(
+                "Skip interactive confirmation for destructive modes (clear, "
+                "spawn_test_data). Required when running non-interactively."
+            ),
+        )
 
     def handle(self, *args, **options):
         """Seed database based on mode"""
 
         mode: SeedMode = options["mode"]
+        yes: bool = options["yes"]
         csv_file_raw = options["csv_file"]
         csv_file: Path | None = Path(csv_file_raw) if csv_file_raw is not None else None
         tags_csv_file_raw = options["tags_csv_file"]
         tags_csv_file: Path | None = (
             Path(tags_csv_file_raw) if tags_csv_file_raw is not None else None
         )
+
+        # Guard 1: dev-only modes refuse to run against DEBUG=False.
+        # This prevents `seed --mode=spawn_test_data` from nuking prod data
+        # even if the operator remembers to pass --yes.
+        if mode in DEV_ONLY_MODES and not settings.DEBUG:
+            raise CommandError(
+                f"Mode '{mode}' is only allowed with DEBUG=True. "
+                "Refusing to wipe and repopulate a non-dev database. "
+                "If you really need to do this manually, use --mode=clear "
+                "followed by --mode=seed_chickens / seed_tags / seed_nesting_boxes."
+            )
+
+        # Guard 2: destructive modes require confirmation.
+        if mode in DESTRUCTIVE_MODES and not yes:
+            _confirm_destructive(mode)
 
         match mode:
             case SeedMode.SPAWN_TEST_DATA:
@@ -85,6 +119,27 @@ class Command(BaseCommand):
                 seed_tags_from_csv(
                     tags_csv_file
                 ) if tags_csv_file else seed_tags_from_csv()
+
+
+def _confirm_destructive(mode: SeedMode) -> None:
+    """Interactively confirm a destructive operation. Raises CommandError if
+    the caller declines or the command is running non-interactively.
+
+    Non-interactive contexts (pipes, cron, CI) must pass --yes explicitly;
+    there is no safe prompt we can issue.
+    """
+    if not sys.stdin.isatty():
+        raise CommandError(
+            f"Mode '{mode}' is destructive and requires --yes when running "
+            "non-interactively (e.g. cron, CI, or piped stdin)."
+        )
+    prompt = (
+        f"\nMode '{mode}' will DELETE data from the database.\n"
+        "Type 'yes' to proceed, anything else to abort: "
+    )
+    answer = input(prompt).strip().lower()
+    if answer != "yes":
+        raise CommandError("Aborted by user.")
 
 
 def clear_data():
@@ -157,7 +212,7 @@ def populate_data():
     for chicken in Chicken.objects.all():
         logger.info(f"For chicken: {chicken.name}")
 
-        last_day = chicken.date_of_death or datetime.date.today()
+        last_day = chicken.date_of_death or timezone.localdate()
         first_day = chicken.date_of_birth
 
         delta = last_day - first_day

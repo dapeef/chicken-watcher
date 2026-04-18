@@ -24,31 +24,48 @@ The remaining Tier 1 items below are correctness / data-loss / ops concerns that
 
 These can cause real damage and should be addressed first. None of them are about protecting the app from external attackers — they are about protecting *you* (and your data) from typos, crashes, race conditions, and silent misconfiguration.
 
-### 1. `Egg.chicken` / `Egg.nesting_box` use `on_delete=CASCADE`
-`models.py:50-53`. Deleting a chicken obliterates all its eggs. Every field is already `null=True, blank=True`. Use `SET_NULL`.
+### 1. `Egg.chicken` / `Egg.nesting_box` use `on_delete=CASCADE` ✅ (done in Wave 1)
+~~`models.py:50-53`. Deleting a chicken obliterates all its eggs. Every field is already `null=True, blank=True`. Use `SET_NULL`.~~
 
-### 2. `DEBUG` is not explicitly set in `prod.py`
-`DEBUG = True` in production isn't a *security* issue on a LAN, but it:
-- Leaks stack traces with env-var values and DB settings on error pages (visible to anyone with VPN access, including future-you debugging over a flaky connection).
-- Disables template caching and runs less-optimised code paths — measurable on a Pi.
-- Changes middleware behaviour in ways that can mask bugs you'd only see in real deployment.
+Fixed in migration `0021_egg_fk_set_null.py`: both FKs now use `on_delete=SET_NULL`. Historical eggs are preserved when a chicken or nesting box is removed. Covered by `test_models.py::TestEggModel::test_deleting_chicken_preserves_eggs_with_null_chicken` and `…_nesting_box_…`.
 
-Set `DEBUG = False` explicitly in `prod.py` and make `dev.py` opt-in.
+### 2. `DEBUG` is not explicitly set in `prod.py` ✅ (done in Wave 1)
+~~`DEBUG = True` in production isn't a *security* issue on a LAN, but it:~~
+~~- Leaks stack traces with env-var values and DB settings on error pages (visible to anyone with VPN access, including future-you debugging over a flaky connection).~~
+~~- Disables template caching and runs less-optimised code paths — measurable on a Pi.~~
+~~- Changes middleware behaviour in ways that can mask bugs you'd only see in real deployment.~~
 
-### 3. `SECRET_KEY` silently becomes `None` if env var missing
-`base.py:28` — `SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")`. If the env var is missing, Django boots in a half-broken state where sessions and CSRF are subtly broken until the first op that uses the key. Fail fast at startup: `SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]` in prod, with a dev fallback.
+~~Set `DEBUG = False` explicitly in `prod.py` and make `dev.py` opt-in.~~
 
-### 4. `DJANGO_ENV` defaults to `"dev"` in `settings/__init__.py`
-Forgetting to set `DJANGO_ENV=prod` in Docker silently runs the prod container with **SQLite instead of Postgres**. You could run for hours without noticing, then lose data on container restart. Default to `"prod"` (fail-safe), or raise if unset.
+`prod.py` now sets `DEBUG = False` explicitly. Covered by `test/test_settings.py::TestProdSecretKeyFailFast::test_prod_has_debug_false`.
 
-### 5. `seed --mode=clear` and `seed --mode=spawn_test_data` have no guards
-Can wipe data by typo. Gate `spawn_test_data` behind `settings.DEBUG`, and require `--yes` on destructive modes. `delete_nesting_box_images` has the same problem — it wipes every image with no confirmation.
+### 3. `SECRET_KEY` silently becomes `None` if env var missing ✅ (done in Wave 1)
+~~`base.py:28` — `SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")`. If the env var is missing, Django boots in a half-broken state where sessions and CSRF are subtly broken until the first op that uses the key. Fail fast at startup: `SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]` in prod, with a dev fallback.~~
 
-### 6. `date.today()` used where timezone matters
-- `Chicken.age` (`models.py:26`) — day-boundary bug during BST.
-- `views/metrics.py` uses `date.today()` 5+ times.
+`prod.py` now raises `ImproperlyConfigured` at import time if `DJANGO_SECRET_KEY` is missing. `dev.py` provides a permissive, clearly-marked fallback. Covered by `test/test_settings.py::TestProdSecretKeyFailFast` and `TestDevFallback`.
 
-Replace with `timezone.localdate()` throughout.
+### 4. `DJANGO_ENV` defaults to `"dev"` in `settings/__init__.py` ✅ (done in Wave 1)
+~~Forgetting to set `DJANGO_ENV=prod` in Docker silently runs the prod container with **SQLite instead of Postgres**. You could run for hours without noticing, then lose data on container restart. Default to `"prod"` (fail-safe), or raise if unset.~~
+
+`settings/__init__.py` now defaults to `"prod"` and raises `RuntimeError` on any other value except `"dev"`. Covered by `test/test_settings.py::TestSettingsDispatch::test_unset_env_defaults_to_prod` and `test_invalid_env_raises_runtime_error`.
+
+### 5. `seed --mode=clear` and `seed --mode=spawn_test_data` have no guards ✅ (done in Wave 1)
+~~Can wipe data by typo. Gate `spawn_test_data` behind `settings.DEBUG`, and require `--yes` on destructive modes. `delete_nesting_box_images` has the same problem — it wipes every image with no confirmation.~~
+
+Destructive modes on `seed` and `delete_nesting_box_images` now:
+1. Refuse to run non-interactively without `--yes`.
+2. Prompt for `"yes"` confirmation in an interactive terminal.
+3. `seed --mode=spawn_test_data` additionally refuses unless `settings.DEBUG` is `True` (cannot be bypassed with `--yes`).
+
+Covered by `test_seed.py::TestDestructiveModeGuards` (7 tests) and `test_delete_nesting_box_images.py` (4 new tests).
+
+### 6. `date.today()` used where timezone matters ✅ (done in Wave 1)
+~~- `Chicken.age` (`models.py:26`) — day-boundary bug during BST.~~
+~~- `views/metrics.py` uses `date.today()` 5+ times.~~
+
+~~Replace with `timezone.localdate()` throughout.~~
+
+All 7 `date.today()` calls in `src/` replaced with `timezone.localdate()` (`models.py`, `views/metrics.py` 5×, `management/commands/seed.py`). Covered by `test/web_app/test_timezone.py::TestChickenAgeTimezone` (3 tests including a BST-midnight-boundary scenario).
 
 ### 7. Period-grouping race condition
 `hardware_agent/handlers.py:87-118`. With 4 RFID readers per box, two simultaneous reads can each "find no recent period" and each create a duplicate period. No `select_for_update()`, no unique constraint. Real production risk.
@@ -68,13 +85,22 @@ Migration `0016` allows two chickens to share one RFID tag, with no detection. R
 ### 12. No graceful shutdown path
 `service.py` uses `signal.pause()`; no SIGTERM handler, no `manager.stop_all()`. Sensors' serial/GPIO/camera resources may leak on container stop.
 
-### 13. Logging config is too verbose for a Pi running 24/7
-`base.py:89-130` — root logger at DEBUG, third-party libraries included, file handler writes into the repo. On a Pi with an SD card:
-- DEBUG volume is 10–100× INFO.
-- SD cards fail faster under write load.
-- The 10MiB × 5 cap helps but DEBUG defeats it.
+### 13. Logging config is too verbose for a Pi running 24/7 ✅ (done in Wave 1)
+~~`base.py:89-130` — root logger at DEBUG, third-party libraries included, file handler writes into the repo. On a Pi with an SD card:~~
+~~- DEBUG volume is 10–100× INFO.~~
+~~- SD cards fail faster under write load.~~
+~~- The 10MiB × 5 cap helps but DEBUG defeats it.~~
 
-Set root logger to INFO with `DEBUG` as an opt-in env override; move logs outside the repo (`/var/log/chicken-watcher/` or a mounted volume).
+~~Set root logger to INFO with `DEBUG` as an opt-in env override; move logs outside the repo (`/var/log/chicken-watcher/` or a mounted volume).~~
+
+Logging config rewritten. Defaults:
+- Root level: `INFO` (was `DEBUG`).
+- `django.db.backends` pinned to INFO regardless of root level (opt in via `DJANGO_DB_LOG_LEVEL=DEBUG` for SQL echo).
+- `django.utils.autoreload` pinned to INFO.
+
+New env-var overrides: `LOG_LEVEL`, `LOG_DIR`, `LOG_FILENAME`, `LOG_FILE_BYTES`, `LOG_FILE_BACKUP_COUNT`, `DJANGO_DB_LOG_LEVEL`. When `LOG_DIR` cannot be created or isn't writable (e.g. read-only FS), the file handler is silently dropped and only the console handler remains, so settings import never crashes.
+
+Covered by `test/test_logging.py` (7 tests including the read-only-fallback case).
 
 ---
 
@@ -248,14 +274,16 @@ Line 88 references the `dud` flag, which was removed in migration `0020_egg_qual
 
 Given the volume, tackle this in waves:
 
-### Wave 1 — Stop the bleeding (1–2 sessions)
-- Fix `Egg` CASCADE → SET_NULL (new migration)
-- Fix `Chicken.age` day-boundary bug
-- Set `DEBUG = False` explicitly in `prod.py`
-- Make `SECRET_KEY` fail fast if env var missing
-- Default `DJANGO_ENV` to `"prod"` (or raise if unset) — avoids silent SQLite
-- Add `--yes` / DEBUG guards on destructive commands
-- Tighten logging config for Pi longevity (INFO root, logs outside repo)
+### Wave 1 — Stop the bleeding (1–2 sessions) ✅ COMPLETE
+- ✅ Fix `Egg` CASCADE → SET_NULL (new migration)
+- ✅ Fix `Chicken.age` day-boundary bug
+- ✅ Set `DEBUG = False` explicitly in `prod.py`
+- ✅ Make `SECRET_KEY` fail fast if env var missing
+- ✅ Default `DJANGO_ENV` to `"prod"` (or raise if unset) — avoids silent SQLite
+- ✅ Add `--yes` / DEBUG guards on destructive commands
+- ✅ Tighten logging config for Pi longevity (INFO root, logs outside repo)
+
+**Wave 1 summary:** 32 new tests added (438 total, 406 baseline), 0 regressions, ruff clean.
 
 ### Wave 2 — Correctness
 - Fix period-grouping race (`select_for_update` or unique constraint + migration)

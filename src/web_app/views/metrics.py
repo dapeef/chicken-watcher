@@ -20,6 +20,7 @@ import math
 from datetime import timedelta, date, datetime
 
 from django.db.models import Count, Sum, F, ExpressionWrapper, DurationField, Q
+from django.utils import timezone
 from django.views.generic import TemplateView
 
 from ..models import Chicken, Egg, NestingBoxPresencePeriod
@@ -155,7 +156,7 @@ def _build_egg_prod_datasets(
         dod = hen.date_of_death
         counts = [
             per_hen_counts[hen.pk].get(d, 0)
-            if dob <= d <= (dod or date.today())
+            if dob <= d <= (dod or timezone.localdate())
             else None
             for d in data_date_labels
         ]
@@ -296,7 +297,7 @@ class MetricsView(TemplateView):
         include_non_saleable = req.get("include_non_saleable", "") == "1"
 
         # Date range
-        end = _parse_date(req.get("end")) or date.today()
+        end = _parse_date(req.get("end")) or timezone.localdate()
         start = _parse_date(req.get("start"))
         if not start or start > end:
             start = end - timedelta(days=DEFAULT_SPAN - 1)
@@ -333,7 +334,7 @@ class MetricsView(TemplateView):
         if kde_bandwidth not in KDE_BANDWIDTH_CHOICES:
             kde_bandwidth = DEFAULT_KDE_BANDWIDTH
 
-        today = date.today()
+        today = timezone.localdate()
 
         # ── Egg production chart ──────────────────────────────────────────────
         data_start = start - timedelta(days=window)
@@ -764,9 +765,12 @@ class MetricsView(TemplateView):
                 "show_mean": show_mean,
                 "include_unknown": include_unknown,
                 "include_non_saleable": include_non_saleable,
-                "today": date.today().isoformat(),
+                "today": timezone.localdate().isoformat(),
                 "earliest_dob": (
-                    min((c.date_of_birth for c in all_chickens), default=date.today())
+                    min(
+                        (c.date_of_birth for c in all_chickens),
+                        default=timezone.localdate(),
+                    )
                 ).isoformat(),
                 "start": start.isoformat(),
                 "end": end.isoformat(),

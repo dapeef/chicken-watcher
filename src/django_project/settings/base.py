@@ -24,8 +24,11 @@ load_dotenv(BASE_DIR / ".env")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+# SECRET_KEY: declared in base but intentionally left unset here.
+# - dev.py provides a permissive fallback so local runs and tests "just work".
+# - prod.py requires DJANGO_SECRET_KEY to be present in the environment and
+#   will raise ImproperlyConfigured at startup otherwise (fail-fast).
+SECRET_KEY: str | None = os.getenv("DJANGO_SECRET_KEY")
 
 # Coop location — used for sunrise/sunset shading on the timeline.
 # Defaults to London if not set.
@@ -33,6 +36,8 @@ COOP_LATITUDE = float(os.getenv("COOP_LATITUDE", "51.5"))
 COOP_LONGITUDE = float(os.getenv("COOP_LONGITUDE", "-0.1"))
 
 
+# The app is deployed behind a LAN + VPN boundary, so ALLOWED_HOSTS = ["*"]
+# in base is acceptable. prod.py may tighten this if desired.
 ALLOWED_HOSTS = [
     "*",
 ]
@@ -80,16 +85,60 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "django_project.wsgi.application"
 
-LOGS_DIR = os.path.join(BASE_DIR, "logs")
-os.makedirs(LOGS_DIR, exist_ok=True)
+# --- Logging ---
+#
+# Tunable via environment variables:
+#
+#   LOG_DIR      — directory for rotating log files
+#                  (default: <repo>/logs — works for local dev; override in
+#                  prod/Docker to e.g. /var/log/chicken-watcher or a mounted
+#                  volume).
+#   LOG_FILENAME — filename within LOG_DIR (default: django.log). Each service
+#                  (web, hardware agent, scheduler) sets its own.
+#   LOG_LEVEL    — root level; INFO in prod, DEBUG in dev (opt-in).
+#                  10–100× fewer lines at INFO than DEBUG, which matters for
+#                  SD-card longevity on the Pi.
+#   LOG_FILE_BYTES       — rotation threshold per file (default 10 MiB).
+#   LOG_FILE_BACKUP_COUNT — number of rotated backups to keep (default 5).
+LOGS_DIR = os.getenv("LOG_DIR") or os.path.join(BASE_DIR, "logs")
+
+# Create the logs dir if we can; if we can't (read-only FS, permission
+# denied), fall back to a stderr-only config rather than crashing at import.
+try:
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    _logs_dir_writable = os.access(LOGS_DIR, os.W_OK)
+except OSError:
+    _logs_dir_writable = False
 
 _log_filename = os.getenv("LOG_FILENAME", "django.log")
+_log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+_log_file_bytes = int(os.getenv("LOG_FILE_BYTES", str(10 * 1024 * 1024)))
+_log_file_backups = int(os.getenv("LOG_FILE_BACKUP_COUNT", "5"))
 
-# --- Logging ---
+_log_handlers: dict = {
+    "console": {
+        "class": "logging.StreamHandler",
+        "level": _log_level,
+        "formatter": "simple",
+    },
+}
+_root_handlers = ["console"]
+
+if _logs_dir_writable:
+    _log_handlers["file"] = {
+        "class": "logging.handlers.RotatingFileHandler",
+        "level": _log_level,
+        "formatter": "verbose",
+        "filename": os.path.join(LOGS_DIR, _log_filename),
+        "maxBytes": _log_file_bytes,
+        "backupCount": _log_file_backups,
+        "encoding": "utf-8",
+    }
+    _root_handlers.append("file")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    # ------------- Formatters ------------------------------------------------
     "formatters": {
         "verbose": {
             "format": "[{asctime}] {levelname:8s} {name} | {message}",
@@ -100,32 +149,28 @@ LOGGING = {
             "style": "{",
         },
     },
-    # ------------- Handlers --------------------------------------------------
-    "handlers": {
-        # Console ‒ everything (DEBUG and up)
-        "console": {
-            "class": "logging.StreamHandler",
-            "level": "DEBUG",
-            "formatter": "simple",
-        },
-        # File ‒ INFO and up
-        "file": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "level": "INFO",
-            "formatter": "verbose",
-            "filename": os.path.join(LOGS_DIR, _log_filename),
-            "maxBytes": 1024 * 1024 * 10,  # 10 MiB
-            "backupCount": 5,
-            "encoding": "utf-8",
-        },
-    },
-    # ------------- Loggers ---------------------------------------------------
-    # Add/override individual Django or third-party loggers here if desired.
-    # By default we attach our two handlers to the root logger so every message
-    # bubbles up there.
+    "handlers": _log_handlers,
+    # Root logger. DEBUG in dev (opt-in via LOG_LEVEL=DEBUG), INFO in prod.
+    # A per-logger override below silences the very chatty Django DB logger
+    # at DEBUG — if you really want SQL echo, set DJANGO_DB_LOG_LEVEL=DEBUG.
     "root": {
-        "handlers": ["console", "file"],
-        "level": "DEBUG",  # let DEBUG reach the console handler
+        "handlers": _root_handlers,
+        "level": _log_level,
+    },
+    "loggers": {
+        # Third-party libraries that default to very verbose output are
+        # pinned to INFO so LOG_LEVEL=DEBUG doesn't drown us in upstream
+        # noise. Override DJANGO_DB_LOG_LEVEL to opt in to SQL echo.
+        "django.db.backends": {
+            "level": os.getenv("DJANGO_DB_LOG_LEVEL", "INFO"),
+            "handlers": _root_handlers,
+            "propagate": False,
+        },
+        "django.utils.autoreload": {
+            "level": "INFO",
+            "handlers": _root_handlers,
+            "propagate": False,
+        },
     },
 }
 

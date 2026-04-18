@@ -51,6 +51,34 @@ class TestEggModel:
         assert "Unknown chicken" in str(egg)
         assert "unknown box" in str(egg)
 
+    def test_deleting_chicken_preserves_eggs_with_null_chicken(self):
+        """Egg.chicken uses on_delete=SET_NULL to preserve historical records."""
+        chicken = ChickenFactory(name="Bertha")
+        box = NestingBoxFactory(name="Box A")
+        egg = EggFactory(chicken=chicken, nesting_box=box)
+        egg_id = egg.pk
+
+        chicken.delete()
+
+        egg.refresh_from_db()
+        assert egg.pk == egg_id, "Egg should still exist after chicken deletion"
+        assert egg.chicken is None
+        assert egg.nesting_box == box, "Other FK should be unaffected"
+
+    def test_deleting_nesting_box_preserves_eggs_with_null_box(self):
+        """Egg.nesting_box uses on_delete=SET_NULL to preserve historical records."""
+        chicken = ChickenFactory(name="Bertha")
+        box = NestingBoxFactory(name="Box A")
+        egg = EggFactory(chicken=chicken, nesting_box=box)
+        egg_id = egg.pk
+
+        box.delete()
+
+        egg.refresh_from_db()
+        assert egg.pk == egg_id, "Egg should still exist after nesting box deletion"
+        assert egg.nesting_box is None
+        assert egg.chicken == chicken, "Other FK should be unaffected"
+
 
 @pytest.mark.django_db
 class TestNestingBoxPresenceModel:

@@ -1,5 +1,3 @@
-from datetime import date
-
 from django.db import models
 from django.utils import timezone
 
@@ -22,8 +20,8 @@ class Chicken(models.Model):
 
     @property
     def age(self) -> int:
-        """Age in days (till death date or today)."""
-        end = self.date_of_death or date.today()
+        """Age in days (till death date or today, in the project's local timezone)."""
+        end = self.date_of_death or timezone.localdate()
         return (end - self.date_of_birth).days
 
     def __str__(self):
@@ -47,10 +45,10 @@ class Egg(models.Model):
         MESSY = "messy", "Messy"
 
     chicken = models.ForeignKey(
-        Chicken, on_delete=models.CASCADE, null=True, blank=True
+        Chicken, on_delete=models.SET_NULL, null=True, blank=True
     )
     nesting_box = models.ForeignKey(
-        NestingBox, on_delete=models.CASCADE, null=True, blank=True
+        NestingBox, on_delete=models.SET_NULL, null=True, blank=True
     )
     laid_at = models.DateTimeField(default=timezone.now, db_index=True)
     quality = models.CharField(
