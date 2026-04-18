@@ -5,7 +5,11 @@ __pycache__
 .venv
 *.egg-info
 
-logs
+# Leading slash anchors these to the repo root. Without it, the pattern
+# matches any directory of the same name at any depth — which was silently
+# hiding every file under src/web_app/static/ (app-shipped assets) as well
+# as the intended STATIC_ROOT at <repo>/static/ (build output).
+/logs
+/static
+/media
 
-static
-media
