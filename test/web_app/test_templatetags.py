@@ -235,7 +235,7 @@ class TestLatestPresenceDurationFormat:
         from django.utils import timezone as tz
 
         now = tz.now()
-        period = NestingBoxPresencePeriodFactory(
+        NestingBoxPresencePeriodFactory(
             started_at=now - timedelta(hours=1, minutes=2, seconds=10),
             ended_at=now,
         )

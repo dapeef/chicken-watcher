@@ -3,8 +3,6 @@ import pathlib
 import re
 from datetime import datetime, timedelta
 
-logger = logging.getLogger(__name__)
-
 import cv2
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -20,6 +18,8 @@ from web_app.models import (
     HardwareSensor,
     NestingBoxPresencePeriod,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def report_status(full_name: str, connected: bool, message: str = ""):

@@ -46,8 +46,8 @@ class TestHardwareHandlers:
         from datetime import timedelta
         from django.utils import timezone
 
-        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
-        box = NestingBoxFactory(name="Box1")
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        NestingBoxFactory(name="Box1")
         HardwareSensor.objects.create(name="rfid_Box1")
 
         # First read
@@ -72,8 +72,8 @@ class TestHardwareHandlers:
         from datetime import timedelta
         from django.utils import timezone
 
-        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
-        box = NestingBoxFactory(name="Box1")
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        NestingBoxFactory(name="Box1")
         HardwareSensor.objects.create(name="rfid_Box1")
 
         # First read
@@ -95,9 +95,9 @@ class TestHardwareHandlers:
         from datetime import timedelta
         from django.utils import timezone
 
-        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         box1 = NestingBoxFactory(name="Box1")
-        box2 = NestingBoxFactory(name="Box2")
+        NestingBoxFactory(name="Box2")
         HardwareSensor.objects.create(name="rfid_Box1")
         HardwareSensor.objects.create(name="rfid_Box2")
 
@@ -332,7 +332,7 @@ class TestMultiSensorTagRead:
 
     def test_four_sensors_in_same_box_all_create_presences(self):
         """Reads from left_1 through left_4 all create presences linked to the left box."""
-        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         box = NestingBoxFactory(name="left")
         for n in range(1, 5):
             HardwareSensor.objects.create(name=f"rfid_left_{n}")
@@ -354,7 +354,7 @@ class TestMultiSensorTagRead:
 
     def test_multiple_sensors_in_same_box_share_presence_period(self):
         """Back-to-back reads from left_1 and left_2 extend the same period."""
-        chicken = ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         NestingBoxFactory(name="left")
         HardwareSensor.objects.create(name="rfid_left_1")
         HardwareSensor.objects.create(name="rfid_left_2")

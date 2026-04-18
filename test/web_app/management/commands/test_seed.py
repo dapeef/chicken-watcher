@@ -236,7 +236,7 @@ def test_seed_chickens_skips_missing_tag(tmp_path, caplog):
 def test_seed_chickens_does_not_clear_other_data(tmp_path):
     ChickenFactory(name="ExistingChicken")
 
-    tag = TagFactory(number=1, rfid_string="FFEEBBAA")
+    TagFactory(number=1, rfid_string="FFEEBBAA")
     csv_path = tmp_path / "chickens.csv"
     csv_path.write_text("Name,DoB,Tag number\nNewChicken,2025-06-01,1\n")
 
