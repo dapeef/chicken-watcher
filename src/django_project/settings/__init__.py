@@ -16,6 +16,18 @@ Tests and local development override this explicitly:
 
 import os
 
+from dotenv import load_dotenv
+
+# Load .env before reading DJANGO_ENV so that setting DJANGO_ENV=dev in
+# .env works correctly. Without this, DJANGO_ENV is read before base.py
+# (which previously called load_dotenv) has been imported.
+#
+# load_dotenv() with no path argument searches from the current working
+# directory upwards — which is the repo root when running manage.py or
+# docker compose, and the isolated tmp_path when running the subprocess-
+# based settings tests (both of which have a .env at their root).
+load_dotenv()
+
 _VALID_ENVS = {"prod", "dev"}
 DJANGO_ENV = os.getenv("DJANGO_ENV", "prod")
 
