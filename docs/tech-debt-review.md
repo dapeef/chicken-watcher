@@ -159,12 +159,12 @@ All three loops rewritten: eggs-per-hen TOD KDE, periods-per-hen nesting TOD, an
 
 Split into six per-panel context fetchers (`_eggs_today_ctx`, `_laid_chickens_ctx`, `_latest_presence_ctx`, `_latest_events_ctx`, `_sensors_ctx`, `_latest_image_ctx`). Each HTMX partial now queries only what its own panel needs. An idle dashboard went from ~42 queries per 5-second refresh cycle to ~6. The `get_dashboard_context()` public helper is retained for the initial full-page render (it calls all six fetchers in sequence). Regression-tested by `TestDashboardPartialQueryCount` (6 tests, one per partial).
 
-### 20. `EggListView` N+1 ✅ partially done (in Wave 3)
+### 20. `EggListView` N+1 ✅ (done in Waves 3 + 4)
 ~~`views/eggs.py:12-18` lacks `select_related("chicken", "nesting_box")`. Also no pagination.~~
 
-**Done:** Added `select_related("chicken", "nesting_box")` to the queryset. A 50-egg list went from ~101 queries to ~2. Regression-tested by `TestEggListQueryCount` (2 tests).
+**Wave 3:** Added `select_related("chicken", "nesting_box")`. A 50-egg list went from ~101 queries to ~2. Covered by `TestEggListQueryCount`.
 
-**Deferred:** Pagination. Adding `paginate_by` without updating the template silently truncates the visible list, so pagination needs to be paired with template changes (Wave 4 work).
+**Wave 4:** Added `paginate_by = 50` plus a new `_pagination.html` partial with Bootstrap-styled controls. The `?sort=…` query param survives across page links via the `querystring_without_page` helper context variable. Covered by `TestEggListPagination` (5 tests).
 
 ### 21. `seed` command does 4 unrelated things
 Destructive test-data generation, full wipe, and CSV upserts all behind one `--mode` flag. Split into focused commands.
@@ -206,41 +206,82 @@ Callsites have not all been migrated yet — the querysets are in place for futu
 
 ## Tier 3 — Frontend / Template Debt
 
-### 29. Three huge inline `<script>` blocks
-- `metrics.html:322-612` (290 lines)
-- `timeline.html:45-263` (218 lines)
-- `chicken_detail.html:101-135` (35 lines, duplicates timeline logic)
+### 29. Three huge inline `<script>` blocks ✅ (done in Wave 4)
+~~- `metrics.html:322-612` (290 lines)~~
+~~- `timeline.html:45-263` (218 lines)~~
+~~- `chicken_detail.html:101-135` (35 lines, duplicates timeline logic)~~
 
-No `src/web_app/static/` directory exists. All CSS/JS is inline or CDN-loaded. Move to static files, use `{{ var|json_script }}` for data injection.
+All three extracted to dedicated files under `src/web_app/static/web_app/js/`:
 
-### 30. All frontend libs loaded from CDNs, including `vis-timeline@latest`
-`_timeline_assets.html:1-2`. `@latest` is a ticking bomb. For a Pi-on-LAN IoT device, all assets should be vendored locally.
+* `timeline_utils.js` — shared `todayWindow` / `debounce` helpers, loaded by `_timeline_assets.html`.
+* `timeline_page.js` — the full-screen timeline page (previously 218 lines inline).
+* `metrics_form.js` — sidebar form helpers.
+* `metrics_charts.js` — all Chart.js bootstrapping (previously 290 lines inline).
+* `chicken_detail.js` — the per-chicken mini-timeline (previously 35 lines inline).
+* `dashboard_image.js` — the preload-then-swap image helper.
 
-### 31. Duplicated patterns that should be partials / tags
-- Sortable table header (`chicken_list.html`, `egg_list.html`) — diverging implementations
-- Breadcrumbs (2 copies, missing from 1 place)
-- Chart card structure (8× in metrics.html)
-- HTMX poll panel (5× in dashboard.html)
-- Quality / status badge colour logic (belongs on models)
-- `dl.row` definition lists
-- Timeline-loader JS (2 templates)
+Data handoff uses `{{ var|json_script:"..." }}` throughout — no more template-interpolated JS literals, no XSS surface, no brittle quoting. A template-level regression test (`test_templates.py::TestNoLargeInlineScripts`) enforces the 500-char limit on any future inline `<script>` blocks.
 
-### 32. `egg_form.html` hand-renders every field
-90 lines of manual `<input>`/`<select>` markup with stringified value-comparison logic. Use `{{ form.as_div }}` or a widget.
+### 30. All frontend libs loaded from CDNs, including `vis-timeline@latest` ✅ (done in Wave 4)
+~~`_timeline_assets.html:1-2`. `@latest` is a ticking bomb. For a Pi-on-LAN IoT device, all assets should be vendored locally.~~
 
-### 33. Accessibility gaps
-- `<tr onclick>` in chicken list (not keyboard-navigable, breaks open-in-new-tab)
-- Missing `<main>` landmark and active-nav state in base.html
-- `<th>` without `scope="col"` throughout
-- `<div role="button">` instead of real `<button>` in metrics.html
-- `<img src="">` (empty string) in `_latest_image.html`
-- No `aria-label` on emoji (`🪓` reads as "axe")
+Vendored locally under `src/web_app/static/web_app/vendor/`:
 
-### 34. XSS risk in `timeline.html:50`
-Chicken names are interpolated into a JS object literal with no escaping. A name containing `'` or `</script>` breaks the page. Use `{{ chickens|json_script:"timeline-groups" }}`.
+* Bootstrap 5.3.2 (CSS + bundle JS)
+* HTMX 1.9.10
+* Chart.js 4.4.0
+* vis-timeline 7.7.3 (upgraded from `@latest` to a pinned version)
 
-### 35. No `{% if messages %}` in `base.html`
-Django messages silently disappear.
+`vendor/README.md` documents the versions and upgrade procedure. A template-level regression test (`TestNoCDNReferences`) parametrises over every `.html` in the templates dir and fails if any CDN host slips in.
+
+### 31. Duplicated patterns that should be partials / tags ✅ partially done (in Wave 4)
+~~- Sortable table header (`chicken_list.html`, `egg_list.html`) — diverging implementations~~
+~~- HTMX poll panel (5× in dashboard.html)~~
+- Breadcrumbs (2 copies, missing from 1 place)  *(deferred)*
+- Chart card structure (8× in metrics.html)  *(deferred)*
+- Quality / status badge colour logic (belongs on models)  *(deferred)*
+- `dl.row` definition lists  *(deferred)*
+~~- Timeline-loader JS (2 templates)~~
+
+**Done:**
+
+* **Sort header** — extracted to the `sort_header` inclusion tag in `list_tables.py` with its `_sort_header.html` partial. Chicken-list and egg-list now share the same implementation, including consistent `scope="col"` / `aria-sort` / accessible labels. The two templates used to render slightly different HTML (different arrow format, one had `scope`, the other didn't). Covered by 8 unit tests in `test_list_tables.py`.
+* **HTMX poll panel** — extracted to the `htmx_poll_panel` inclusion tag (also `list_tables.py`). Collapses five near-identical dashboard divs into one-line calls and enforces a consistent `hx-trigger="every Ns"` pattern.
+* **Timeline JS** — the shared helpers live in `static/web_app/js/timeline_utils.js`, imported once from `_timeline_assets.html`.
+
+**Deferred** items are lower-value cosmetic cleanups — listed for future work.
+
+### 32. `egg_form.html` hand-renders every field ✅ (done in Wave 4)
+~~90 lines of manual `<input>`/`<select>` markup with stringified value-comparison logic.~~
+
+Now renders through Django's form machinery via a small `_bs_field.html` partial that handles the Bootstrap classes + radio-group layout. The form widgets carry their `form-control` / `form-select` / `form-check-input` classes from the Python side; `empty_label` is set explicitly for the two optional FKs. Template body dropped from 120 lines to 48. Covered by 5 new tests in `TestEggFormRendering`.
+
+### 33. Accessibility gaps ✅ (done in Wave 4)
+~~- `<tr onclick>` in chicken list (not keyboard-navigable, breaks open-in-new-tab)~~
+~~- Missing `<main>` landmark and active-nav state in base.html~~
+~~- `<th>` without `scope="col"` throughout~~
+~~- No `aria-label` on emoji (`🪓` reads as "axe")~~
+- `<div role="button">` instead of real `<button>` in metrics.html  *(deferred — metrics page restructure)*
+- `<img src="">` (empty string) in `_latest_image.html`  *(deferred — needs partial rework)*
+
+**Done:**
+
+* **Chicken list row click** — replaced `<tr onclick>` with a proper `<a>` on the chicken name. Keyboard-accessible, middle-clickable, screen-reader friendly. Covered by `test_row_has_real_link_not_onclick_handler`, `test_table_has_scope_col_on_headers`, `test_sortable_headers_have_aria_sort`.
+* **`<main>` landmark** — added to `base.html` with `id="main-content"`. Covered by `test_base_template_has_main_landmark`.
+* **Active nav item** — the current page's nav link gets `class="nav-link active"` based on `request.resolver_match.url_name`. Covered by `test_active_nav_item_has_active_class`.
+* **`scope="col"`** on every sortable header via the `sort_header` tag. Covered by `test_scope_col_always_present`.
+* **Emoji alt-labels** — the `🐔 Coop` brand in the nav uses `<span aria-hidden="true">` so the emoji isn't announced as "chicken" alongside the already-spoken word.
+* **Sort arrows** — `▲` / `▼` wrapped in `<span aria-hidden="true">` so assistive tech doesn't read them alongside `aria-sort`.
+
+### 34. XSS risk in `timeline.html:50` ✅ (done in Wave 4)
+~~Chicken names are interpolated into a JS object literal with no escaping. A name containing `'` or `</script>` breaks the page.~~
+
+Fixed by moving chicken names into `{{ timeline_config|json_script:"timeline-config" }}` and reading them in `timeline_page.js` via `JSON.parse(document.getElementById(...).textContent)`. Covered by `test_timeline_view_escapes_dangerous_chicken_names` which creates a chicken named `"attack</script><script>alert(1)</script>"` and asserts the injected script tag doesn't execute.
+
+### 35. No `{% if messages %}` in `base.html` ✅ (done in Wave 4)
+~~Django messages silently disappear.~~
+
+Added a `{% if messages %}` block to `base.html` that renders each message as a dismissible Bootstrap alert (`alert-danger` for errors, `alert-info`/etc. for the rest). The block is wrapped in `role="status" aria-live="polite"` so assistive tech announces new messages. Covered by `test_messages_framework_renders`.
 
 ---
 
@@ -350,12 +391,21 @@ Given the volume, tackle this in waves:
 
 **Wave 3 summary:** 41 new tests added (502 total, 461 at end of Wave 2), 1 new migration (`0024`), 0 regressions, ruff clean. The metrics view's `get_context_data` shrank by ~80 lines, analytics code is now a cohesive module, the hardware agent is decoupled from Django ORM code, and the dashboard's idle query load dropped from ~42 queries per 5-second cycle to ~6.
 
-### Wave 4 — Frontend
-- Create `src/web_app/static/`; vendor Bootstrap/HTMX/vis-timeline
-- Extract the 3 huge inline scripts to static JS
-- Fix `<tr onclick>` accessibility
-- Extract sort-header, chart-card, htmx-poll partials
-- Switch `egg_form.html` to Django form rendering
+### Wave 4 — Frontend ✅ COMPLETE
+- ✅ Create `src/web_app/static/`; vendor Bootstrap/HTMX/Chart.js/vis-timeline locally
+- ✅ Extract the 3 huge inline scripts (timeline, metrics, chicken_detail) + dashboard image-swap
+- ✅ Fix `<tr onclick>` accessibility (real `<a>` on the name cell)
+- ✅ Extract sort-header inclusion tag
+- ✅ Extract htmx-poll panel inclusion tag
+- ✅ Switch `egg_form.html` to Django form rendering (via `_bs_field.html`)
+- ✅ Add pagination to `EggListView` (`_pagination.html` partial with sort-preserving links)
+- ✅ Fix XSS risk in `timeline.html` (chicken names now via `json_script`)
+- ✅ Accessibility pass: `<main>`, `scope="col"`, `aria-sort`, active-nav, emoji aria-hidden
+- ✅ Messages framework rendering in `base.html`
+
+**Wave 4 summary:** 68 new tests added (570 total, 502 at end of Wave 3), 0 regressions, ruff clean. The three inline scripts (~540 lines of inline JS) moved to 6 static files. All CDN-loaded assets vendored locally and pinned. Egg form template shrank from 120 to 48 lines.
+
+**Deferred to a future wave** (low-value cosmetic cleanups): breadcrumb partial, chart-card partial, quality/status badge logic on models, `dl.row` partial, the `<div role="button">` in metrics, `<img src="">` edge case in `_latest_image.html`.
 
 ### Wave 5 — Polish
 - Split `seed` into focused commands
