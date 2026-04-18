@@ -14,6 +14,7 @@ from ..models import (
 from .timeline_utils import (
     parse_date_range,
     egg_item,
+    night_periods,
     period_item,
     presence_item,
     empty_range_response,
@@ -51,7 +52,8 @@ def timeline_data(request):
     ).select_related("chicken", "nesting_box")
 
     items = (
-        [egg_item(e, include_group=True) for e in eggs]
+        night_periods(start, end)
+        + [egg_item(e, include_group=True) for e in eggs]
         + [period_item(p, include_group=True) for p in periods]
         + [presence_item(p) for p in presences]
     )

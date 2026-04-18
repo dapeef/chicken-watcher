@@ -27,6 +27,11 @@ load_dotenv(BASE_DIR / ".env")
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
+# Coop location — used for sunrise/sunset shading on the timeline.
+# Defaults to London if not set.
+COOP_LATITUDE = float(os.getenv("COOP_LATITUDE", "51.5"))
+COOP_LONGITUDE = float(os.getenv("COOP_LONGITUDE", "-0.1"))
+
 
 ALLOWED_HOSTS = [
     "*",

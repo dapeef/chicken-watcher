@@ -19,6 +19,7 @@ from ..models import Chicken, Egg, NestingBoxPresencePeriod
 from .timeline_utils import (
     parse_date_range,
     egg_item,
+    night_periods,
     period_item,
     empty_range_response,
 )
@@ -191,6 +192,10 @@ def chicken_timeline_data(request, pk):
         chicken=chicken, started_at__lte=end, ended_at__gte=start
     ).select_related("nesting_box")
 
-    items = [egg_item(e) for e in eggs] + [period_item(p) for p in periods]
+    items = (
+        night_periods(start, end)
+        + [egg_item(e) for e in eggs]
+        + [period_item(p) for p in periods]
+    )
 
     return JsonResponse(items, safe=False)

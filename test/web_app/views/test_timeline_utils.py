@@ -1,10 +1,16 @@
 """Unit tests for web_app.views.timeline_utils serialiser helpers."""
 
 import pytest
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
+from unittest.mock import patch
 
-from web_app.views.timeline_utils import egg_item, period_item, presence_item
+from web_app.views.timeline_utils import (
+    egg_item,
+    night_periods,
+    period_item,
+    presence_item,
+)
 from ..factories import (
     ChickenFactory,
     EggFactory,
@@ -186,3 +192,82 @@ class TestPresenceItem:
         assert len(set(class_names)) == 4
         for n in range(1, 5):
             assert f"sensor-left-{n}" in class_names[n - 1]
+
+
+class TestNightPeriods:
+    """Tests for the night_periods() helper."""
+
+    def _window(self, days=1):
+        """Return a (start, end) window spanning ``days`` days from midnight today."""
+        start = datetime(2024, 6, 21, 0, 0, 0, tzinfo=dt_timezone.utc)
+        end = start + timedelta(days=days)
+        return start, end
+
+    def test_returns_list(self):
+        start, end = self._window()
+        result = night_periods(start, end)
+        assert isinstance(result, list)
+
+    def test_each_item_has_required_keys(self):
+        start, end = self._window()
+        items = night_periods(start, end)
+        assert len(items) >= 1
+        for item in items:
+            assert item["type"] == "background"
+            assert item["className"] == "timeline-night"
+            assert "id" in item
+            assert "start" in item
+            assert "end" in item
+
+    def test_night_start_before_night_end(self):
+        """Sunset must come before next sunrise."""
+        start, end = self._window()
+        for item in night_periods(start, end):
+            assert item["start"] < item["end"]
+
+    def test_all_items_overlap_window(self):
+        """Every returned band must overlap the requested window."""
+        start, end = self._window()
+        for item in night_periods(start, end):
+            band_start = item["start"]
+            band_end = item["end"]
+            assert band_end > start.isoformat()
+            assert band_start < end.isoformat()
+
+    def test_multi_day_window_returns_multiple_bands(self):
+        """A week-long window should produce ~7 night bands."""
+        start, end = self._window(days=7)
+        items = night_periods(start, end)
+        assert len(items) >= 6  # at minimum one per day
+
+    def test_unique_ids(self):
+        """Each band must have a unique id."""
+        start, end = self._window(days=7)
+        items = night_periods(start, end)
+        ids = [i["id"] for i in items]
+        assert len(ids) == len(set(ids))
+
+    def test_returns_empty_when_lat_lon_missing(self):
+        """Returns [] gracefully when settings have no location configured."""
+        start, end = self._window()
+        with patch("web_app.views.timeline_utils.settings") as mock_settings:
+            del mock_settings.COOP_LATITUDE
+            mock_settings.COOP_LATITUDE = None
+            mock_settings.COOP_LONGITUDE = None
+            result = night_periods(start, end)
+        assert result == []
+
+    @pytest.mark.django_db
+    def test_timeline_data_includes_night_bands(self, client):
+        """The timeline_data endpoint includes night background items."""
+        from django.urls import reverse
+
+        start = datetime(2024, 6, 21, 0, 0, 0, tzinfo=dt_timezone.utc)
+        end = start + timedelta(days=1)
+        url = reverse("timeline_data")
+        response = client.get(f"{url}?start={start.isoformat()}&end={end.isoformat()}")
+        assert response.status_code == 200
+        data = response.json()
+        night_items = [i for i in data if i.get("type") == "background"]
+        assert len(night_items) >= 1
+        assert all(i["className"] == "timeline-night" for i in night_items)

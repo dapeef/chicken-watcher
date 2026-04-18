@@ -46,6 +46,8 @@ services:
       - MEDIA_ROOT=/app/media
       - STATIC_ROOT=/app/static
       - LOG_FILENAME=web_app.log
+      - COOP_LATITUDE=${COOP_LATITUDE}
+      - COOP_LONGITUDE=${COOP_LONGITUDE}
     volumes:
       - media_volume:/app/media
       - static_volume:/app/static

@@ -12,6 +12,7 @@ dependencies = [
     "pillow>=12.0.0",
     "psycopg2-binary>=2.9.11",
     "pyserial>=3.5",
+    "astral>=3.2",
     "uvicorn>=0.40.0",
     "swig>=4.4.1",
     # Only install lgpio on the Raspberry Pi
