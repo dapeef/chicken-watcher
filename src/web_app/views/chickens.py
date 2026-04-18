@@ -11,6 +11,7 @@ from django.db.models import (
 from django.db.models.functions import Cast, Coalesce, Now
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import ListView, DetailView
 
@@ -80,6 +81,10 @@ class ChickenDetailView(DetailView):
             ),
         )
         ctx["stats"] = stats
+        # Consumed by chicken_detail.js via json_script (no XSS surface).
+        ctx["chicken_detail_config"] = {
+            "timeline_url": reverse("chicken_timeline_data", kwargs={"pk": chicken.pk}),
+        }
         return ctx
 
 

@@ -1,0 +1,14 @@
+/* Styles specific to the chicken detail page. Shared timeline item
+ * styles live in timeline.css. */
+
+#nest-visualization {
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+}
+
+/* Prevent vis.js from adding its own scrollbars around the embedded
+ * mini-timeline; the card already provides the visual bounds. */
+.vis-timeline {
+  border: none !important;
+}

@@ -40,10 +40,10 @@ class TestNoLargeInlineScripts:
     # Templates known to still have oversized inline scripts. Each
     # entry will be removed by its corresponding Wave 4 extraction
     # commit.
-    STILL_INLINE: set[str] = {
-        "chicken_detail.html",  # Wave 4 item 4
-        "dashboard.html",  # Wave 4 item 4 (DOMParser image-swap helper)
-    }
+    # As of Wave 4 completion, every template's inline scripts have
+    # been extracted. This set is empty but kept as a place for future
+    # migrations.
+    STILL_INLINE: set[str] = set()
 
     @pytest.mark.parametrize("template_path", _all_templates(), ids=lambda p: p.name)
     def test_no_oversized_inline_script_blocks(self, template_path: Path):

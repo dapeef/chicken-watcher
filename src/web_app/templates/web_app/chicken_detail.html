@@ -1,20 +1,12 @@
 {% extends "base.html" %}
-{% block title %}{{ hen.name }} | Coop{% endblock %}
+{% load static %}
 {% load humanize %}
+
+{% block title %}{{ hen.name }} | Coop{% endblock %}
 
 {% block extra_head %}
 {% include 'web_app/partials/_timeline_assets.html' %}
-<style>
-  #nest-visualization {
-    width: 100%;
-    height: 240px;
-    overflow: hidden;
-  }
-  /* Prevent vis.js from adding its own scrollbars */
-  .vis-timeline {
-    border: none !important;
-  }
-</style>
+<link href="{% static 'web_app/css/chicken_detail.css' %}" rel="stylesheet" type="text/css" />
 {% endblock %}
 
 {% block content %}
@@ -31,9 +23,9 @@
 <div class="d-flex flex-column gap-4">
 
   <!-- Profile -->
-  <div class="card shadow-sm">
+  <section class="card shadow-sm" aria-label="Chicken profile">
     <div class="card-header">
-      <h6 class="mb-0 fw-semibold">Profile</h6>
+      <h2 class="h6 mb-0 fw-semibold">Profile</h2>
     </div>
     <div class="card-body">
       <dl class="row mb-0">
@@ -59,12 +51,12 @@
         {% endif %}
       </dl>
     </div>
-  </div>
+  </section>
 
   <!-- Production stats -->
-  <div class="card shadow-sm">
+  <section class="card shadow-sm" aria-label="Production stats">
     <div class="card-header d-flex align-items-center justify-content-between">
-      <h6 class="mb-0 fw-semibold">Production</h6>
+      <h2 class="h6 mb-0 fw-semibold">Production</h2>
       <a class="btn btn-outline-primary btn-sm"
          href="{% url 'metrics' %}?chickens_sent=1&chickens={{ hen.pk }}">
         View metrics &rarr;
@@ -86,51 +78,22 @@
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
   <!-- Nesting behaviour timeline -->
-  <div class="card shadow-sm overflow-hidden">
+  <section class="card shadow-sm overflow-hidden" aria-label="Nesting behaviour timeline">
     <div class="card-header">
-      <h6 class="mb-0 fw-semibold">Nesting behaviour</h6>
+      <h2 class="h6 mb-0 fw-semibold">Nesting behaviour</h2>
     </div>
     <div id="nest-visualization"></div>
-  </div>
+  </section>
 
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const nestContainer = document.getElementById("nest-visualization");
-  const nestItems = new vis.DataSet([]);
-  const { startOfDay, endOfDay } = todayWindow();
-  const nestTimeline = new vis.Timeline(nestContainer, nestItems, {
-    height: "240px",
-    stack: true,
-    showCurrentTime: true,
-    zoomMin: 1000 * 60, // 1 minute
-    start: startOfDay,
-    end: endOfDay,
-  });
+{# Data handoff to chicken_detail.js via json_script (no XSS surface). #}
+{{ chicken_detail_config|json_script:"chicken-detail-config" }}
+{% endblock %}
 
-  function loadNestData(properties) {
-    const start = properties.start.toISOString();
-    const end = properties.end.toISOString();
-    const url = `{% url 'chicken_timeline_data' hen.pk %}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
-    fetch(url)
-      .then(r => r.json())
-      .then(data => nestItems.update(data))
-      .catch(err => console.error("Error loading nest timeline data:", err));
-  }
-
-  nestTimeline.on("rangechanged", loadNestData);
-  loadNestData({ start: startOfDay, end: endOfDay });
-
-  // Refresh while the current time is in view
-  setInterval(() => {
-    const w = nestTimeline.getWindow();
-    const now = new Date();
-    if (now >= w.start && now <= w.end) loadNestData(w);
-  }, 10000);
-});
-</script>
+{% block extra_scripts %}
+<script src="{% static 'web_app/js/chicken_detail.js' %}"></script>
 {% endblock %}

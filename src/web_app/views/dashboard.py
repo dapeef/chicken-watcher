@@ -17,6 +17,7 @@ per-partial.
 """
 
 from django import db
+from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import TemplateView
 from django.shortcuts import render
@@ -149,6 +150,10 @@ class DashboardView(TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_dashboard_context())
+        # Consumed by dashboard_image.js via json_script.
+        ctx["dashboard_config"] = {
+            "latest_image_url": reverse("partial_latest_image"),
+        }
         return ctx
 
 
