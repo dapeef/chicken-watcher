@@ -1,10 +1,12 @@
 import json
 import pytest
 from datetime import date, timedelta, datetime, timezone as dt_timezone
+from django.http import QueryDict
 from django.urls import reverse
 
 from web_app.views.metrics import (
     _build_egg_prod_datasets,
+    MetricsParams,
     DEFAULT_SPAN,
     DEFAULT_WINDOW,
     DEFAULT_AGE_WINDOW,
@@ -1766,3 +1768,141 @@ class TestMetricsViewQueryCount:
         with django_assert_max_num_queries(40):
             response = client.get(reverse("metrics"))
             assert response.status_code == 200
+
+
+@pytest.mark.django_db
+class TestMetricsParams:
+    """Unit tests for the MetricsParams dataclass, which owns all of
+    the metrics page's query-string parsing. Previously this logic was
+    inlined at the top of ``MetricsView.get_context_data`` and could
+    only be tested end-to-end through a full HTTP request."""
+
+    def _qd(self, **kwargs) -> QueryDict:
+        """Build a QueryDict with the given keys/values. Values given
+        as lists map to repeated params (e.g. ``chickens=[1, 2]``)."""
+        qd = QueryDict(mutable=True)
+        for key, value in kwargs.items():
+            if isinstance(value, list):
+                qd.setlist(key, [str(v) for v in value])
+            else:
+                qd[key] = str(value)
+        return qd
+
+    def test_fresh_load_defaults(self):
+        hens = [ChickenFactory(name=f"C{i}") for i in range(3)]
+
+        params = MetricsParams.from_request(self._qd(), hens)
+
+        # All three hens selected by default
+        assert params.chosen == hens
+        assert params.chickens_sent is False
+        # Sensible defaults
+        assert params.show_sum is False
+        assert params.show_mean is True
+        assert params.include_unknown is True
+        assert params.include_non_saleable is False
+        assert params.window == DEFAULT_WINDOW
+        assert params.age_window == DEFAULT_AGE_WINDOW
+        assert params.nest_sigma == DEFAULT_NEST_SIGMA
+        assert params.kde_bandwidth == DEFAULT_KDE_BANDWIDTH
+
+    def test_chickens_sent_empty_selection_respected(self):
+        """An empty selection submitted through the form must be
+        preserved (not silently re-defaulted to all hens)."""
+        hens = [ChickenFactory(), ChickenFactory()]
+
+        params = MetricsParams.from_request(self._qd(chickens_sent="1"), hens)
+
+        assert params.chickens_sent is True
+        assert params.chosen == []
+        assert params.selected_ids == []
+
+    def test_chickens_sent_filters_to_selected(self):
+        c1 = ChickenFactory(name="A")
+        c2 = ChickenFactory(name="B")
+        c3 = ChickenFactory(name="C")
+
+        params = MetricsParams.from_request(
+            self._qd(chickens_sent="1", chickens=[c1.pk, c3.pk]), [c1, c2, c3]
+        )
+
+        assert set(params.chosen) == {c1, c3}
+
+    def test_invalid_chicken_ids_ignored(self):
+        c1 = ChickenFactory()
+        params = MetricsParams.from_request(
+            self._qd(chickens_sent="1", chickens=["not_a_number", c1.pk]), [c1]
+        )
+        # Invalid → whole list rejected → empty selection
+        assert params.selected_ids == []
+
+    def test_invalid_int_falls_back_to_default(self):
+        hens = [ChickenFactory()]
+        params = MetricsParams.from_request(
+            self._qd(w="banana", age_w="", nest_sigma="abc", kde_bw="-"), hens
+        )
+        assert params.window == DEFAULT_WINDOW
+        assert params.age_window == DEFAULT_AGE_WINDOW
+        assert params.nest_sigma == DEFAULT_NEST_SIGMA
+        assert params.kde_bandwidth == DEFAULT_KDE_BANDWIDTH
+
+    def test_out_of_choices_int_falls_back_to_default(self):
+        """Values that parse as ints but aren't in the whitelist also
+        fall back to defaults. This is important — allowing arbitrary
+        window sizes lets a user pick unreasonable values that make
+        charts look broken."""
+        hens = [ChickenFactory()]
+        params = MetricsParams.from_request(self._qd(w="999999", kde_bw="-1"), hens)
+        assert params.window == DEFAULT_WINDOW
+        assert params.kde_bandwidth == DEFAULT_KDE_BANDWIDTH
+
+    def test_start_after_end_clamps_to_default_span(self):
+        hens = [ChickenFactory()]
+        params = MetricsParams.from_request(
+            self._qd(start="2025-06-01", end="2025-05-01"), hens
+        )
+        # End is respected, start is pushed back to DEFAULT_SPAN days before
+        assert params.end == date(2025, 5, 1)
+        assert params.start == date(2025, 5, 1) - timedelta(days=DEFAULT_SPAN - 1)
+
+    def test_malformed_date_uses_today(self):
+        hens = [ChickenFactory()]
+        params = MetricsParams.from_request(self._qd(end="not-a-date"), hens)
+        from django.utils import timezone
+
+        assert params.end == timezone.localdate()
+
+    def test_fresh_load_defaults_keep_on_with_empty_req(self):
+        """On a fresh page load (no form sentinel), show_mean and
+        include_unknown default to True even if not in the QueryDict."""
+        hens = [ChickenFactory()]
+        params = MetricsParams.from_request(self._qd(), hens)
+        assert params.show_mean is True
+        assert params.include_unknown is True
+
+    def test_submitted_form_treats_missing_toggles_as_off(self):
+        """Once the form has been submitted, an absent show_mean (or
+        include_unknown) means the user unchecked it."""
+        hens = [ChickenFactory()]
+        params = MetricsParams.from_request(self._qd(chickens_sent="1"), hens)
+        assert params.show_mean is False
+        assert params.include_unknown is False
+
+    def test_chosen_dob_by_id_property(self):
+        c1 = ChickenFactory(date_of_birth=date(2024, 1, 1))
+        c2 = ChickenFactory(date_of_birth=date(2024, 6, 1))
+        params = MetricsParams.from_request(self._qd(), [c1, c2])
+        assert params.chosen_dob_by_id == {
+            c1.pk: date(2024, 1, 1),
+            c2.pk: date(2024, 6, 1),
+        }
+
+    def test_normal_egg_filter_defaults_to_saleable_only(self):
+        params = MetricsParams.from_request(self._qd(), [])
+        # Default: filter to saleable
+        assert str(params.normal_egg_filter) == str(Q(quality="saleable"))
+
+    def test_normal_egg_filter_wide_open_when_non_saleable_included(self):
+        params = MetricsParams.from_request(self._qd(include_non_saleable="1"), [])
+        # Empty Q matches everything
+        assert str(params.normal_egg_filter) == str(Q())

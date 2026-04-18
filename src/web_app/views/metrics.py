@@ -16,9 +16,11 @@ w               – rolling window in days for egg production chart (default: 7)
 """
 
 import json
+from dataclasses import dataclass, field
 from datetime import timedelta, date, datetime
 
 from django.db.models import Count, Sum, F, ExpressionWrapper, DurationField, Q
+from django.http import QueryDict
 from django.utils import timezone
 from django.views.generic import TemplateView
 
@@ -84,6 +86,145 @@ def _parse_date(txt: str | None) -> date | None:
         return datetime.strptime(txt, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _parse_int_choice(raw: str | None, choices: tuple[int, ...], default: int) -> int:
+    """Parse ``raw`` as an int and return it if it's one of ``choices``,
+    otherwise return ``default``.
+
+    Collapses the repeated "try int(...), fall back on ValueError,
+    then check against whitelist" dance that appeared five times in
+    MetricsParams parsing.
+    """
+    try:
+        value = int(raw) if raw is not None else default
+    except (ValueError, TypeError):
+        return default
+    return value if value in choices else default
+
+
+@dataclass(frozen=True)
+class MetricsParams:
+    """Typed, validated bundle of the query-string parameters the
+    metrics page accepts.
+
+    Previously ``MetricsView.get_context_data`` opened with ~80 lines
+    of hand-rolled parsing and fallback logic (eight parse-with-
+    fallback blocks for dates, windows, sigmas, booleans). This
+    dataclass owns that logic so:
+
+    * the view body can focus on the computation it actually does,
+    * each parameter's parse / validate rules are in one place,
+    * the parser can be unit-tested directly from a ``QueryDict``
+      without spinning up a full Django request.
+
+    Parameter semantics match the URL docstring at the top of this
+    module. See :meth:`from_request` for the exact defaults.
+    """
+
+    # Chicken selection
+    all_chickens: list
+    selected_ids: list[int] = field(default_factory=list)
+    chickens_sent: bool = False
+    chosen: list = field(default_factory=list)
+
+    # Date range
+    start: date | None = None
+    end: date | None = None
+
+    # Aggregation / inclusion toggles
+    show_sum: bool = False
+    show_mean: bool = True
+    include_unknown: bool = True
+    include_non_saleable: bool = False
+
+    # Rolling / smoothing windows
+    window: int = 0  # egg production rolling window in days
+    age_window: int = 0  # age chart rolling window in days
+    nest_sigma: int = 0  # nesting TOD smoothing σ in minutes
+    kde_bandwidth: int = 0  # egg-TOD KDE bandwidth σ in minutes
+
+    @classmethod
+    def from_request(cls, req: QueryDict, all_chickens: list) -> "MetricsParams":
+        """Parse a GET-request QueryDict into a fully-validated
+        :class:`MetricsParams`.
+
+        ``all_chickens`` is passed in (rather than fetched here) so the
+        view can re-use the query for other purposes (e.g. rendering
+        the sidebar checkbox list).
+        """
+        # Chicken selection. "chickens_sent" is a hidden form sentinel
+        # that lets us distinguish "user submitted an empty selection"
+        # from "fresh page load, no form submission yet".
+        chickens_sent = "chickens_sent" in req
+        try:
+            selected_ids = [int(i) for i in req.getlist("chickens")]
+        except (ValueError, TypeError):
+            selected_ids = []
+
+        if chickens_sent:
+            chosen = [c for c in all_chickens if c.pk in selected_ids]
+        else:
+            chosen = list(all_chickens)
+
+        # Date range
+        end = _parse_date(req.get("end")) or timezone.localdate()
+        start = _parse_date(req.get("start"))
+        if not start or start > end:
+            start = end - timedelta(days=DEFAULT_SPAN - 1)
+
+        # Boolean toggles. Defaults differ for fresh vs submitted form
+        # because the unchecked checkboxes are absent from the POST
+        # payload — we need the sentinel to know what "absent" means.
+        show_sum = req.get("show_sum", "") == "1"
+        show_mean = req.get("show_mean", "" if chickens_sent else "1") == "1"
+        include_unknown = (
+            req.get("include_unknown", "" if chickens_sent else "1") == "1"
+        )
+        include_non_saleable = req.get("include_non_saleable", "") == "1"
+
+        # Numeric choice params
+        window = _parse_int_choice(req.get("w"), WINDOW_CHOICES, DEFAULT_WINDOW)
+        age_window = _parse_int_choice(
+            req.get("age_w"), WINDOW_CHOICES, DEFAULT_AGE_WINDOW
+        )
+        nest_sigma = _parse_int_choice(
+            req.get("nest_sigma"), NEST_SIGMA_CHOICES, DEFAULT_NEST_SIGMA
+        )
+        kde_bandwidth = _parse_int_choice(
+            req.get("kde_bw"), KDE_BANDWIDTH_CHOICES, DEFAULT_KDE_BANDWIDTH
+        )
+
+        return cls(
+            all_chickens=all_chickens,
+            selected_ids=selected_ids,
+            chickens_sent=chickens_sent,
+            chosen=chosen,
+            start=start,
+            end=end,
+            show_sum=show_sum,
+            show_mean=show_mean,
+            include_unknown=include_unknown,
+            include_non_saleable=include_non_saleable,
+            window=window,
+            age_window=age_window,
+            nest_sigma=nest_sigma,
+            kde_bandwidth=kde_bandwidth,
+        )
+
+    @property
+    def chosen_dob_by_id(self) -> dict[int, date]:
+        """Map chicken.pk → date_of_birth for the chosen hens. Used by
+        the batched "eggs per age day" query to avoid re-fetching each
+        hen's DoB inside a loop."""
+        return {hen.pk: hen.date_of_birth for hen in self.chosen}
+
+    @property
+    def normal_egg_filter(self) -> Q:
+        """Base filter for the main egg-production / TOD / box-preference
+        charts. By default only saleable eggs are shown;
+        ``include_non_saleable`` widens this to all eggs."""
+        return Q() if self.include_non_saleable else Q(quality="saleable")
 
 
 def _build_egg_prod_datasets(
@@ -231,82 +372,27 @@ class MetricsView(TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        req = self.request.GET
 
         # ── Sidebar params ────────────────────────────────────────────────────
         all_chickens = list(Chicken.objects.order_by("name"))
+        params = MetricsParams.from_request(self.request.GET, all_chickens)
 
-        # Which chickens are selected?
-        # "chickens_sent" is a hidden sentinel that is always submitted with the
-        # form, so we can distinguish an explicit empty selection from a fresh
-        # page load (where no chickens param is present at all).
-        chickens_sent = "chickens_sent" in req
-        selected_ids = req.getlist("chickens")
-        try:
-            selected_ids = [int(i) for i in selected_ids]
-        except (ValueError, TypeError):
-            selected_ids = []
-
-        if chickens_sent:
-            # User submitted the form — respect their selection, even if empty
-            chosen = [c for c in all_chickens if c.pk in selected_ids]
-        else:
-            # Fresh page load — default to all chickens
-            chosen = list(all_chickens)
-
-        # Used by the batched "age production" query below to convert
-        # laid_at → age without re-fetching each hen's DoB.
-        chosen_dob_by_id = {hen.pk: hen.date_of_birth for hen in chosen}
-
-        show_sum = req.get("show_sum", "") == "1"
-        # Default mean to on for fresh page loads; respect the form value once submitted
-        show_mean = req.get("show_mean", "" if chickens_sent else "1") == "1"
-        # Default include_unknown to on for fresh page loads
-        include_unknown = (
-            req.get("include_unknown", "" if chickens_sent else "1") == "1"
-        )
-        # include_non_saleable: off by default on fresh load and form submissions.
-        # When on, edible + messy eggs are included in the main egg production
-        # chart, the time-of-day KDE, and the nesting-box preference pie.
-        include_non_saleable = req.get("include_non_saleable", "") == "1"
-
-        # Date range
-        end = _parse_date(req.get("end")) or timezone.localdate()
-        start = _parse_date(req.get("start"))
-        if not start or start > end:
-            start = end - timedelta(days=DEFAULT_SPAN - 1)
-
-        # Rolling window for egg production / quality / flock charts
-        try:
-            window = int(req.get("w", DEFAULT_WINDOW))
-        except (ValueError, TypeError):
-            window = DEFAULT_WINDOW
-        if window not in WINDOW_CHOICES:
-            window = DEFAULT_WINDOW
-
-        # Rolling window for egg production vs age chart (independent param)
-        try:
-            age_window = int(req.get("age_w", DEFAULT_AGE_WINDOW))
-        except (ValueError, TypeError):
-            age_window = DEFAULT_AGE_WINDOW
-        if age_window not in WINDOW_CHOICES:
-            age_window = DEFAULT_AGE_WINDOW
-
-        # Nesting smoothing bandwidth (minutes)
-        try:
-            nest_sigma = int(req.get("nest_sigma", DEFAULT_NEST_SIGMA))
-        except (ValueError, TypeError):
-            nest_sigma = DEFAULT_NEST_SIGMA
-        if nest_sigma not in NEST_SIGMA_CHOICES:
-            nest_sigma = DEFAULT_NEST_SIGMA
-
-        # KDE bandwidth for egg time-of-day chart (minutes)
-        try:
-            kde_bandwidth = int(req.get("kde_bw", DEFAULT_KDE_BANDWIDTH))
-        except (ValueError, TypeError):
-            kde_bandwidth = DEFAULT_KDE_BANDWIDTH
-        if kde_bandwidth not in KDE_BANDWIDTH_CHOICES:
-            kde_bandwidth = DEFAULT_KDE_BANDWIDTH
+        # Local aliases keep the rest of the method readable without
+        # having to touch 100+ callsites.
+        chosen = params.chosen
+        chosen_dob_by_id = params.chosen_dob_by_id
+        selected_ids = params.selected_ids
+        chickens_sent = params.chickens_sent
+        show_sum = params.show_sum
+        show_mean = params.show_mean
+        include_unknown = params.include_unknown
+        include_non_saleable = params.include_non_saleable
+        start = params.start
+        end = params.end
+        window = params.window
+        age_window = params.age_window
+        nest_sigma = params.nest_sigma
+        kde_bandwidth = params.kde_bandwidth
 
         today = timezone.localdate()
 
@@ -318,10 +404,7 @@ class MetricsView(TemplateView):
             data_start + timedelta(days=i) for i in range(days + window)
         ]
 
-        # Base filter for the main egg production chart.
-        # By default only saleable eggs are shown; include_non_saleable widens
-        # this to all eggs.
-        normal_egg_filter = Q() if include_non_saleable else Q(quality="saleable")
+        normal_egg_filter = params.normal_egg_filter
 
         egg_prod_datasets = _build_egg_prod_datasets(
             chosen=chosen,
