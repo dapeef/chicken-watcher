@@ -67,10 +67,21 @@ def test_camera_poll_timeout(mocker):
     camera.connect()
     camera.running = True
 
-    # Patch time.perf_counter to simulate timeout
-    mocker.patch("time.perf_counter", side_effect=[0, 6])
+    # Make perf_counter return 0 on the first call, then 10 on every
+    # subsequent call. This ensures the poll() timeout triggers on the
+    # second call (10 - 0 > 5.0) without being brittle to extra calls.
+    # The old [0, 6] fixed-list raised StopIteration if more than two
+    # calls were made (e.g. from a future poll() refactor).
+    call_count = 0
 
-    with pytest.raises(Exception, match="Timed out waiting for first frame"):
+    def perf_counter_side_effect():
+        nonlocal call_count
+        call_count += 1
+        return 0.0 if call_count == 1 else 10.0
+
+    mocker.patch("time.perf_counter", side_effect=perf_counter_side_effect)
+
+    with pytest.raises(RuntimeError, match="Timed out waiting for first frame"):
         camera.poll()
 
 

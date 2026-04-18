@@ -119,11 +119,19 @@ class TestChickenListAgeColumn:
     url = reverse("chicken_list")
 
     def test_age_column_shows_ymd_format(self, client):
-        today = date.today()
-        # 400 days = 1y 1m 5d  (365 + 30 + 5)
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        # 400 days ≈ 1y 1m 5d — the formatted output must contain
+        # both a years digit ("1y") and a months digit ("1m").
+        # The old assertion used ``or b"m"`` which trivially passed
+        # because every HTML page contains the letter "m" somewhere.
         ChickenFactory(date_of_birth=today - date.resolution * 400, date_of_death=None)
         response = client.get(self.url)
-        assert b"1y" in response.content or b"m" in response.content  # at least months
+        content = response.content.decode()
+        # The age cell should contain something like "1y 1m 5d".
+        # We verify at least the years component renders correctly.
+        assert "1y" in content, "Expected '1y' in the age column for a 400-day-old chicken"
 
     def test_age_column_does_not_show_raw_days(self, client):
         today = date.today()
