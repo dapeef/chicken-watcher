@@ -26,7 +26,11 @@ class TestE2E:
         assert b"Today" in response.content
         assert b"rfid_left" in response.content
         assert b"Online" in response.content
-        assert b"Sensors" in response.content
+        # The "Hardware status" card header confirms the sensors partial
+        # rendered. Previously this test looked for b"Sensors" which was
+        # matching the HTML comment in dashboard.html; when the comments
+        # moved inside the htmx_poll_panel tag they stopped leaking.
+        assert b"Hardware status" in response.content
 
         # 2. Chickens List
         response = client.get(reverse("chicken_list"))

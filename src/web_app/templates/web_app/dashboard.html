@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load list_tables static %}
 
 {% block title %}Today | Coop{% endblock %}
 
@@ -8,37 +8,22 @@
 
 <div class="row g-3">
 
-  <!-- Eggs laid so far -->
-  <div class="col-12 col-md-6" hx-get="{% url 'partial_eggs_today' %}" hx-trigger="every 5s">
-    {% include 'web_app/partials/_eggs_today.html' %}
-  </div>
+  {% htmx_poll_panel "web_app/partials/_eggs_today.html" url=partial_eggs_today_url columns="col-12 col-md-6" %}
 
-  <!-- Chickens who have laid -->
-  <div class="col-12 col-md-6" hx-get="{% url 'partial_laid_chickens' %}" hx-trigger="every 5s">
-    {% include 'web_app/partials/_laid_chickens.html' %}
-  </div>
+  {% htmx_poll_panel "web_app/partials/_laid_chickens.html" url=partial_laid_chickens_url columns="col-12 col-md-6" %}
 
-  <!-- Latest Nesting Box Image. Swapped by dashboard_image.js (not htmx)
-       so we can preload the new JPEG before updating <img src>, avoiding
-       a flash between frames. -->
+  {# Latest nesting-box image. Swapped by dashboard_image.js (not htmx)
+     so we can preload the new JPEG before updating <img src>, avoiding
+     a flash between frames. #}
   <div class="col-12" id="image-container">
     {% include 'web_app/partials/_latest_image.html' %}
   </div>
 
-  <!-- Boxes currently occupied -->
-  <div class="col-12 col-md-5" hx-get="{% url 'partial_latest_presence' %}" hx-trigger="every 5s">
-    {% include 'web_app/partials/_latest_presence.html' %}
-  </div>
+  {% htmx_poll_panel "web_app/partials/_latest_presence.html" url=partial_latest_presence_url columns="col-12 col-md-5" %}
 
-  <!-- Latest events -->
-  <div class="col-12 col-md-4" hx-get="{% url 'partial_latest_events' %}" hx-trigger="every 5s">
-    {% include 'web_app/partials/_latest_events.html' %}
-  </div>
+  {% htmx_poll_panel "web_app/partials/_latest_events.html" url=partial_latest_events_url columns="col-12 col-md-4" %}
 
-  <!-- Hardware Sensors -->
-  <div class="col-12 col-md-3" hx-get="{% url 'partial_sensors' %}" hx-trigger="every 5s">
-    {% include 'web_app/partials/_sensors.html' %}
-  </div>
+  {% htmx_poll_panel "web_app/partials/_sensors.html" url=partial_sensors_url columns="col-12 col-md-3" %}
 
 </div>
 

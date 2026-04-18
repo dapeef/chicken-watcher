@@ -154,6 +154,14 @@ class DashboardView(TemplateView):
         ctx["dashboard_config"] = {
             "latest_image_url": reverse("partial_latest_image"),
         }
+        # URLs for the htmx_poll_panel inclusion tag. Kept here rather
+        # than hard-coded in the template so the URL names remain
+        # refactorable from one place.
+        ctx["partial_eggs_today_url"] = reverse("partial_eggs_today")
+        ctx["partial_laid_chickens_url"] = reverse("partial_laid_chickens")
+        ctx["partial_latest_presence_url"] = reverse("partial_latest_presence")
+        ctx["partial_latest_events_url"] = reverse("partial_latest_events")
+        ctx["partial_sensors_url"] = reverse("partial_sensors")
         return ctx
 
 
