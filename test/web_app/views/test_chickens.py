@@ -30,6 +30,50 @@ class TestChickenListView:
         names = {c.name for c in response.context["object_list"]}
         assert names == {"Bertha", "Alice"}
 
+    def test_row_has_real_link_not_onclick_handler(self, client):
+        """Regression: rows previously used <tr onclick='location.href=...'>
+        which was not keyboard-accessible and broke open-in-new-tab.
+        A real <a href> on the chicken name is both accessible and
+        middle-clickable."""
+        hen = ChickenFactory(name="Henrietta")
+        response = client.get(self.url)
+        content = response.content.decode()
+
+        # No inline onclick handler anywhere in the list
+        assert "onclick=" not in content, (
+            "Found inline onclick — the row-click pattern is not "
+            "keyboard accessible. Use a real <a href> on the name cell."
+        )
+        # The chicken name should be rendered inside an <a> pointing at
+        # its detail URL.
+        expected_href = reverse("chicken_detail", kwargs={"pk": hen.pk})
+        assert f'href="{expected_href}"' in content
+        assert "Henrietta" in content
+
+    def test_table_has_scope_col_on_headers(self, client):
+        """Accessibility: <th>s in a table header should have
+        ``scope='col'`` so screen readers announce the header for each
+        data cell. Without scope, the association is guessed."""
+        ChickenFactory()
+        response = client.get(self.url)
+        content = response.content.decode()
+        # Pick any of the headers — all should carry scope="col".
+        assert 'scope="col"' in content
+
+    def test_sortable_headers_have_aria_sort(self, client):
+        """When a column is currently sorted, the corresponding <th>
+        should advertise ``aria-sort='ascending'`` or
+        ``aria-sort='descending'`` so assistive tech knows the current
+        sort state."""
+        ChickenFactory()
+        response = client.get(self.url + "?sort=name")
+        content = response.content.decode()
+        assert 'aria-sort="ascending"' in content
+
+        response = client.get(self.url + "?sort=-name")
+        content = response.content.decode()
+        assert 'aria-sort="descending"' in content
+
     def test_all_expected_headers_present(self, client):
         response = client.get(self.url)
         header_keys = [col for col, _, _mobile in response.context["headers"]]

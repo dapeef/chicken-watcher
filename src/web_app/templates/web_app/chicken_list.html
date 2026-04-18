@@ -8,20 +8,21 @@
 <div class="card shadow-sm overflow-hidden">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
+      <caption class="visually-hidden">List of chickens. Click a name to open its profile.</caption>
       <thead class="table-light">
         <tr>
           {% for col, label, mobile in headers %}
             {% if sort == col %}
-              <th class="fw-semibold{% if not mobile %} d-none d-md-table-cell{% endif %}">
-                <a class="text-decoration-none text-body" href="?sort=-{{ col }}">{{ label }} ▲</a>
+              <th scope="col" aria-sort="ascending" class="fw-semibold{% if not mobile %} d-none d-md-table-cell{% endif %}">
+                <a class="text-decoration-none text-body" href="?sort=-{{ col }}" aria-label="{{ label }}, currently sorted ascending. Activate to sort descending.">{{ label }} <span aria-hidden="true">▲</span></a>
               </th>
             {% elif sort == '-'|add:col %}
-              <th class="fw-semibold{% if not mobile %} d-none d-md-table-cell{% endif %}">
-                <a class="text-decoration-none text-body" href="?sort={{ col }}">{{ label }} ▼</a>
+              <th scope="col" aria-sort="descending" class="fw-semibold{% if not mobile %} d-none d-md-table-cell{% endif %}">
+                <a class="text-decoration-none text-body" href="?sort={{ col }}" aria-label="{{ label }}, currently sorted descending. Activate to sort ascending.">{{ label }} <span aria-hidden="true">▼</span></a>
               </th>
             {% else %}
-              <th class="fw-semibold text-muted{% if not mobile %} d-none d-md-table-cell{% endif %}">
-                <a class="text-decoration-none text-muted" href="?sort={{ col }}">{{ label }}</a>
+              <th scope="col" class="fw-semibold text-muted{% if not mobile %} d-none d-md-table-cell{% endif %}">
+                <a class="text-decoration-none text-muted" href="?sort={{ col }}" aria-label="Sort by {{ label }}">{{ label }}</a>
               </th>
             {% endif %}
           {% endfor %}
@@ -30,8 +31,16 @@
 
       <tbody>
       {% for hen in object_list %}
-        <tr onclick="location.href='{% url 'chicken_detail' hen.id %}'" style="cursor:pointer">
-          <td>{{ hen.name }}</td>
+        {% comment %}
+          Previously a <tr onclick=...>. That pattern is not keyboard
+          accessible, breaks middle-click / ctrl-click for "open in new
+          tab", and isn't announced as a link by screen readers.
+          Instead the chicken's name is now a real <a>, which is
+          universally understood and accessible. The row still shows
+          a hover state via .table-hover.
+        {% endcomment %}
+        <tr>
+          <td><a href="{% url 'chicken_detail' hen.id %}" class="text-body text-decoration-none fw-semibold">{{ hen.name }}</a></td>
           <td>{{ hen.age_duration|duration_ymd }}</td>
           <td>{{ hen.tag.number|default:'—' }}</td>
           <td class="d-none d-md-table-cell">{{ hen.eggs_total }}</td>
