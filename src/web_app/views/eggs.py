@@ -1,5 +1,5 @@
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, DeleteView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 
 from ..models import Egg
 from ..forms import EggForm
@@ -30,6 +30,13 @@ class EggListView(ListView):
 
 
 class EggCreateView(CreateView):
+    model = Egg
+    form_class = EggForm
+    template_name = "web_app/egg_form.html"
+    success_url = reverse_lazy("egg_list")
+
+
+class EggUpdateView(UpdateView):
     model = Egg
     form_class = EggForm
     template_name = "web_app/egg_form.html"

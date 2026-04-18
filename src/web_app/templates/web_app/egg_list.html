@@ -31,7 +31,10 @@
       <td>{{ egg.nesting_box|default:'—' }}</td>
       <td>{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
       <td>{{ egg.get_quality_display }}</td>
-      <td><a href="{% url 'egg_delete' egg.pk %}" class="btn btn-sm btn-outline-danger">Delete</a></td>
+      <td class="d-flex gap-1">
+        <a href="{% url 'egg_edit' egg.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        <a href="{% url 'egg_delete' egg.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+      </td>
     </tr>
   {% empty %}
     <tr><td colspan="8" class="text-muted text-center">No eggs yet.</td></tr>

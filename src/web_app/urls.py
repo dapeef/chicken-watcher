@@ -37,6 +37,7 @@ urlpatterns = [
     ),
     path("eggs/", views.EggListView.as_view(), name="egg_list"),
     path("eggs/new/", views.EggCreateView.as_view(), name="egg_create"),
+    path("eggs/<int:pk>/edit/", views.EggUpdateView.as_view(), name="egg_edit"),
     path("eggs/<int:pk>/delete/", views.EggDeleteView.as_view(), name="egg_delete"),
     path("metrics/", views.MetricsView.as_view(), name="metrics"),
     path("timeline/", views.TimelineView.as_view(), name="timeline"),

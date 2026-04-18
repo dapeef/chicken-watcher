@@ -109,3 +109,81 @@ class TestEggViews:
         assert "Messy" in content
         assert "Saleable" in content
         assert "Edible" in content
+
+    def test_egg_list_shows_edit_button(self, client):
+        egg = EggFactory()
+        response = client.get(reverse("egg_list"))
+        content = response.content.decode()
+        assert f"/eggs/{egg.pk}/edit/" in content
+        assert "Edit" in content
+
+    # ── edit view ─────────────────────────────────────────────────────────────
+
+    def test_egg_edit_view_get(self, client):
+        egg = EggFactory()
+        response = client.get(reverse("egg_edit", args=[egg.pk]))
+        assert response.status_code == 200
+        assert "Edit egg" in response.content.decode()
+
+    def test_egg_edit_view_nonexistent_returns_404(self, client):
+        response = client.get(reverse("egg_edit", args=[9999]))
+        assert response.status_code == 404
+
+    def test_egg_edit_view_updates_quality(self, client):
+        egg = EggFactory(quality="saleable")
+        url = reverse("egg_edit", args=[egg.pk])
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": egg.laid_at.strftime("%Y-%m-%dT%H:%M"),
+            "quality": "messy",
+        }
+        response = client.post(url, data)
+        assert response.status_code == 302
+        egg.refresh_from_db()
+        assert egg.quality == "messy"
+
+    def test_egg_edit_view_updates_chicken(self, client):
+        chicken = ChickenFactory()
+        egg = EggFactory(chicken=None)
+        url = reverse("egg_edit", args=[egg.pk])
+        data = {
+            "chicken": chicken.pk,
+            "nesting_box": "",
+            "laid_at": egg.laid_at.strftime("%Y-%m-%dT%H:%M"),
+            "quality": egg.quality,
+        }
+        response = client.post(url, data)
+        assert response.status_code == 302
+        egg.refresh_from_db()
+        assert egg.chicken == chicken
+
+    def test_egg_edit_view_redirects_to_egg_list(self, client):
+        egg = EggFactory()
+        url = reverse("egg_edit", args=[egg.pk])
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": egg.laid_at.strftime("%Y-%m-%dT%H:%M"),
+            "quality": egg.quality,
+        }
+        response = client.post(url, data)
+        assert response.url == reverse("egg_list")
+
+    def test_egg_edit_view_cancel_link_present(self, client):
+        egg = EggFactory()
+        response = client.get(reverse("egg_edit", args=[egg.pk]))
+        assert reverse("egg_list") in response.content.decode()
+
+    def test_egg_edit_does_not_create_new_egg(self, client):
+        egg = EggFactory()
+        assert Egg.objects.count() == 1
+        url = reverse("egg_edit", args=[egg.pk])
+        data = {
+            "chicken": "",
+            "nesting_box": "",
+            "laid_at": egg.laid_at.strftime("%Y-%m-%dT%H:%M"),
+            "quality": "edible",
+        }
+        client.post(url, data)
+        assert Egg.objects.count() == 1

@@ -21,6 +21,7 @@ from .chickens import (
 from .eggs import (
     EggListView as EggListView,
     EggCreateView as EggCreateView,
+    EggUpdateView as EggUpdateView,
     EggDeleteView as EggDeleteView,
 )
 from .metrics import MetricsView as MetricsView
