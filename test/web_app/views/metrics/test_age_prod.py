@@ -253,3 +253,90 @@ class TestMetricsViewAgeProd:
         labels = {d["label"] for d in datasets}
         assert "Sum" not in labels
         assert "Mean" not in labels
+
+    def test_default_age_window_is_30(self, client):
+        """Regression: default was 14 days, changed to 30."""
+        from web_app.views.metrics import DEFAULT_AGE_WINDOW
+
+        assert DEFAULT_AGE_WINDOW == 30
+
+        response = client.get(reverse("metrics"))
+        assert response.context["age_window"] == 30
+
+    def test_rolling_average_is_centered_not_right_shifted(self, client):
+        """The age-production rolling average must be centered, meaning the
+        smoothed value at age ``i`` uses data from ``[i - w//2, i + w//2]``.
+
+        With RIGHT alignment (the old behaviour), the smoothed value at age
+        ``i`` was the mean of data from ``[i - w + 1, i]``. This meant:
+        - The smoothed value at the egg's age was non-zero (it's always the
+          *end* of a window that contains the egg).
+        - But the first non-zero smoothed value appeared ``w - 1`` days
+          *before* the egg age (day egg_age - (w-1)).
+
+        With CENTER alignment:
+        - The smoothed value at the egg's age is also non-zero.
+        - The first non-zero value appears ``w//2`` days before the egg age.
+        - The last non-zero value appears ``w//2`` days *after* the egg age,
+          which means the curve is symmetric around the true egg age.
+
+        We verify the symmetric property: with a single egg at a known age,
+        the smoothed series must be non-zero both ``w//2`` days before AND
+        ``w//2`` days after the egg age. Under right-shift, the series is
+        only non-zero before the egg age (never after), so this test would
+        fail under the old code.
+        """
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        dob = today - timedelta(days=300)
+        egg_age = 150
+        egg_date = dob + timedelta(days=egg_age)
+        hen = ChickenFactory(date_of_birth=dob)
+        EggFactory(
+            chicken=hen,
+            laid_at=datetime.combine(egg_date, datetime.min.time(), tzinfo=UTC),
+        )
+
+        # Use age_w=30 (a valid WINDOW_CHOICES value).
+        start = egg_date - timedelta(days=10)
+        end = egg_date + timedelta(days=10)
+        params = {**self._params(start, end, [hen], window=30)}
+        response = client.get(reverse("metrics"), params)
+
+        datasets = json.loads(response.context["age_prod_datasets_json"])
+        labels = json.loads(response.context["age_prod_labels_json"])
+        data = datasets[0]["data"]
+
+        # Build a mapping age → smoothed value for easy lookup.
+        smoothed = {labels[i]: v for i, v in enumerate(data)}
+
+        # rolling_average CENTER uses window_before = ceil(w/2) - 1 and
+        # window_after = floor(w/2). For w=30: window_before=14, window_after=15.
+        # The window centered at position i spans [i-14 .. i+15].
+        # → the last position whose window includes the egg at egg_age is
+        #   i = egg_age + window_before = egg_age + 14.
+        # → the first position whose window includes the egg is
+        #   i = egg_age - window_after = egg_age - 15.
+        from math import ceil, floor
+
+        w = 30
+        window_before = ceil(w / 2) - 1  # = 14
+        window_after = floor(w / 2)  # = 15
+
+        # Non-zero before the egg age (true for both CENTER and RIGHT).
+        before_age = egg_age - window_after  # first position with egg in window
+        assert smoothed.get(before_age) is not None and smoothed[before_age] > 0, (
+            f"Expected non-zero smoothed value at age {before_age} "
+            f"({window_after} days before egg age {egg_age})"
+        )
+
+        # Non-zero AFTER the egg age — only true for CENTER, not RIGHT.
+        # Under right-shift the window at (egg_age + 1) would not contain
+        # the egg, so its smoothed value would be 0.
+        after_age = egg_age + window_before  # last position with egg in window
+        assert smoothed.get(after_age) is not None and smoothed[after_age] > 0, (
+            f"Expected non-zero smoothed value at age {after_age} "
+            f"({window_before} days after egg age {egg_age}). "
+            "If this is 0 or None, the rolling average is right-shifted, not centered."
+        )

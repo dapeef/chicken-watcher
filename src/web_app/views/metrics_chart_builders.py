@@ -28,6 +28,7 @@ from django.db.models import (
 
 from ..analytics import (
     BUCKETS_PER_DAY,
+    CENTER,
     RIGHT,
     egg_time_of_day_kde,
     gaussian_smooth_circular,
@@ -529,9 +530,16 @@ def build_age_prod_datasets(
 ) -> tuple[list[int], list[dict]]:
     """Build the egg-production-vs-age chart.
 
-    X-axis: age in days. Each series is one chicken's eggs/day as a
-    function of her age, rolling-averaged with a warm-up period of
-    ``age_window`` days.
+    X-axis: age in days (0 … max_age_in_flock). Each series is one
+    chicken's eggs/day as a function of her age, rolling-averaged with
+    a **centered** window of ``age_window`` days.
+
+    Centered alignment means the smoothed value at age ``i`` is the
+    mean of the window ``[i - age_window//2, i + age_window//2]``. The
+    first and last ``age_window//2`` points of each series are ``None``
+    (edge padding), which is the honest representation — the average
+    isn't meaningful when there is less than a half-window of data
+    either side.
 
     Returns ``(age_display_labels, datasets)`` so the caller doesn't
     have to re-compute the x-axis labels.
@@ -542,11 +550,8 @@ def build_age_prod_datasets(
         if dod >= hen.date_of_birth:
             max_age_days = max(max_age_days, (dod - hen.date_of_birth).days)
 
-    # age_display_labels: [0, 1, …, max_age]  (x-axis)
-    # age_data_labels: [-age_window, …, max_age]  (warm-up + display)
-    # After rolling and [age_window:], output index i maps to age i.
+    # Simple 0-indexed labels — no warm-up array needed with CENTER alignment.
     age_display_labels = list(range(max_age_days + 1))
-    age_data_labels = list(range(-age_window, max_age_days + 1))
 
     datasets: list[dict] = []
     age_raw_counts_per_hen: list[list] = []
@@ -555,7 +560,7 @@ def build_age_prod_datasets(
         return age_display_labels, datasets
 
     # One query for every chosen hen's egg-per-day aggregates; group
-    # by chicken_id in Python. Previously this ran one query per hen.
+    # by chicken_id in Python.
     age_rows = (
         Egg.objects.filter(Q(chicken__in=chosen) & normal_egg_filter)
         .values("chicken_id", "laid_at__date")
@@ -574,11 +579,11 @@ def build_age_prod_datasets(
         max_alive_age = (dod - dob).days
         age_counts = age_counts_by_chicken[hen.pk]
         counts_by_age = [
-            age_counts.get(a, 0) if 0 <= a <= max_alive_age else None for a in age_data_labels
+            age_counts.get(a, 0) if 0 <= a <= max_alive_age else None for a in age_display_labels
         ]
         age_raw_counts_per_hen.append(counts_by_age)
 
-        rolled = rolling_average(counts_by_age, age_window, RIGHT)[age_window:]
+        rolled = rolling_average(counts_by_age, age_window, CENTER)
         datasets.append(
             {
                 "label": hen.name,
@@ -591,11 +596,11 @@ def build_age_prod_datasets(
         )
 
     if show_sum or show_mean:
-        n_cols = len(age_data_labels)
+        n_cols = len(age_display_labels)
         age_sum_counts = _sum_series(age_raw_counts_per_hen, n_cols)
 
         if show_sum:
-            rolled_sum = rolling_average(age_sum_counts, age_window, RIGHT)[age_window:]
+            rolled_sum = rolling_average(age_sum_counts, age_window, CENTER)
             datasets.append(_sum_dataset(rolled_sum))
 
         if show_mean:
@@ -606,7 +611,7 @@ def build_age_prod_datasets(
                 else None
                 for i in range(n_cols)
             ]
-            rolled_mean = rolling_average(age_mean_counts, age_window, RIGHT)[age_window:]
+            rolled_mean = rolling_average(age_mean_counts, age_window, CENTER)
             datasets.append(_mean_dataset(rolled_mean))
 
     return age_display_labels, datasets

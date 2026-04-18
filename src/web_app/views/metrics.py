@@ -42,7 +42,7 @@ from .metrics_chart_builders import (
 )
 
 DEFAULT_WINDOW = 7
-DEFAULT_AGE_WINDOW = 14
+DEFAULT_AGE_WINDOW = 30
 DEFAULT_SPAN = 7
 WINDOW_CHOICES = (1, 3, 7, 10, 30, 90)
 
