@@ -67,23 +67,41 @@ Covered by `test_seed.py::TestDestructiveModeGuards` (7 tests) and `test_delete_
 
 All 7 `date.today()` calls in `src/` replaced with `timezone.localdate()` (`models.py`, `views/metrics.py` 5×, `management/commands/seed.py`). Covered by `test/web_app/test_timezone.py::TestChickenAgeTimezone` (3 tests including a BST-midnight-boundary scenario).
 
-### 7. Period-grouping race condition
-`hardware_agent/handlers.py:87-118`. With 4 RFID readers per box, two simultaneous reads can each "find no recent period" and each create a duplicate period. No `select_for_update()`, no unique constraint. Real production risk.
+### 7. Period-grouping race condition ✅ (done in Wave 2)
+~~`hardware_agent/handlers.py:87-118`. With 4 RFID readers per box, two simultaneous reads can each "find no recent period" and each create a duplicate period. No `select_for_update()`, no unique constraint. Real production risk.~~
 
-### 8. `save_frame_to_db` orphans images
-`hardware_agent/handlers.py:158-179` never links the `NestingBoxImage` to a `nesting_box`. The `cam_name` parameter is silently dropped. The `prune_nesting_box_images` job can't correlate images to boxes.
+`handle_tag_read` now wraps the period-lookup-or-create logic in a transaction with `Chicken.objects.select_for_update()` on the chicken row. Concurrent reads of the same chicken (typically from multiple RFID readers in the same box) serialise on that lock, so the previous TOCTOU window is closed. SQLite already serialises all writes, so the fix is portable. The period-grouping logic is also extracted into a testable `_find_extensible_period` helper. Covered by `test_handlers.py::TestHandleTagReadRaceCondition` (2 tests).
 
-### 9. `NestingBoxPresencePeriod` lost its `started_at <= ended_at` CheckConstraint
-This constraint existed on the old `NestingBoxVisit` model but wasn't carried across in migration `0011`. Regression.
+### 8. `save_frame_to_db` orphans images ⏭️ (dismissed in Wave 2)
+~~`hardware_agent/handlers.py:158-179` never links the `NestingBoxImage` to a `nesting_box`. The `cam_name` parameter is silently dropped. The `prune_nesting_box_images` job can't correlate images to boxes.~~
 
-### 10. `Chicken.tag` silently weakened from `OneToOneField` to `ForeignKey`
-Migration `0016` allows two chickens to share one RFID tag, with no detection. Restore uniqueness (either OneToOne or a unique partial constraint).
+**Reviewer's premise was incorrect for the actual deployment**: the camera is a single overhead unit that covers both nesting boxes (and some of the surrounding area). There is no meaningful per-box association to record. `cam_name` is already preserved in the stored filename (`{cam_name}_{timestamp}.jpg`), so multi-camera setups (if ever deployed) would remain distinguishable without a schema change.
 
-### 11. `_reader` thread leak in `USBCamera`
-`hardware_agent/camera.py:87`. Each reconnect spawns a new reader thread without ever joining the old one. Over hours the thread count grows.
+Outcome: `save_frame_to_db` left as-is; no FK added; `NestingBoxImage` schema unchanged. A clarifying comment was added to `NestingBoxImage` explaining the design intent so this finding doesn't resurface.
 
-### 12. No graceful shutdown path
-`service.py` uses `signal.pause()`; no SIGTERM handler, no `manager.stop_all()`. Sensors' serial/GPIO/camera resources may leak on container stop.
+### 9. `NestingBoxPresencePeriod` lost its `started_at <= ended_at` CheckConstraint ✅ (done in Wave 2)
+~~This constraint existed on the old `NestingBoxVisit` model but wasn't carried across in migration `0011`. Regression.~~
+
+Constraint re-added on the model and as migration `0022`. Covered by `test_models.py::TestNestingBoxPresencePeriodConstraints` (4 tests including the boundary case where started == ended).
+
+### 10. `Chicken.tag` silently weakened from `OneToOneField` to `ForeignKey` ✅ (done in Wave 2)
+~~Migration `0016` allows two chickens to share one RFID tag, with no detection. Restore uniqueness (either OneToOne or a unique partial constraint).~~
+
+Kept as `ForeignKey` (so tags can be reassigned when a chicken dies) but added a partial `UniqueConstraint` (migration `0023`) that enforces "at most one *live* chicken per tag". Dead chickens keep their historical tag for provenance, freed tags can be reassigned. Covered by `test_models.py::TestChickenTagUniqueness` (5 tests).
+
+### 11. `_reader` thread leak in `USBCamera` ✅ (done in Wave 2)
+~~`hardware_agent/camera.py:87`. Each reconnect spawns a new reader thread without ever joining the old one. Over hours the thread count grows.~~
+
+`USBCamera` now tracks the reader-thread handle in `self._reader_thread` and uses a per-connection `_reader_stop` event so `disconnect()` can signal and join the reader before releasing the capture device. The reader snapshot-captures `self.cap` at thread start to avoid racing with `disconnect()` blanking it. Covered by `test_camera.py::test_camera_reconnect_does_not_leak_reader_thread` (drives 5 reconnect cycles and verifies every reader was joined) and `test_disconnect_joins_reader_thread`.
+
+### 12. No graceful shutdown path ✅ (done in Wave 2)
+~~`service.py` uses `signal.pause()`; no SIGTERM handler, no `manager.stop_all()`. Sensors' serial/GPIO/camera resources may leak on container stop.~~
+
+`service.run_agent` now installs SIGTERM/SIGINT handlers that set a shutdown event; on shutdown it calls `manager.stop_all()` in a `finally` block so every sensor releases its hardware handle regardless of exception path.
+
+`BaseSensor` was rewritten to use a `threading.Event` (`_stop_event`) instead of a plain bool, replacing the unkillable `time.sleep(5)` backoffs with `event.wait(5)`. `stop()` is now idempotent, and interrupts a pending reconnect backoff within the event's resolution rather than waiting the full 5s. `HardwareManager.stop_all(timeout=…)` iterates every registered sensor, logs per-sensor errors but continues, and returns when all have been asked to stop.
+
+Covered by `test_service.py` (3 tests: SIGTERM handler, SIGINT handler, `stop_all` runs in `finally`), `test_base_sensor.py::test_stop_interrupts_reconnect_backoff_fast` (asserts stop completes in <1s even with a 5s backoff active), `test_stop_is_idempotent`, `test_start_is_idempotent_while_alive`, and 3 new `HardwareManager.stop_all` tests.
 
 ### 13. Logging config is too verbose for a Pi running 24/7 ✅ (done in Wave 1)
 ~~`base.py:89-130` — root logger at DEBUG, third-party libraries included, file handler writes into the repo. On a Pi with an SD card:~~
@@ -285,12 +303,14 @@ Given the volume, tackle this in waves:
 
 **Wave 1 summary:** 32 new tests added (438 total, 406 baseline), 0 regressions, ruff clean.
 
-### Wave 2 — Correctness
-- Fix period-grouping race (`select_for_update` or unique constraint + migration)
-- Fix `save_frame_to_db` orphan bug
-- Re-add `started_before_ended` check constraint
-- Restore `OneToOneField` on `Chicken.tag`
-- Fix `USBCamera` reader-thread leak + add graceful shutdown
+### Wave 2 — Correctness ✅ COMPLETE
+- ✅ Fix period-grouping race (`select_for_update` on the chicken row)
+- ⏭️ `save_frame_to_db` "orphan" bug — **dismissed**: the single overhead camera covers multiple boxes, so no FK association is meaningful. Clarifying comment added.
+- ✅ Re-add `started_before_ended` check constraint
+- ✅ Restore uniqueness on `Chicken.tag` (partial UniqueConstraint for live chickens)
+- ✅ Fix `USBCamera` reader-thread leak + add graceful shutdown (signal handlers + `stop_all`)
+
+**Wave 2 summary:** 23 new tests added (461 total, 438 after Wave 1), 3 new migrations (`0021`–`0023`), 0 regressions, ruff clean.
 
 ### Wave 3 — Refactor
 - Extract `MetricsParams` / `MetricsQueries` / chart builders
