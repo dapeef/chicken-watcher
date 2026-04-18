@@ -3,38 +3,118 @@
 {% block title %}{% if object %}Edit egg{% else %}Add egg{% endif %}{% endblock %}
 
 {% block content %}
-  <h1>{% if object %}Edit egg{% else %}Add egg{% endif %}</h1>
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-10 col-md-8 col-lg-6">
 
-  <form method="post">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'egg_list' %}">Eggs</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+          {% if object %}Edit{% else %}Add{% endif %}
+        </li>
+      </ol>
+    </nav>
 
-    <div>
-      <label for="{{ form.chicken.id_for_label }}">Chicken (optional)</label>
-      {{ form.chicken }}
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <h5 class="mb-0">{% if object %}Edit egg{% else %}Add egg{% endif %}</h5>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <div class="mb-3">
+            <label for="{{ form.chicken.id_for_label }}" class="form-label">
+              Chicken
+              <span class="text-muted fw-normal">(optional)</span>
+            </label>
+            <select name="{{ form.chicken.html_name }}"
+                    id="{{ form.chicken.id_for_label }}"
+                    class="form-select{% if form.chicken.errors %} is-invalid{% endif %}">
+              <option value="">— Unknown —</option>
+              {% for pk, name in form.chicken.field.choices %}
+                {% if pk %}
+                  <option value="{{ pk }}"
+                    {% if form.chicken.value|stringformat:"s" == pk|stringformat:"s" %}selected{% endif %}>
+                    {{ name }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            {% if form.chicken.errors %}
+              <div class="invalid-feedback">{{ form.chicken.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <label for="{{ form.nesting_box.id_for_label }}" class="form-label">
+              Nesting box
+              <span class="text-muted fw-normal">(optional)</span>
+            </label>
+            <select name="{{ form.nesting_box.html_name }}"
+                    id="{{ form.nesting_box.id_for_label }}"
+                    class="form-select{% if form.nesting_box.errors %} is-invalid{% endif %}">
+              <option value="">— Unknown —</option>
+              {% for pk, name in form.nesting_box.field.choices %}
+                {% if pk %}
+                  <option value="{{ pk }}"
+                    {% if form.nesting_box.value|stringformat:"s" == pk|stringformat:"s" %}selected{% endif %}>
+                    {{ name }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            {% if form.nesting_box.errors %}
+              <div class="invalid-feedback">{{ form.nesting_box.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <label for="{{ form.laid_at.id_for_label }}" class="form-label">Laid at</label>
+            <input type="datetime-local"
+                   name="{{ form.laid_at.html_name }}"
+                   id="{{ form.laid_at.id_for_label }}"
+                   value="{{ form.laid_at.value|date:'Y-m-d\TH:i' }}"
+                   class="form-control{% if form.laid_at.errors %} is-invalid{% endif %}">
+            {% if form.laid_at.errors %}
+              <div class="invalid-feedback">{{ form.laid_at.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label">Quality</label>
+            <div class="d-flex gap-2 flex-wrap">
+              {% for value, label in form.quality.field.choices %}
+                <div class="form-check form-check-inline m-0">
+                  <input class="form-check-input" type="radio"
+                         name="{{ form.quality.html_name }}"
+                         id="quality_{{ value }}"
+                         value="{{ value }}"
+                         {% if form.quality.value == value %}checked{% endif %}>
+                  <label class="form-check-label" for="quality_{{ value }}">{{ label }}</label>
+                </div>
+              {% endfor %}
+            </div>
+            {% if form.quality.errors %}
+              <div class="text-danger small mt-1">{{ form.quality.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{% url 'egg_list' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+
+        </form>
+      </div>
     </div>
 
-    <div>
-      <label for="{{ form.nesting_box.id_for_label }}">Nesting box (optional)</label>
-      {{ form.nesting_box.errors }}
-      {{ form.nesting_box }}
-    </div>
-
-    <div>
-      <label for="{{ form.laid_at.id_for_label }}">Laid at</label>
-      {{ form.laid_at.errors }}
-      {{ form.laid_at }}
-    </div>
-
-    <div>
-      <label for="{{ form.quality.id_for_label }}">Quality</label>
-      {{ form.quality.errors }}
-      {{ form.quality }}
-    </div>
-
-    <div class="mt-2 d-flex gap-2">
-      <button type="submit" class="btn btn-primary">Save</button>
-      <a href="{% url 'egg_list' %}" class="btn btn-secondary">Cancel</a>
-    </div>
-  </form>
+  </div>
+</div>
 {% endblock %}

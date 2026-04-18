@@ -594,13 +594,13 @@ class MetricsView(TemplateView):
             .order_by("nesting_box__name")
         )
         egg_box_labels = [
-            r["nesting_box__name"].capitalize() if r["nesting_box__name"] else "Unknown"
+            r["nesting_box__name"].title() if r["nesting_box__name"] else "Unknown"
             for r in egg_box_qs
         ]
         egg_box_counts = [r["egg_count"] for r in egg_box_qs]
 
         # Sentence-case the box labels for the visits/time charts too.
-        box_labels = [name.capitalize() if name else "Unknown" for name in box_labels]
+        box_labels = [name.title() if name else "Unknown" for name in box_labels]
 
         # Colour palette for pie slices — use the same PALETTE so colours are
         # consistent if a user ever cross-references with line charts.

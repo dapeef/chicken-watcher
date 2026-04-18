@@ -30,9 +30,11 @@ class TestChickenModel:
 
 @pytest.mark.django_db
 class TestNestingBoxModel:
-    def test_str(self):
-        box = NestingBoxFactory(name="Box A")
-        assert str(box) == "Box A"
+    def test_str_capitalises_name(self):
+        assert str(NestingBoxFactory(name="left")) == "Left"
+
+    def test_str_title_cases_multi_word_name(self):
+        assert str(NestingBoxFactory(name="north nest")) == "North Nest"
 
 
 @pytest.mark.django_db
