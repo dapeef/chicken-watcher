@@ -126,29 +126,45 @@ Covered by `test/test_logging.py` (7 tests including the read-only-fallback case
 
 These are maintainability issues that will compound.
 
-### 14. `hardware_agent/handlers.py` doesn't belong in `hardware_agent`
-It contains pure Django ORM code. It should live in `web_app/services/`, with the hardware agent receiving handler callables via DI. Decouples the two packages.
+### 14. `hardware_agent/handlers.py` doesn't belong in `hardware_agent` ✅ (done in Wave 3)
+~~It contains pure Django ORM code. It should live in `web_app/services/`, with the hardware agent receiving handler callables via DI. Decouples the two packages.~~
 
-### 15. `MetricsView.get_context_data` is ~550 lines (`views/metrics.py:261-810`)
-Mixes query-param parsing, multiple ORM pipelines, KDE smoothing, chart-builder dict construction. Refactor into:
-- `MetricsParams` dataclass (parse request → typed config)
-- `MetricsQueries` / manager methods on `Egg`/`Chicken`
-- Per-chart builders (`build_tod_chart`, etc.)
+Moved to `src/web_app/services/hardware_events.py`. `hardware_agent/manager.py` now imports from there. A new `web_app/services/__init__.py` documents the service-layer conventions. The hardware agent package is now pure driver code with zero Django-ORM imports of its own (it still calls into the service functions, but the direction of coupling is right: driver → service, not driver owns service).
 
-### 16. `handle_tag_read` (`handlers.py:66-141`) does too much
-Tag resolution, period-grouping, presence creation, exception handling. Push period-grouping onto a manager method: `NestingBoxPresencePeriod.objects.extend_or_create(chicken, box, at)`.
+### 15. `MetricsView.get_context_data` is ~550 lines ✅ partially done (in Wave 3)
+~~Mixes query-param parsing, multiple ORM pipelines, KDE smoothing, chart-builder dict construction. Refactor into:~~
+~~- `MetricsParams` dataclass (parse request → typed config)~~
+~~- `MetricsQueries` / manager methods on `Egg`/`Chicken`~~
+~~- Per-chart builders (`build_tod_chart`, etc.)~~
 
-### 17. Analytics code lives in `views/`
-`nesting_time_of_day`, `egg_time_of_day_kde`, `_gaussian_smooth_circular`, `rolling_average` are pure numerical functions scattered across `views/chickens.py`, `views/metrics.py`, `utils.py`. Move to `web_app/analytics.py`.
+**Done:** `MetricsParams` dataclass (see `src/web_app/views/metrics.py`) now owns all of the query-string parsing (~80 lines previously inlined at the top of the view). It exposes typed fields, two derived properties (`chosen_dob_by_id`, `normal_egg_filter`), and a `from_request` classmethod. A shared `_parse_int_choice` helper collapsed five near-identical parse-with-fallback blocks into one. Covered by `test_metrics.py::TestMetricsParams` (13 tests).
 
-### 18. Per-hen N+1 loops in metrics
-`views/metrics.py:389-394, 471-477, 661-697` — 25+ queries per metrics page for a 10-hen flock. Collapse to `chicken__in=chosen` + group in Python.
+**Deferred:** The chart-builder extraction (per-chart `build_tod_chart` etc.) and the `MetricsQueries` service are larger surgery — they can come in a future wave. The view body is ~80 lines shorter and the per-parameter logic is now unit-testable in isolation, which was the biggest win.
 
-### 19. Dashboard partials fan-out
-All 6 HTMX partials call `get_dashboard_context()` every 5s — 42 queries per refresh cycle. Split per-partial context functions.
+### 16. `handle_tag_read` does too much
+~~Tag resolution, period-grouping, presence creation, exception handling.~~ Partially addressed in Wave 2: period-grouping logic extracted into `_find_extensible_period` and the transactional body into `_record_tag_read` (see `web_app/services/hardware_events.py`). A future refactor could push `_find_extensible_period` onto `NestingBoxPresencePeriodQuerySet` as `extend_or_create(chicken, box, at)`; left as-is for now.
 
-### 20. `EggListView` N+1
-`views/eggs.py:12-18` lacks `select_related("chicken", "nesting_box")`. Also no pagination.
+### 17. Analytics code lives in `views/` ✅ (done in Wave 3)
+~~`nesting_time_of_day`, `egg_time_of_day_kde`, `_gaussian_smooth_circular`, `rolling_average` are pure numerical functions scattered across `views/chickens.py`, `views/metrics.py`, `utils.py`. Move to `web_app/analytics.py`.~~
+
+All four functions (plus the `BUCKET_MINUTES`/`BUCKETS_PER_DAY` constants) now live in `src/web_app/analytics.py` with cohesive docstrings and proper section headings. `views/chickens.py` and `views/metrics.py` import from there. `utils.py` is now a thin backwards-compat shim that re-exports the names old callers might still reference. Tests moved into `test/web_app/test_analytics.py` (was scattered across `test_chickens.py`, `test_metrics.py`, `test_utils.py`).
+
+### 18. Per-hen N+1 loops in metrics ✅ (done in Wave 3)
+~~`views/metrics.py:389-394, 471-477, 661-697` — 25+ queries per metrics page for a 10-hen flock. Collapse to `chicken__in=chosen` + group in Python.~~
+
+All three loops rewritten: eggs-per-hen TOD KDE, periods-per-hen nesting TOD, and eggs-per-hen age-production aggregation now each run a single batched query keyed on `chicken__in=chosen` and group the results in Python. Query count no longer grows with flock size. Regression-tested by `test_metrics.py::TestMetricsViewQueryCount` (2 tests) with a ceiling of 40 queries — old code would have exceeded 60.
+
+### 19. Dashboard partials fan-out ✅ (done in Wave 3)
+~~All 6 HTMX partials call `get_dashboard_context()` every 5s — 42 queries per refresh cycle. Split per-partial context functions.~~
+
+Split into six per-panel context fetchers (`_eggs_today_ctx`, `_laid_chickens_ctx`, `_latest_presence_ctx`, `_latest_events_ctx`, `_sensors_ctx`, `_latest_image_ctx`). Each HTMX partial now queries only what its own panel needs. An idle dashboard went from ~42 queries per 5-second refresh cycle to ~6. The `get_dashboard_context()` public helper is retained for the initial full-page render (it calls all six fetchers in sequence). Regression-tested by `TestDashboardPartialQueryCount` (6 tests, one per partial).
+
+### 20. `EggListView` N+1 ✅ partially done (in Wave 3)
+~~`views/eggs.py:12-18` lacks `select_related("chicken", "nesting_box")`. Also no pagination.~~
+
+**Done:** Added `select_related("chicken", "nesting_box")` to the queryset. A 50-egg list went from ~101 queries to ~2. Regression-tested by `TestEggListQueryCount` (2 tests).
+
+**Deferred:** Pagination. Adding `paginate_by` without updating the template silently truncates the visible list, so pagination needs to be paired with template changes (Wave 4 work).
 
 ### 21. `seed` command does 4 unrelated things
 Destructive test-data generation, full wipe, and CSV upserts all behind one `--mode` flag. Split into focused commands.
@@ -156,8 +172,10 @@ Destructive test-data generation, full wipe, and CSV upserts all behind one `--m
 ### 22. `prune_nesting_box_images` vs `delete_nesting_box_images` duplicate each other
 Identical delete bodies; one is safe (time-window), one is nuke-all. Collapse to a single command with `--mode` or at least extract the shared helper.
 
-### 23. Three `add_*` methods in `HardwareManager` are identical patterns
-`hardware_agent/manager.py:20-69`. Consolidate into one `add_sensor(type, instance, handler)` or a declarative registry.
+### 23. Three `add_*` methods in `HardwareManager` are identical patterns ✅ (done in Wave 3)
+~~`hardware_agent/manager.py:20-69`. Consolidate into one `add_sensor(type, instance, handler)` or a declarative registry.~~
+
+The repeated "append + start + status-lambda" tail extracted into `_register(prefix, sensor, handler)`. The repeated "log warning + report disconnected status" early-return extracted into `_skip(prefix, name, log_reason, status_message)`. The three `add_*` methods kept as distinct entry points (their per-kind input validation *is* the genuine per-sensor difference, not duplication), but are now thin — each is 1 validation check, 1 constructor call, 1 `_register` line. Prefix strings (`rfid`, `camera`, `beam`) now constants at module level rather than sprinkled as magic strings.
 
 ### 24. `BaseSensor` abstraction leaks for event-driven devices
 `BeamSensor.poll()` is a 10-second liveness check that doesn't poll anything (edge-triggered via gpiozero). `USBCamera` polls a buffer filled by its own reader thread. Consider splitting `BaseSensor` into `PolledSensor` and `EventSensor`.
@@ -168,8 +186,18 @@ Identical delete bodies; one is safe (time-window), one is nuke-all. Collapse to
 ### 26. Admin has zero customisation
 `admin.py:14-21` — every model uses `admin.site.register(Model)` with no `list_display`, `list_select_related`, `search_fields`, or `autocomplete_fields`. The Egg changelist N+1s.
 
-### 27. Missing default orderings / managers
-Most models have no `Meta.ordering`, leading to scattered `order_by(...)` calls in views. No custom querysets for common filters (`Egg.objects.saleable()`, `Chicken.objects.alive()`, `Egg.objects.laid_today()`).
+### 27. Missing default orderings / managers ✅ (done in Wave 3)
+~~Most models have no `Meta.ordering`, leading to scattered `order_by(...)` calls in views. No custom querysets for common filters (`Egg.objects.saleable()`, `Chicken.objects.alive()`, `Egg.objects.laid_today()`).~~
+
+Added `Meta.ordering` on every model (migration `0024`). Added five custom querysets:
+
+* `ChickenQuerySet.alive()` / `.deceased()`
+* `EggQuerySet.saleable()` / `.edible()` / `.messy()` / `.laid_on(date)` / `.laid_between(start, end)`
+* `NestingBoxPresencePeriodQuerySet.ended_since(dt)` / `.for_box(box)` / `.overlapping(start, end)`
+* `HardwareSensorQuerySet.online()` / `.offline()`
+* `NestingBoxImageQuerySet.far_from_events(window)` (encapsulates the prune-job's Exists() subquery)
+
+Callsites have not all been migrated yet — the querysets are in place for future use. Default orderings caught one latent bug: `values_list("nesting_box_id").distinct()` in `dashboard.py` silently became a no-op because Django appends the Meta ordering columns to the SELECT list; fixed with an explicit `.order_by()` reset. Added `Chicken.is_alive` property. Covered by `test_querysets.py` (18 tests).
 
 ### 28. `NestingBoxPresence.sensor_id` is a string sentinel
 `models.py:106-108`. Empty-string default, no referential integrity. Should be `ForeignKey(HardwareSensor, null=True, on_delete=SET_NULL)`.
@@ -312,13 +340,15 @@ Given the volume, tackle this in waves:
 
 **Wave 2 summary:** 23 new tests added (461 total, 438 after Wave 1), 3 new migrations (`0021`–`0023`), 0 regressions, ruff clean.
 
-### Wave 3 — Refactor
-- Extract `MetricsParams` / `MetricsQueries` / chart builders
-- Move analytics out of `views/`
-- Move `handlers.py` into `web_app/services/`
-- Extract hardware sensor registry; kill `add_*` duplication
-- Fix N+1s in metrics + dashboard partials
-- Add custom managers / default orderings
+### Wave 3 — Refactor ✅ COMPLETE
+- ✅ Extract `MetricsParams` (chart builders / `MetricsQueries` deferred)
+- ✅ Move analytics out of `views/` into `web_app/analytics.py`
+- ✅ Move `handlers.py` into `web_app/services/hardware_events.py`
+- ✅ Extract shared `_register` / `_skip` helpers in `HardwareManager`
+- ✅ Fix N+1s in metrics + dashboard partials + egg list
+- ✅ Add custom managers / default orderings (migration `0024`)
+
+**Wave 3 summary:** 41 new tests added (502 total, 461 at end of Wave 2), 1 new migration (`0024`), 0 regressions, ruff clean. The metrics view's `get_context_data` shrank by ~80 lines, analytics code is now a cohesive module, the hardware agent is decoupled from Django ORM code, and the dashboard's idle query load dropped from ~42 queries per 5-second cycle to ~6.
 
 ### Wave 4 — Frontend
 - Create `src/web_app/static/`; vendor Bootstrap/HTMX/vis-timeline
