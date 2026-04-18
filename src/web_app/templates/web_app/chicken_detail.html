@@ -7,58 +7,93 @@
 <style>
   #nest-visualization {
     width: 100%;
-    height: 220px;
+    height: 240px;
+    overflow: hidden;
+  }
+  /* Prevent vis.js from adding its own scrollbars */
+  .vis-timeline {
+    border: none !important;
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<a href="{% url 'chicken_list' %}">&larr; back to list</a>
 
-<div class="row g-4">
+<nav aria-label="breadcrumb" class="mb-4">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'chicken_list' %}">Chickens</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ hen.name }}</li>
+  </ol>
+</nav>
 
-  <!-- left column: profile -->
-  <div class="col-md-4">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h3 class="card-title">{{ hen.name }}</h3>
-        <dl class="row small">
-          <dt class="col-5">Date of birth</dt><dd class="col-7">{{ hen.date_of_birth }}</dd>
-          {% if hen.date_of_death %}
-            <dt class="col-5">Date of death</dt><dd class="col-7">{{ hen.date_of_death }}</dd>
-          {% endif %}
-          <dt class="col-5">Age</dt><dd class="col-7">{{ hen.age|intcomma }} days</dd>
-          {% if hen.tag %}
-            <dt class="col-5">Tag number</dt><dd class="col-7">{{ hen.tag.number }}</dd>
-            <dt class="col-5">Tag ID</dt><dd class="col-7">{{ hen.tag.rfid_string }}</dd>
-          {% else %}
-            <dt class="col-5">Tag</dt><dd class="col-7"><em>None</em></dd>
-          {% endif %}
-        </dl>
+<h1 class="mb-4">{{ hen.name }}</h1>
 
-        <hr>
-        <h6>Production</h6>
-        <ul class="list-unstyled small mb-0">
-          <li>Total eggs: <strong>{{ stats.total }}</strong></li>
-          <li>Last 30 d: <strong>{{ stats.last30 }}</strong></li>
-          <li>Last egg: <strong>{{ stats.last|date:"Y-m-d H:i" }}</strong></li>
-        </ul>
+<div class="d-flex flex-column gap-4">
 
-        <hr>
-        <a class="btn btn-outline-primary btn-sm w-100"
-           href="{% url 'metrics' %}?chickens_sent=1&chickens={{ hen.pk }}">
-          View metrics for {{ hen.name }} &rarr;
-        </a>
+  <!-- Profile -->
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <h6 class="mb-0 fw-semibold">Profile</h6>
+    </div>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-4 text-muted">Date of birth</dt>
+        <dd class="col-sm-8 fs-5">{{ hen.date_of_birth }}</dd>
+
+        {% if hen.date_of_death %}
+          <dt class="col-sm-4 text-muted">Date of death</dt>
+          <dd class="col-sm-8 fs-5">{{ hen.date_of_death }}</dd>
+        {% endif %}
+
+        <dt class="col-sm-4 text-muted">Age</dt>
+        <dd class="col-sm-8 fs-5">{{ hen.age|intcomma }} days</dd>
+
+        {% if hen.tag %}
+          <dt class="col-sm-4 text-muted">Tag number</dt>
+          <dd class="col-sm-8 fs-5">{{ hen.tag.number }}</dd>
+          <dt class="col-sm-4 text-muted">Tag ID</dt>
+          <dd class="col-sm-8 fs-5 font-monospace">{{ hen.tag.rfid_string }}</dd>
+        {% else %}
+          <dt class="col-sm-4 text-muted">Tag</dt>
+          <dd class="col-sm-8 fs-5 text-muted fst-italic">None</dd>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  <!-- Production stats -->
+  <div class="card shadow-sm">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <h6 class="mb-0 fw-semibold">Production</h6>
+      <a class="btn btn-outline-primary btn-sm"
+         href="{% url 'metrics' %}?chickens_sent=1&chickens={{ hen.pk }}">
+        View metrics &rarr;
+      </a>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 text-center">
+        <div class="col-4">
+          <div class="fs-2 fw-bold">{{ stats.total }}</div>
+          <div class="small text-muted">Total eggs</div>
+        </div>
+        <div class="col-4">
+          <div class="fs-2 fw-bold">{{ stats.last30 }}</div>
+          <div class="small text-muted">Last 30 days</div>
+        </div>
+        <div class="col-4">
+          <div class="fs-2 fw-bold">{{ stats.last|date:"d M" }}</div>
+          <div class="small text-muted">Last egg</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- right column: nesting behaviour timeline -->
-  <div class="col-md-8">
-    <div class="border p-3 bg-white shadow-sm">
-      <h6 class="mb-2">Nesting behaviour</h6>
-      <div id="nest-visualization"></div>
+  <!-- Nesting behaviour timeline -->
+  <div class="card shadow-sm overflow-hidden">
+    <div class="card-header">
+      <h6 class="mb-0 fw-semibold">Nesting behaviour</h6>
     </div>
+    <div id="nest-visualization"></div>
   </div>
 
 </div>
@@ -68,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const nestContainer = document.getElementById("nest-visualization");
   const nestItems = new vis.DataSet([]);
   const nestTimeline = new vis.Timeline(nestContainer, nestItems, {
-    height: "220px",
+    height: "240px",
     stack: true,
     showCurrentTime: true,
     zoomMin: 1000 * 60, // 1 minute
