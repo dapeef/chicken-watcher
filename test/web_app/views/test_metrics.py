@@ -4,7 +4,6 @@ from datetime import date, timedelta, datetime, timezone as dt_timezone
 from django.urls import reverse
 
 from web_app.views.metrics import (
-    _gaussian_smooth_circular,
     _build_egg_prod_datasets,
     DEFAULT_SPAN,
     DEFAULT_WINDOW,
@@ -12,7 +11,6 @@ from web_app.views.metrics import (
     DEFAULT_NEST_SIGMA,
     DEFAULT_KDE_BANDWIDTH,
 )
-from web_app.views.chickens import BUCKETS_PER_DAY
 from django.db.models import Q
 from ..factories import (
     ChickenFactory,
@@ -20,63 +18,6 @@ from ..factories import (
     NestingBoxPresencePeriodFactory,
     NestingBoxFactory,
 )
-
-
-# ── _gaussian_smooth_circular ─────────────────────────────────────────────────
-
-
-class TestGaussianSmoothCircular:
-    def test_sigma_zero_returns_floats_equal_to_input(self):
-        counts = list(range(BUCKETS_PER_DAY))
-        result = _gaussian_smooth_circular(counts, 0)
-        assert result == [float(v) for v in counts]
-
-    def test_output_length_is_buckets_per_day(self):
-        counts = [1] * BUCKETS_PER_DAY
-        assert len(_gaussian_smooth_circular(counts, 20)) == BUCKETS_PER_DAY
-
-    def test_all_zeros_stays_all_zeros(self):
-        counts = [0] * BUCKETS_PER_DAY
-        result = _gaussian_smooth_circular(counts, 20)
-        assert all(v == 0.0 for v in result)
-
-    def test_single_spike_peak_at_spike_location(self):
-        counts = [0] * BUCKETS_PER_DAY
-        spike_bucket = 60  # 10:00
-        counts[spike_bucket] = 10
-        result = _gaussian_smooth_circular(counts, 20)
-        assert result.index(max(result)) == spike_bucket
-
-    def test_single_spike_symmetric_falloff(self):
-        counts = [0] * BUCKETS_PER_DAY
-        spike_bucket = 60
-        counts[spike_bucket] = 10
-        result = _gaussian_smooth_circular(counts, 20)
-        # Buckets equidistant from the spike should be equal
-        assert abs(result[spike_bucket - 1] - result[spike_bucket + 1]) < 1e-6
-
-    def test_wraps_at_midnight(self):
-        # Spike at bucket 0 (00:00) should spread to the last bucket as well
-        counts = [0] * BUCKETS_PER_DAY
-        counts[0] = 10
-        result = _gaussian_smooth_circular(counts, 30)
-        # Last bucket should be non-zero due to circular wrap
-        assert result[-1] > 0
-        # And by symmetry result[-1] ≈ result[1]
-        assert abs(result[-1] - result[1]) < 1e-4
-
-    def test_smoothing_reduces_peak_value(self):
-        counts = [0] * BUCKETS_PER_DAY
-        counts[60] = 10
-        result = _gaussian_smooth_circular(counts, 20)
-        assert max(result) < 10
-
-    def test_smoothing_preserves_total_mass(self):
-        # The weighted average is normalised, so sum of smoothed values
-        # equals sum of input values (all ones → all ones)
-        counts = [1] * BUCKETS_PER_DAY
-        result = _gaussian_smooth_circular(counts, 20)
-        assert all(abs(v - 1.0) < 1e-4 for v in result)
 
 
 # ── MetricsView ───────────────────────────────────────────────────────────────

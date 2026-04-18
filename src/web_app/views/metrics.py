@@ -16,21 +16,22 @@ w               – rolling window in days for egg production chart (default: 7)
 """
 
 import json
-import math
 from datetime import timedelta, date, datetime
 
 from django.db.models import Count, Sum, F, ExpressionWrapper, DurationField, Q
 from django.utils import timezone
 from django.views.generic import TemplateView
 
-from ..models import Chicken, Egg, NestingBoxPresencePeriod
-from ..utils import rolling_average, RIGHT
-from .chickens import (
-    nesting_time_of_day,
-    egg_time_of_day_kde,
+from ..analytics import (
     BUCKET_MINUTES,
     BUCKETS_PER_DAY,
+    RIGHT,
+    egg_time_of_day_kde,
+    gaussian_smooth_circular,
+    nesting_time_of_day,
+    rolling_average,
 )
+from ..models import Chicken, Egg, NestingBoxPresencePeriod
 
 DEFAULT_WINDOW = 7
 DEFAULT_AGE_WINDOW = 30
@@ -74,37 +75,6 @@ QUALITY_LABELS = {
     "edible": "Edible",
     "messy": "Messy",
 }
-
-
-def _gaussian_smooth_circular(counts: list[int], sigma_minutes: int) -> list[float]:
-    """
-    Apply a circular Gaussian smooth to a list of BUCKETS_PER_DAY integer counts.
-    The day is treated as circular so the kernel wraps correctly at midnight.
-    Returns a list of floats rounded to 4 decimal places.
-    sigma_minutes=0 returns the original counts unchanged (as floats).
-    """
-    if sigma_minutes == 0:
-        return [float(v) for v in counts]
-
-    DAY_MINUTES = 24 * 60
-    sigma = sigma_minutes
-    n = BUCKETS_PER_DAY
-    result = []
-    for i in range(n):
-        x = i * BUCKET_MINUTES
-        total_weight = 0.0
-        weighted_sum = 0.0
-        for j in range(n):
-            y = j * BUCKET_MINUTES
-            # Circular distance
-            diff = x - y
-            # Wrap to [-DAY_MINUTES/2, DAY_MINUTES/2]
-            diff = (diff + DAY_MINUTES // 2) % DAY_MINUTES - DAY_MINUTES // 2
-            w = math.exp(-0.5 * (diff / sigma) ** 2)
-            weighted_sum += w * counts[j]
-            total_weight += w
-        result.append(round(weighted_sum / total_weight, 4))
-    return result
 
 
 def _parse_date(txt: str | None) -> date | None:
@@ -477,7 +447,7 @@ class MetricsView(TemplateView):
             )
             counts = nesting_time_of_day(periods)
             nest_per_hen.append(counts)
-            smoothed = _gaussian_smooth_circular(counts, nest_sigma)
+            smoothed = gaussian_smooth_circular(counts, nest_sigma)
             tod_nest_datasets.append(
                 {
                     "label": hen.name,
@@ -495,7 +465,7 @@ class MetricsView(TemplateView):
                 sum(nest_per_hen[h][b] for h in range(len(chosen)))
                 for b in range(BUCKETS_PER_DAY)
             ]
-            nest_sum = _gaussian_smooth_circular(nest_sum_raw, nest_sigma)
+            nest_sum = gaussian_smooth_circular(nest_sum_raw, nest_sigma)
             if show_sum:
                 tod_nest_datasets.append(
                     {
