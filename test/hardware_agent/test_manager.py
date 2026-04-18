@@ -117,3 +117,55 @@ class TestHardwareManager:
         assert len(manager.sensors) == 1
         mock_beam.assert_called_once_with("TestBeam", 17, pin_factory=mock_factory)
         mock_beam.return_value.start.assert_called_once()
+
+    def test_stop_all_stops_every_sensor(self, mocker):
+        """stop_all() iterates over registered sensors and calls stop()
+        on each so hardware handles are released on SIGTERM/SIGINT."""
+        manager = HardwareManager()
+        sensor1 = mocker.Mock(name="sensor1")
+        sensor2 = mocker.Mock(name="sensor2")
+        sensor3 = mocker.Mock(name="sensor3")
+        manager.sensors = [sensor1, sensor2, sensor3]
+
+        manager.stop_all()
+
+        sensor1.stop.assert_called_once()
+        sensor2.stop.assert_called_once()
+        sensor3.stop.assert_called_once()
+
+    def test_stop_all_continues_when_one_sensor_raises(self, mocker, caplog):
+        """A failure in one sensor's stop() must not prevent others from
+        being stopped. The goal is best-effort cleanup of all hardware
+        handles before process exit."""
+        import logging
+
+        manager = HardwareManager()
+        sensor1 = mocker.Mock(name="sensor1")
+        sensor1.name = "sensor1"
+        sensor2_bad = mocker.Mock(name="sensor2_bad")
+        sensor2_bad.name = "sensor2_bad"
+        sensor2_bad.stop.side_effect = RuntimeError("device stuck")
+        sensor3 = mocker.Mock(name="sensor3")
+        sensor3.name = "sensor3"
+        manager.sensors = [sensor1, sensor2_bad, sensor3]
+
+        with caplog.at_level(logging.ERROR, logger="hardware_agent.manager"):
+            manager.stop_all()
+
+        # Every sensor got a stop() call, even though #2 raised.
+        sensor1.stop.assert_called_once()
+        sensor2_bad.stop.assert_called_once()
+        sensor3.stop.assert_called_once()
+        # And the failure was logged at ERROR.
+        assert any(
+            "Error stopping sensor sensor2_bad" in r.message for r in caplog.records
+        )
+
+    def test_stop_all_passes_timeout_to_each_sensor(self, mocker):
+        manager = HardwareManager()
+        sensor = mocker.Mock()
+        manager.sensors = [sensor]
+
+        manager.stop_all(timeout=3.5)
+
+        sensor.stop.assert_called_once_with(timeout=3.5)

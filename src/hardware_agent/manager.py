@@ -12,6 +12,9 @@ from hardware_agent.handlers import (
 
 logger = logging.getLogger(__name__)
 
+# How long to wait per-sensor when stopping.
+STOP_TIMEOUT_PER_SENSOR = 5.0
+
 
 class HardwareManager:
     def __init__(self):
@@ -67,3 +70,21 @@ class HardwareManager:
             handle_beam_break,
             status_callback=lambda n, c, m="": report_status(f"beam_{n}", c, m),
         )
+
+    def stop_all(self, timeout: float = STOP_TIMEOUT_PER_SENSOR) -> None:
+        """Stop every registered sensor and release its resources.
+
+        Called from the SIGTERM/SIGINT handler in ``service.run_agent``.
+        Iterates through ``self.sensors`` in insertion order, asking each
+        to stop and join its worker thread with ``timeout`` seconds.
+        Individual failures are logged but do not stop the iteration —
+        we want to make a best-effort attempt to release every
+        sensor's hardware handles before the process exits.
+        """
+        logger.info("Stopping %d sensors", len(self.sensors))
+        for sensor in self.sensors:
+            try:
+                sensor.stop(timeout=timeout)
+            except Exception as e:
+                logger.error("Error stopping sensor %s: %s", sensor.name, e)
+        logger.info("All sensors stopped")

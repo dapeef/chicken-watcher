@@ -1,6 +1,7 @@
 import logging
 import os
 import signal
+import threading
 
 try:
     from gpiozero.pins.lgpio import LGPIOFactory
@@ -12,7 +13,15 @@ from hardware_agent.manager import HardwareManager
 logger = logging.getLogger(__name__)
 
 
-def run_agent():
+def run_agent() -> None:
+    """Entry point for the hardware agent daemon.
+
+    Wires up the configured RFID readers, camera, and beam sensors via
+    :class:`HardwareManager`, then blocks until SIGINT/SIGTERM is
+    received. On shutdown, every sensor is stopped in order so serial
+    ports, camera handles, and GPIO pins are released before the
+    process exits (rather than relying on daemon-thread abrupt kill).
+    """
     manager = HardwareManager()
 
     # Each nesting box supports up to 4 RFID readers, identified by
@@ -42,7 +51,25 @@ def run_agent():
 
     logger.info("Hardware Manager started. Sensors are connecting in background.")
 
-    signal.pause()
+    # ---- Graceful shutdown plumbing -----------------------------------
+    # Replace the previous signal.pause() with an explicit Event that a
+    # SIGTERM/SIGINT handler can set. This lets us unwind cleanly:
+    #   - sensors release their hardware handles (serial, camera, GPIO),
+    #   - threads get joined within their stop timeouts,
+    #   - the process then exits normally.
+    shutdown_event = threading.Event()
+
+    def _handle_signal(signum, _frame):
+        logger.info("Received signal %s — initiating graceful shutdown", signum)
+        shutdown_event.set()
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
+    try:
+        shutdown_event.wait()
+    finally:
+        manager.stop_all()
 
 
 if __name__ == "__main__":

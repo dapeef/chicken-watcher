@@ -27,31 +27,33 @@ class MockSensor(BaseSensor):
     def poll(self):
         self.poll_count += 1
         if self.poll_count > 1000:  # increased for fast loops
-            self.running = False
+            self._stop_event.set()
 
 
-def wait_for(condition, timeout=10.0):
+def wait_for(condition, timeout=5.0):
     start_time = time.time()
     while time.time() - start_time < timeout:
         if condition():
             return
-        time.sleep(0.1)
+        time.sleep(0.02)
     pytest.fail("Timeout waiting for condition")
 
 
-def test_base_sensor_reconnection_loop(mocker):
-    # Mock time.sleep in the base module to speed up the test
-    mocker.patch("hardware_agent.base.time.sleep")
+@pytest.fixture
+def fast_reconnect(mocker):
+    """Shrink the reconnect backoff so tests don't pause 5s between
+    attempts."""
+    mocker.patch("hardware_agent.base.RECONNECT_INTERVAL_SECONDS", 0.01)
+
+
+def test_base_sensor_reconnection_loop(mocker, fast_reconnect):
     sensor = MockSensor("test")
     status_mock = mocker.Mock()
 
-    # Start with disconnected
     sensor.should_connect = False
-
-    # Start the sensor
     sensor.start(callback=mocker.Mock(), status_callback=status_mock)
 
-    # Wait for first connection attempt
+    # Wait for first failed connect attempt
     wait_for(lambda: sensor.connect_calls >= 1)
     status_mock.assert_any_call("test", False, "Disconnected")
 
@@ -71,8 +73,7 @@ def test_base_sensor_reconnection_loop(mocker):
     sensor.stop()
 
 
-def test_base_sensor_error_handling(mocker):
-    # Here we don't have a 5s sleep in the success path, so it should be fast
+def test_base_sensor_error_handling(mocker, fast_reconnect):
     sensor = MockSensor("test")
     sensor.connected = True
     status_mock = mocker.Mock()
@@ -87,7 +88,69 @@ def test_base_sensor_error_handling(mocker):
     # Wait for error message
     wait_for(lambda: any("boom" in str(args) for args in status_mock.call_args_list))
 
-    # It should have disconnected
+    # handle_error (default impl) should have disconnected
     wait_for(lambda: sensor.connected is False)
+
+    sensor.stop()
+
+
+def test_stop_is_idempotent(mocker, fast_reconnect):
+    """Calling stop() twice must not raise or leak a thread."""
+    sensor = MockSensor("test")
+    sensor.should_connect = True
+    sensor.start(callback=mocker.Mock())
+    wait_for(lambda: sensor.poll_count > 0)
+    sensor.stop()
+    # Second stop should be a no-op, not an error.
+    sensor.stop()
+
+
+def test_stop_interrupts_reconnect_backoff_fast(mocker):
+    """stop() must not block for the full RECONNECT_INTERVAL_SECONDS when
+    called during a backoff wait. The stop event wakes the loop early."""
+    # Keep the real 5-second default — the point of the test is that
+    # stop() doesn't wait that long.
+    sensor = MockSensor("test")
+    sensor.should_connect = False  # connect() always fails → enters backoff
+    sensor.start(callback=mocker.Mock())
+
+    # Let the sensor enter the backoff wait at least once.
+    wait_for(lambda: sensor.connect_calls >= 1)
+
+    t0 = time.perf_counter()
+    sensor.stop()
+    elapsed = time.perf_counter() - t0
+
+    # If the stop event works, elapsed should be well under 1 second.
+    # If we had a plain time.sleep(5), it would be ~5s.
+    assert elapsed < 1.0, (
+        f"stop() took {elapsed:.2f}s — reconnect backoff was not interrupted"
+    )
+
+
+def test_start_is_idempotent_while_alive(mocker, fast_reconnect):
+    """Calling start() on a live running sensor must not spawn a second
+    thread — the second call is a no-op."""
+
+    # Use a poll that blocks briefly so the thread stays alive for the
+    # duration of the test (rather than MockSensor's default
+    # stop-after-1000 behaviour).
+    class LongLivedMock(MockSensor):
+        def poll(self):
+            self.poll_count += 1
+            # Interruptible wait so stop() returns promptly.
+            self._stop_event.wait(0.05)
+
+    sensor = LongLivedMock("test")
+    sensor.should_connect = True
+    sensor.start(callback=mocker.Mock())
+    wait_for(lambda: sensor.poll_count > 0)
+    first_thread = sensor.thread
+    assert first_thread is not None and first_thread.is_alive()
+
+    # Second start call while the first thread is still alive must not
+    # replace the handle.
+    sensor.start(callback=mocker.Mock())
+    assert sensor.thread is first_thread
 
     sensor.stop()
