@@ -1,24 +1,25 @@
 from datetime import timedelta
-from django.urls import reverse
-from django.utils import timezone
+
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import TemplateView
 
 from ..models import (
     Chicken,
     Egg,
-    NestingBoxPresence,
     NestingBoxImage,
+    NestingBoxPresence,
     NestingBoxPresencePeriod,
 )
 from .timeline_utils import (
-    parse_date_range,
     egg_item,
+    empty_range_response,
     night_periods,
+    parse_date_range,
     period_item,
     presence_item,
-    empty_range_response,
 )
 
 

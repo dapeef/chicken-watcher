@@ -12,6 +12,7 @@ import pytest
 from django.utils import timezone
 
 from web_app.models import Chicken, Egg, NestingBoxPresencePeriod
+
 from .factories import (
     ChickenFactory,
     EggFactory,
@@ -20,7 +21,6 @@ from .factories import (
     NestingBoxImageFactory,
     NestingBoxPresencePeriodFactory,
 )
-
 
 # ---------------------------------------------------------------------------
 # Chicken

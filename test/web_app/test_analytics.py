@@ -12,7 +12,7 @@ Consolidating them here matches the source-side move from the
 ``views/`` layer into ``web_app/analytics.py``.
 """
 
-from datetime import datetime, timezone as dt_timezone
+from datetime import UTC, datetime
 from math import isclose
 
 import pytest
@@ -28,12 +28,13 @@ from web_app.analytics import (
     nesting_time_of_day,
     rolling_average,
 )
+
 from .factories import EggFactory, NestingBoxPresencePeriodFactory
 
 
 def _utc(hour: int, minute: int = 0, day: int = 1) -> datetime:
     """Return a UTC-aware datetime on an arbitrary fixed date."""
-    return datetime(2024, 1, day, hour, minute, tzinfo=dt_timezone.utc)
+    return datetime(2024, 1, day, hour, minute, tzinfo=UTC)
 
 
 def _make_period(started_at: datetime, ended_at: datetime):

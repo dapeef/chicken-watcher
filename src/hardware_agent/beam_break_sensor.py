@@ -1,6 +1,7 @@
+import contextlib
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from gpiozero import DigitalInputDevice
 from gpiozero.exc import GPIOZeroError
@@ -26,7 +27,7 @@ class BeamSensor(BaseSensor):
         self.bounce_time = bounce_time
         self.pin_factory = pin_factory
 
-        self.device: Optional[DigitalInputDevice] = None
+        self.device: DigitalInputDevice | None = None
 
     def connect(self) -> bool:
         """Initialise gpiozero device. Returns True on success."""
@@ -46,10 +47,8 @@ class BeamSensor(BaseSensor):
     def disconnect(self) -> None:
         """Tear everything down."""
         if self.device:
-            try:
+            with contextlib.suppress(Exception):
                 self.device.close()
-            except Exception:
-                pass
             logger.info("Disconnected from GPIO %s", self.pin)
         self.device = None
 
@@ -69,6 +68,6 @@ class BeamSensor(BaseSensor):
         try:
             _ = self.device.value
         except Exception as e:
-            raise Exception(f"GPIO error: {e}")
+            raise RuntimeError(f"GPIO error: {e}") from e
 
         time.sleep(10)

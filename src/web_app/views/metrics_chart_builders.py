@@ -14,8 +14,8 @@ command).
 """
 
 import json
+from collections.abc import Iterable
 from datetime import date
-from typing import Iterable
 
 from django.db.models import (
     Count,

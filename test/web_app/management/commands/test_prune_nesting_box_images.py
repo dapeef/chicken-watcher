@@ -1,13 +1,15 @@
 import datetime
+
 import pytest
 from django.core.management import call_command
 from django.utils import timezone
-from web_app.models import NestingBoxImage
+
 from test.web_app.factories import (
     EggFactory,
     NestingBoxImageFactory,
     NestingBoxPresencePeriodFactory,
 )
+from web_app.models import NestingBoxImage
 
 # ---------------------------------------------------------------------------
 # Nesting box presence period proximity

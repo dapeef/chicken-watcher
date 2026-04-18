@@ -1,6 +1,7 @@
 import json
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import timedelta, datetime, timezone as dt_timezone
 from django.urls import reverse
 
 from test.web_app.factories import (
@@ -47,7 +48,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=None, laid_at=today_dt)
 
         params = {**self._base_params(start, today), "include_unknown": "1"}
@@ -60,7 +61,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=None, laid_at=today_dt)
 
         response = client.get(reverse("metrics"), self._base_params(start, today))
@@ -72,7 +73,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(4, chicken=None, laid_at=today_dt)
 
         params = {**self._base_params(start, today), "include_unknown": "1"}
@@ -87,7 +88,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=hen, laid_at=today_dt)
         EggFactory.create_batch(5, chicken=None, laid_at=today_dt)
 
@@ -107,7 +108,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         before_range = datetime.combine(
-            start - timedelta(days=1), datetime.min.time(), tzinfo=dt_timezone.utc
+            start - timedelta(days=1), datetime.min.time(), tzinfo=UTC
         )
         EggFactory.create_batch(3, chicken=None, laid_at=before_range)
 
@@ -123,7 +124,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen, laid_at=today_dt)
 
         params = {
@@ -141,7 +142,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=None, laid_at=today_dt)
 
         params = {**self._base_params(start, today), "include_unknown": "1"}
@@ -154,7 +155,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=None, laid_at=today_dt)
 
         response = client.get(reverse("metrics"), self._base_params(start, today))
@@ -166,7 +167,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=None, laid_at=today_dt)
 
         params = {**self._base_params(start, today), "include_unknown": "1"}
@@ -181,7 +182,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=hen, laid_at=today_dt)
 
         base_params = {**self._base_params(start, today), "chickens": str(hen.pk)}
@@ -205,7 +206,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=hen, laid_at=today_dt)
         EggFactory.create_batch(3, chicken=None, laid_at=today_dt)
 
@@ -230,7 +231,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=hen, laid_at=today_dt)
         EggFactory.create_batch(3, chicken=None, laid_at=today_dt)
 
@@ -254,7 +255,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(5, chicken=hen, laid_at=today_dt)
         EggFactory.create_batch(5, chicken=None, laid_at=today_dt)
 
@@ -277,7 +278,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         box = NestingBoxFactory(name="left")
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=None, nesting_box=box, laid_at=today_dt)
 
         params = {**self._base_params(start, today), "include_unknown": "1"}
@@ -292,7 +293,7 @@ class TestMetricsViewUnknownChicken:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         box = NestingBoxFactory(name="left")
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=None, nesting_box=box, laid_at=today_dt)
 
         response = client.get(reverse("metrics"), self._base_params(start, today))
@@ -304,7 +305,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=None, nesting_box=None, laid_at=today_dt)
 
         params = {**self._base_params(start, today), "include_unknown": "1"}
@@ -320,7 +321,7 @@ class TestMetricsViewUnknownChicken:
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box = NestingBoxFactory(name="left")
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(4, chicken=hen, nesting_box=box, laid_at=today_dt)
         EggFactory.create_batch(2, chicken=None, nesting_box=box, laid_at=today_dt)
 

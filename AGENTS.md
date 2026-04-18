@@ -69,7 +69,7 @@ docker compose up --watch --build
 All sensors inherit from `BaseSensor` (`src/hardware_agent/base.py`). Subclasses implement only `connect()`, `disconnect()`, `is_connected()`, and `poll()`. The base class handles background threading and automatic reconnection with 5-second retry backoff.
 
 ### Presence Period Grouping
-RFID reads within 60 seconds of an existing period for the same chicken+box extend that period rather than creating a new one. Logic lives in `src/hardware_agent/handlers.py`.
+RFID reads within 60 seconds of an existing period for the same chicken+box extend that period rather than creating a new one. Logic lives in `src/web_app/services/hardware_events.py`.
 
 ### Sensor Naming Convention
 Sensors follow the pattern `{type}_{location}_{n}` (e.g. `rfid_left_1`, `beam_right`, `camera_cam`). The `_N` suffix is stripped to resolve the nesting box name.
@@ -85,7 +85,7 @@ Dashboard queries use PostgreSQL's `DISTINCT ON` when available, with a per-box 
 - `Tag` — RFID tag
 - `Chicken` — name, DoB, optional DoD, FK to Tag
 - `NestingBox` — named box (e.g. "left", "right")
-- `Egg` — FK to Chicken + NestingBox, `laid_at`, `dud` flag
+- `Egg` — FK to Chicken + NestingBox, `laid_at`, `quality` (saleable/edible/messy)
 - `NestingBoxPresence` — individual RFID ping
 - `NestingBoxPresencePeriod` — aggregated presence session (grouped within 60-second window)
 - `NestingBoxImage` — timestamped JPEG snapshot

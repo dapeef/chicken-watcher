@@ -1,20 +1,23 @@
 [project]
-name = "watcher"
+name = "chicken-watcher"
 version = "0.1.0"
-description = "Add your description here"
+description = "Raspberry Pi IoT system that tracks which chicken lays which eggs in a chicken coop."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "django>=6.0",
-    "dotenv>=0.9.9",
+    "python-dotenv>=1.0.0",
     "gpiozero>=2.0.1",
     "opencv-python>=4.12.0.88",
     "pillow>=12.0.0",
-    "psycopg2-binary>=2.9.11",
+    # psycopg (v3, pure-Python) is preferred over psycopg2-binary.
+    # psycopg2-binary bundles a compiled libpq which can conflict with
+    # the system library on Raspberry Pi OS; psycopg v3 uses the C
+    # extension when available but falls back gracefully.
+    "psycopg[binary]>=3.2",
     "pyserial>=3.5",
     "astral>=3.2",
     "uvicorn>=0.40.0",
-    "swig>=4.4.1",
     # Only install lgpio on the Raspberry Pi
     "lgpio>=0.2.2.0; platform_system == 'Linux' and (platform_machine == 'armv7l' or platform_machine == 'aarch64')",
 ]
@@ -22,7 +25,6 @@ dependencies = [
 [project.scripts]
 list-ports = "hardware_agent.rfid_reader:RFIDReader.list_ports"
 list-cameras = "hardware_agent.camera:USBCamera.list_devices"
-test-pin = "hardware_agent.beam_break_sensor:BeamBreakSensor.test"
 
 [tool.uv]
 package = true
@@ -42,3 +44,25 @@ DJANGO_SETTINGS_MODULE = "django_project.settings.dev"
 pythonpath = ["src", "."]
 testpaths = ["test"]
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# E: pycodestyle errors, F: pyflakes, I: isort, UP: pyupgrade,
+# B: flake8-bugbear, SIM: flake8-simplify
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    # Allow `assert` in non-test code (useful for narrowing types)
+    "B011",
+    # Allow mutable class-level defaults in dataclasses
+    "B006",
+    # Magic value comparisons are fine (e.g. quality == "saleable")
+    "SIM118",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use assert statements liberally; allow magic values too.
+# B905: zip() without strict= is fine when both iterables are known equal length.
+"test/**/*.py" = ["S101", "SIM118", "B905"]

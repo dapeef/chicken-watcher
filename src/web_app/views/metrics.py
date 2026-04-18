@@ -17,7 +17,7 @@ w               – rolling window in days for egg production chart (default: 7)
 
 import json
 from dataclasses import dataclass, field
-from datetime import timedelta, date, datetime
+from datetime import date, datetime, timedelta
 
 from django.db.models import Q
 from django.http import QueryDict
@@ -27,10 +27,6 @@ from django.views.generic import TemplateView
 from ..analytics import BUCKET_MINUTES, BUCKETS_PER_DAY
 from ..models import Chicken, Egg, NestingBoxPresencePeriod
 from .metrics_chart_builders import (
-    # Re-exported so existing test imports keep working. _build_egg_prod_datasets
-    # was the private name; the public build_egg_prod_datasets is the same
-    # function with no underscore.
-    build_egg_prod_datasets as _build_egg_prod_datasets,
     build_age_prod_datasets,
     build_egg_prod_datasets,
     build_flock_count_dataset,
@@ -38,7 +34,12 @@ from .metrics_chart_builders import (
     build_tod_egg_datasets,
     build_tod_nest_datasets,
 )
-
+from .metrics_chart_builders import (
+    # Re-exported so existing test imports keep working. _build_egg_prod_datasets
+    # was the private name; the public build_egg_prod_datasets is the same
+    # function with no underscore.
+    build_egg_prod_datasets as _build_egg_prod_datasets,
+)
 
 DEFAULT_WINDOW = 7
 DEFAULT_AGE_WINDOW = 14

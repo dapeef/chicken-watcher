@@ -1,6 +1,7 @@
 import json
-import pytest
 from datetime import timedelta
+
+import pytest
 from django.urls import reverse
 
 from test.web_app.factories import ChickenFactory

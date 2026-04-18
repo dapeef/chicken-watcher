@@ -1,7 +1,8 @@
 import pytest
 from django.utils import timezone
-from web_app.forms import EggForm
+
 from test.web_app.factories import ChickenFactory, NestingBoxFactory
+from web_app.forms import EggForm
 
 
 @pytest.mark.django_db

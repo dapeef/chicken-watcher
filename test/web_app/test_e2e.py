@@ -1,8 +1,10 @@
 import pytest
 from django.urls import reverse
 from django.utils import timezone
-from .factories import ChickenFactory, NestingBoxFactory, HardwareSensorFactory
+
 from web_app.models import Egg
+
+from .factories import ChickenFactory, HardwareSensorFactory, NestingBoxFactory
 
 
 @pytest.mark.django_db

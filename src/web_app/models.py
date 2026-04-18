@@ -4,7 +4,6 @@ from django.db import models
 from django.db.models import Exists, OuterRef
 from django.utils import timezone
 
-
 # ---------------------------------------------------------------------------
 # Custom QuerySets / Managers
 #
@@ -65,9 +64,7 @@ class NestingBoxPresencePeriodQuerySet(models.QuerySet):
     def for_box(self, box) -> "NestingBoxPresencePeriodQuerySet":
         return self.filter(nesting_box=box)
 
-    def overlapping(
-        self, start: datetime, end: datetime
-    ) -> "NestingBoxPresencePeriodQuerySet":
+    def overlapping(self, start: datetime, end: datetime) -> "NestingBoxPresencePeriodQuerySet":
         """Periods that overlap the interval ``[start, end]``.
 
         Two intervals [a, b] and [c, d] overlap iff a <= d AND c <= b.
@@ -144,8 +141,7 @@ class Chicken(models.Model):
             # Only one *live* chicken may hold a given tag.
             models.UniqueConstraint(
                 fields=["tag"],
-                condition=models.Q(date_of_death__isnull=True)
-                & models.Q(tag__isnull=False),
+                condition=models.Q(date_of_death__isnull=True) & models.Q(tag__isnull=False),
                 name="unique_tag_per_live_chicken",
             ),
         ]
@@ -181,12 +177,8 @@ class Egg(models.Model):
         EDIBLE = "edible", "Edible"
         MESSY = "messy", "Messy"
 
-    chicken = models.ForeignKey(
-        Chicken, on_delete=models.SET_NULL, null=True, blank=True
-    )
-    nesting_box = models.ForeignKey(
-        NestingBox, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    chicken = models.ForeignKey(Chicken, on_delete=models.SET_NULL, null=True, blank=True)
+    nesting_box = models.ForeignKey(NestingBox, on_delete=models.SET_NULL, null=True, blank=True)
     laid_at = models.DateTimeField(default=timezone.now, db_index=True)
     quality = models.CharField(
         max_length=10,
@@ -240,7 +232,9 @@ class NestingBoxPresencePeriod(models.Model):
         return self.ended_at - self.started_at
 
     def __str__(self):
-        return f"{self.chicken.name} in {self.nesting_box.name} ({self.started_at} - {self.ended_at})"
+        return (
+            f"{self.chicken.name} in {self.nesting_box.name} ({self.started_at} - {self.ended_at})"
+        )
 
 
 class NestingBoxPresence(models.Model):
@@ -262,9 +256,7 @@ class NestingBoxPresence(models.Model):
         ordering = ["-present_at"]
 
     def __str__(self):
-        return (
-            f"{self.chicken.name}, in {self.nesting_box.name} box at {self.present_at}"
-        )
+        return f"{self.chicken.name}, in {self.nesting_box.name} box at {self.present_at}"
 
 
 class NestingBoxImage(models.Model):
@@ -285,17 +277,11 @@ class NestingBoxImage(models.Model):
 
 
 class HardwareSensor(models.Model):
-    name = models.CharField(
-        max_length=100, unique=True
-    )  # e.g., "left_rfid", "main_camera"
+    name = models.CharField(max_length=100, unique=True)  # e.g., "left_rfid", "main_camera"
     is_connected = models.BooleanField(default=False)
-    last_event_at = models.DateTimeField(
-        null=True, blank=True
-    )  # Last time a tag/beam was detected
+    last_event_at = models.DateTimeField(null=True, blank=True)  # Last time a tag/beam was detected
     last_seen_at = models.DateTimeField(auto_now=True)  # Last heartbeat from the agent
-    status_message = models.TextField(
-        blank=True
-    )  # Error messages (e.g., "Permission Denied")
+    status_message = models.TextField(blank=True)  # Error messages (e.g., "Permission Denied")
 
     objects = HardwareSensorQuerySet.as_manager()
 

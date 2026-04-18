@@ -1,23 +1,24 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timedelta, timezone as dt_timezone
 from django.urls import reverse
 from django.utils import timezone
+
 from ..factories import (
     ChickenFactory,
     EggFactory,
-    NestingBoxPresenceFactory,
-    NestingBoxImageFactory,
-    NestingBoxPresencePeriodFactory,
     NestingBoxFactory,
+    NestingBoxImageFactory,
+    NestingBoxPresenceFactory,
+    NestingBoxPresencePeriodFactory,
 )
-
 
 # A safely-daytime instant used to pin ``timezone.now()`` for tests that
 # assert on the exact contents of timeline_data (which also returns
 # night_periods background items). 12:00 UTC on a mid-June day is
 # guaranteed to be full daylight in any timezone the coop might ever be
 # in — no sunrise/sunset overlap for a +/-1 hour query window.
-FIXED_NOON_UTC = datetime(2025, 6, 15, 12, 0, 0, tzinfo=dt_timezone.utc)
+FIXED_NOON_UTC = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.mark.django_db
@@ -147,7 +148,7 @@ class TestTimelineViews:
         ``test_timeline_data`` to fail flakily when the wall clock
         happened to be near dusk."""
         # Pin to 22:00 UTC — well after London sunset in summer.
-        night_now = datetime(2025, 6, 15, 22, 0, 0, tzinfo=dt_timezone.utc)
+        night_now = datetime(2025, 6, 15, 22, 0, 0, tzinfo=UTC)
         mocker.patch("django.utils.timezone.now", return_value=night_now)
 
         # Query a 2-hour window straddling midnight.

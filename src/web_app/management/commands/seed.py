@@ -1,29 +1,28 @@
 import csv
 import datetime
+import logging
 import sys
 from enum import StrEnum
 from pathlib import Path
-from random import randrange, randint, choice, random
+from random import choice, randint, random, randrange
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from web_app.models import (
-    Tag,
     Chicken,
-    NestingBox,
     Egg,
+    NestingBox,
     NestingBoxPresencePeriod,
+    Tag,
 )
-
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class SeedMode(StrEnum):
-    SPAWN_TEST_DATA = "spawn_test_data"  # Clear all data and populate with fake test data (non-prod only)
+    SPAWN_TEST_DATA = "spawn_test_data"  # Clear + repopulate with fake data (dev only)
     CLEAR = "clear"  # Clear all data and do not create any objects
     SEED_CHICKENS = "seed_chickens"  # Upsert chickens from chickens.csv
     SEED_NESTING_BOXES = "seed_nesting_boxes"  # Ensure the standard nesting boxes exist
@@ -58,13 +57,19 @@ class Command(BaseCommand):
             "--csv-file",
             type=Path,
             default=None,
-            help=f"Path to chickens CSV file (used with --mode={SeedMode.SEED_CHICKENS}). Defaults to the bundled chickens.csv.",
+            help=(
+                f"Path to chickens CSV file (used with --mode={SeedMode.SEED_CHICKENS}). "
+                "Defaults to the bundled chickens.csv."
+            ),
         )
         parser.add_argument(
             "--tags-csv-file",
             type=Path,
             default=None,
-            help=f"Path to tags CSV file (used with --mode={SeedMode.SEED_TAGS}). Defaults to the bundled tags.csv.",
+            help=(
+                f"Path to tags CSV file (used with --mode={SeedMode.SEED_TAGS}). "
+                "Defaults to the bundled tags.csv."
+            ),
         )
         parser.add_argument(
             "--yes",
@@ -110,15 +115,11 @@ class Command(BaseCommand):
             case SeedMode.CLEAR:
                 clear_data()
             case SeedMode.SEED_CHICKENS:
-                seed_chickens_from_csv(
-                    csv_file
-                ) if csv_file else seed_chickens_from_csv()
+                seed_chickens_from_csv(csv_file) if csv_file else seed_chickens_from_csv()
             case SeedMode.SEED_NESTING_BOXES:
                 seed_nesting_boxes()
             case SeedMode.SEED_TAGS:
-                seed_tags_from_csv(
-                    tags_csv_file
-                ) if tags_csv_file else seed_tags_from_csv()
+                seed_tags_from_csv(tags_csv_file) if tags_csv_file else seed_tags_from_csv()
 
 
 def _confirm_destructive(mode: SeedMode) -> None:
@@ -158,9 +159,7 @@ TZ = timezone.get_current_timezone()
 def populate_data():
     """Populates Chicken and NestingBox"""
 
-    def random_date(
-        start: datetime.datetime, end: datetime.datetime
-    ) -> datetime.datetime:
+    def random_date(start: datetime.datetime, end: datetime.datetime) -> datetime.datetime:
         """
         This function will return a random datetime between two datetime objects.
         """
@@ -226,9 +225,7 @@ def populate_data():
                 )
 
                 earliest_egg = day_start + datetime.timedelta(hours=6)
-                latest_egg = min(
-                    day_start + datetime.timedelta(hours=20), timezone.localtime()
-                )
+                latest_egg = min(day_start + datetime.timedelta(hours=20), timezone.localtime())
                 start_time = random_date(earliest_egg, latest_egg)
 
                 seconds_in_box = randint(10, 5 * 60)  # Between 10 secs and 5 mins

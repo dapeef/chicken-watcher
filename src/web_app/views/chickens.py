@@ -1,4 +1,5 @@
 from datetime import timedelta
+
 from django.db.models import (
     Count,
     DateField,
@@ -13,15 +14,15 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
-from django.views.generic import ListView, DetailView
+from django.views.generic import DetailView, ListView
 
 from ..models import Chicken, Egg, NestingBoxPresencePeriod
 from .timeline_utils import (
-    parse_date_range,
     egg_item,
-    night_periods,
-    period_item,
     empty_range_response,
+    night_periods,
+    parse_date_range,
+    period_item,
 )
 
 

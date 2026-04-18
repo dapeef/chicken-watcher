@@ -1,14 +1,15 @@
 import factory
 from django.utils import timezone
+
 from web_app.models import (
-    Tag,
     Chicken,
-    NestingBox,
     Egg,
-    NestingBoxPresence,
     HardwareSensor,
+    NestingBox,
     NestingBoxImage,
+    NestingBoxPresence,
     NestingBoxPresencePeriod,
+    Tag,
 )
 
 

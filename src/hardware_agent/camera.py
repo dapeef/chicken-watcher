@@ -1,7 +1,6 @@
 import logging
 import threading
 import time
-from typing import Optional, Tuple
 
 import cv2
 
@@ -38,7 +37,7 @@ class USBCamera(BaseSensor):
         self,
         name: str,
         device: str = 0,
-        resolution: Tuple[int, int] = (1920, 1080),
+        resolution: tuple[int, int] = (1920, 1080),
         fps: int = 30,
     ):
         super().__init__(name)
@@ -59,7 +58,7 @@ class USBCamera(BaseSensor):
         # Reader-thread bookkeeping. ``_reader_thread`` is the handle we
         # need to join on disconnect. ``_reader_stop`` is signalled to
         # break the reader out of its ``cap.read()`` loop.
-        self._reader_thread: Optional[threading.Thread] = None
+        self._reader_thread: threading.Thread | None = None
         self._reader_stop = threading.Event()
 
     def connect(self) -> bool:

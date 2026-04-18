@@ -1,6 +1,7 @@
 import json
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import timedelta, datetime, timezone as dt_timezone
 from django.urls import reverse
 
 from test.web_app.factories import ChickenFactory, EggFactory
@@ -57,7 +58,7 @@ class TestMetricsViewAgeProd:
         egg_date = dob + timedelta(days=100)
         start = egg_date - timedelta(days=6)
         end = egg_date + timedelta(days=6)
-        egg_dt = datetime.combine(egg_date, datetime.min.time(), tzinfo=dt_timezone.utc)
+        egg_dt = datetime.combine(egg_date, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen, laid_at=egg_dt)
 
         response = client.get(reverse("metrics"), self._params(start, end, [hen]))
@@ -80,7 +81,7 @@ class TestMetricsViewAgeProd:
 
         start = egg_date - timedelta(days=1)
         end = egg_date + timedelta(days=1)
-        egg_dt = datetime.combine(egg_date, datetime.min.time(), tzinfo=dt_timezone.utc)
+        egg_dt = datetime.combine(egg_date, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen_old, laid_at=egg_dt)
         EggFactory(chicken=hen_young, laid_at=egg_dt)
 
@@ -107,7 +108,7 @@ class TestMetricsViewAgeProd:
         start = today - timedelta(days=6)
         age_100_date = dob + timedelta(days=100)
         egg_dt = datetime.combine(
-            age_100_date, datetime.min.time(), tzinfo=dt_timezone.utc
+            age_100_date, datetime.min.time(), tzinfo=UTC
         )
         EggFactory(chicken=hen, laid_at=egg_dt)
 
@@ -149,7 +150,7 @@ class TestMetricsViewAgeProd:
             egg_dt = datetime.combine(
                 today - timedelta(days=2 - offset),
                 datetime.min.time(),
-                tzinfo=dt_timezone.utc,
+                tzinfo=UTC,
             )
             EggFactory(chicken=hen, laid_at=egg_dt)
 
@@ -175,7 +176,7 @@ class TestMetricsViewAgeProd:
         dob = today - timedelta(days=200)
         hen = ChickenFactory(date_of_birth=dob)
         start = today - timedelta(days=6)
-        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen, laid_at=egg_dt, quality="saleable")
         EggFactory(chicken=hen, laid_at=egg_dt, quality="messy")
 
@@ -196,7 +197,7 @@ class TestMetricsViewAgeProd:
         today = timezone.localdate()
         dob = today - timedelta(days=100)
         hen = ChickenFactory(date_of_birth=dob)
-        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen, laid_at=egg_dt)
 
         params = {
@@ -213,7 +214,7 @@ class TestMetricsViewAgeProd:
         today = timezone.localdate()
         dob = today - timedelta(days=100)
         hen = ChickenFactory(date_of_birth=dob)
-        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen, laid_at=egg_dt)
 
         params = {
@@ -231,7 +232,7 @@ class TestMetricsViewAgeProd:
         dob = today - timedelta(days=100)
         c1 = ChickenFactory(date_of_birth=dob)
         c2 = ChickenFactory(date_of_birth=dob)
-        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        egg_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=c1, laid_at=egg_dt)
         EggFactory.create_batch(4, chicken=c2, laid_at=egg_dt)
 

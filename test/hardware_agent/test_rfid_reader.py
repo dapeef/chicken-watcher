@@ -1,4 +1,5 @@
 import serial
+
 from hardware_agent.rfid_reader import RFIDReader
 
 

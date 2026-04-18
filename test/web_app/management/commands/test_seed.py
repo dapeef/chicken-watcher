@@ -1,18 +1,20 @@
 import datetime
+
 import pytest
 from django.core.management import call_command
-from web_app.models import (
-    Tag,
-    Chicken,
-    NestingBox,
-    Egg,
-    NestingBoxPresence,
-    NestingBoxPresencePeriod,
-)
+
 from test.web_app.factories import (
-    TagFactory,
     ChickenFactory,
     NestingBoxFactory,
+    TagFactory,
+)
+from web_app.models import (
+    Chicken,
+    Egg,
+    NestingBox,
+    NestingBoxPresence,
+    NestingBoxPresencePeriod,
+    Tag,
 )
 
 

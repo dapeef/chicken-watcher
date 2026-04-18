@@ -141,14 +141,14 @@ class TestBaseTemplateBasics:
         """If a view sets a message, base.html should render it in an
         accessible alert. We trigger one via a redirect."""
         from django.contrib import messages
-        from django.test import RequestFactory
         from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
 
         rf = RequestFactory()
         request = rf.get("/")
         # Stuff a message onto a dummy session/messages backend
-        setattr(request, "session", {})
-        setattr(request, "_messages", FallbackStorage(request))
+        request.session = {}
+        request._messages = FallbackStorage(request)
         messages.info(request, "Test message")
         # We don't have a trivial way to render the base template with
         # this request through the test client, so we just verify the

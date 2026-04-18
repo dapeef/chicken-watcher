@@ -1,6 +1,6 @@
+import contextlib
 import logging
 import time
-from typing import Optional
 
 import serial
 from serial.tools import list_ports
@@ -47,10 +47,8 @@ class RFIDReader(BaseSensor):
 
     def disconnect(self):
         if self.serial_conn and self.serial_conn.is_open:
-            try:
+            with contextlib.suppress(Exception):
                 self.serial_conn.close()
-            except Exception:
-                pass
             logger.info("Disconnected from %s", self.port)
         self.serial_conn = None
 
@@ -75,7 +73,7 @@ class RFIDReader(BaseSensor):
             time.sleep(max(MIN_RESET_INTERVAL, self.reset_interval))
             self.serial_conn.rts = False
 
-    def read_tag(self) -> Optional[str]:
+    def read_tag(self) -> str | None:
         if not self.serial_conn or not self.serial_conn.is_open:
             return None
 

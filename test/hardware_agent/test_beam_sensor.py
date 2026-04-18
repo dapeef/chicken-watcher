@@ -1,6 +1,7 @@
 import pytest
-from hardware_agent.beam_break_sensor import BeamSensor
 from gpiozero.exc import GPIOZeroError
+
+from hardware_agent.beam_break_sensor import BeamSensor
 
 
 def test_beam_sensor_connect_success(mocker):

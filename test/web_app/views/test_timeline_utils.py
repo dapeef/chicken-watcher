@@ -1,9 +1,10 @@
 """Unit tests for web_app.views.timeline_utils serialiser helpers."""
 
-import pytest
-from datetime import datetime, timedelta, timezone as dt_timezone
-from django.utils import timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
+
+import pytest
+from django.utils import timezone
 
 from web_app.views.timeline_utils import (
     egg_item,
@@ -11,6 +12,7 @@ from web_app.views.timeline_utils import (
     period_item,
     presence_item,
 )
+
 from ..factories import (
     ChickenFactory,
     EggFactory,
@@ -199,7 +201,7 @@ class TestNightPeriods:
 
     def _window(self, days=1):
         """Return a (start, end) window spanning ``days`` days from midnight today."""
-        start = datetime(2024, 6, 21, 0, 0, 0, tzinfo=dt_timezone.utc)
+        start = datetime(2024, 6, 21, 0, 0, 0, tzinfo=UTC)
         end = start + timedelta(days=days)
         return start, end
 
@@ -262,7 +264,7 @@ class TestNightPeriods:
         """The timeline_data endpoint includes night background items."""
         from django.urls import reverse
 
-        start = datetime(2024, 6, 21, 0, 0, 0, tzinfo=dt_timezone.utc)
+        start = datetime(2024, 6, 21, 0, 0, 0, tzinfo=UTC)
         end = start + timedelta(days=1)
         url = reverse("timeline_data")
         response = client.get(f"{url}?start={start.isoformat()}&end={end.isoformat()}")

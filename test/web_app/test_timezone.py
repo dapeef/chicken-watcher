@@ -16,10 +16,10 @@ Key BST facts used in these tests:
   - Example: 00:30 BST on day D == 23:30 UTC on day D-1.
 """
 
-import pytest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import pytest
 from django.utils import timezone
 
 from web_app.forms import EggForm

@@ -1,16 +1,17 @@
 import json
+from datetime import UTC, date, timedelta
+
 import pytest
-from datetime import date, timedelta
 from django.urls import reverse
 
+from test.web_app.factories import ChickenFactory
 from web_app.views.metrics import (
+    DEFAULT_AGE_WINDOW,
+    DEFAULT_KDE_BANDWIDTH,
+    DEFAULT_NEST_SIGMA,
     DEFAULT_SPAN,
     DEFAULT_WINDOW,
-    DEFAULT_AGE_WINDOW,
-    DEFAULT_NEST_SIGMA,
-    DEFAULT_KDE_BANDWIDTH,
 )
-from test.web_app.factories import ChickenFactory
 
 
 @pytest.mark.django_db
@@ -184,13 +185,14 @@ class TestMetricsViewKdeBandwidth:
         assert "kde_bandwidth_choices" in response.context
 
     def test_wider_bandwidth_produces_broader_kde(self, client):
-        from datetime import datetime, timezone as dt_timezone
+        from datetime import datetime
+
         from django.utils import timezone
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         from test.web_app.factories import EggFactory
 
         EggFactory.create_batch(5, chicken=hen, laid_at=today_dt)

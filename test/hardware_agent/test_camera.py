@@ -1,6 +1,8 @@
-import pytest
-import numpy as np
 import time
+
+import numpy as np
+import pytest
+
 from hardware_agent.camera import USBCamera
 
 

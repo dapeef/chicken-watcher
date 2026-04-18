@@ -1,20 +1,20 @@
 """Tests for web_app.templatetags.chicken_extras."""
 
-from datetime import timedelta, date
+from datetime import date, timedelta
 
 import pytest
 from django.urls import reverse
 
 from web_app.templatetags.chicken_extras import (
-    duration_ymd,
-    duration_hms,
     _years_months_days,
+    duration_hms,
+    duration_ymd,
 )
+
 from .factories import (
     ChickenFactory,
     NestingBoxPresencePeriodFactory,
 )
-
 
 # ---------------------------------------------------------------------------
 # Unit tests for the pure helper _years_months_days

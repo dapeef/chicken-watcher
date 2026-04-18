@@ -1,7 +1,7 @@
 import logging
 import threading
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +35,12 @@ class BaseSensor(ABC):
         # of ``time.sleep``) so shutdown is fast.
         self._stop_event = threading.Event()
         self._started = False
-        self.thread: Optional[threading.Thread] = None
-        self.callback: Optional[Callable] = None
+        self.thread: threading.Thread | None = None
+        self.callback: Callable | None = None
         # status_callback(name, connected, message="") — message defaults
         # to an empty string, so both two-arg and three-arg call styles
         # are accepted.
-        self.status_callback: Optional[Callable[..., None]] = None
+        self.status_callback: Callable[..., None] | None = None
 
     # ------------------------------------------------------------------
     # Backward-compatible ``running`` shim.
@@ -76,7 +76,7 @@ class BaseSensor(ABC):
     def start(
         self,
         callback: Callable,
-        status_callback: Optional[Callable[..., None]] = None,
+        status_callback: Callable[..., None] | None = None,
     ) -> None:
         """Start the sensor's background thread. Idempotent: calling
         twice is a no-op."""
@@ -105,9 +105,7 @@ class BaseSensor(ABC):
         if self.thread is not None and self.thread.is_alive():
             self.thread.join(timeout=timeout)
             if self.thread.is_alive():
-                logger.warning(
-                    "Sensor %s thread did not exit within %.1fs", self.name, timeout
-                )
+                logger.warning("Sensor %s thread did not exit within %.1fs", self.name, timeout)
         self.thread = None
         self.disconnect()
 
@@ -145,7 +143,7 @@ class BaseSensor(ABC):
     def poll(self) -> None:
         """Perform one iteration of work (reading data)."""
 
-    def on_connect(self) -> None:
+    def on_connect(self) -> None:  # noqa: B027 — intentional no-op hook, not abstract
         """Hook called immediately after a successful connection."""
 
     def handle_error(self, exc: Exception) -> None:

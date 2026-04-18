@@ -1,8 +1,10 @@
-import pytest
 import json
 from datetime import date, timedelta
+
+import pytest
 from django.urls import reverse
 from django.utils import timezone
+
 from ..factories import (
     ChickenFactory,
     EggFactory,

@@ -1,17 +1,18 @@
-import pytest
 from datetime import date, timedelta
-from django.http import QueryDict
-from django.db.models import Q
 
+import pytest
+from django.db.models import Q
+from django.http import QueryDict
+
+from test.web_app.factories import ChickenFactory
 from web_app.views.metrics import (
-    MetricsParams,
+    DEFAULT_AGE_WINDOW,
+    DEFAULT_KDE_BANDWIDTH,
+    DEFAULT_NEST_SIGMA,
     DEFAULT_SPAN,
     DEFAULT_WINDOW,
-    DEFAULT_AGE_WINDOW,
-    DEFAULT_NEST_SIGMA,
-    DEFAULT_KDE_BANDWIDTH,
+    MetricsParams,
 )
-from test.web_app.factories import ChickenFactory
 
 
 @pytest.mark.django_db

@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+
 from hardware_agent.manager import HardwareManager
 
 

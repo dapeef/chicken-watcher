@@ -1,24 +1,25 @@
 import logging
 
-import pytest
 import numpy as np
-from web_app.services.hardware_events import (
-    handle_tag_read,
-    handle_beam_break,
-    save_frame_to_db,
-    report_status,
-    report_event,
-    save_frame_to_file,
-    _nesting_box_name_for_sensor,
-)
+import pytest
+
+from test.web_app.factories import ChickenFactory, NestingBoxFactory, TagFactory
 from web_app.models import (
-    NestingBoxPresence,
     Egg,
-    NestingBoxImage,
     HardwareSensor,
+    NestingBoxImage,
+    NestingBoxPresence,
     NestingBoxPresencePeriod,
 )
-from test.web_app.factories import TagFactory, ChickenFactory, NestingBoxFactory
+from web_app.services.hardware_events import (
+    _nesting_box_name_for_sensor,
+    handle_beam_break,
+    handle_tag_read,
+    report_event,
+    report_status,
+    save_frame_to_db,
+    save_frame_to_file,
+)
 
 # The tests below use caplog with this logger name; centralised so it's
 # easy to change if the module ever moves again.
@@ -48,6 +49,7 @@ class TestHardwareHandlers:
 
     def test_handle_tag_read_extend_period(self, mocker):
         from datetime import timedelta
+
         from django.utils import timezone
 
         ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
@@ -74,6 +76,7 @@ class TestHardwareHandlers:
 
     def test_handle_tag_read_new_period_after_timeout(self, mocker):
         from datetime import timedelta
+
         from django.utils import timezone
 
         ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
@@ -97,6 +100,7 @@ class TestHardwareHandlers:
 
     def test_handle_tag_read_do_not_extend_if_seen_elsewhere(self, mocker):
         from datetime import timedelta
+
         from django.utils import timezone
 
         ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
@@ -379,6 +383,7 @@ class TestHandleTagReadRaceCondition:
         # Here we simulate that by running them sequentially but within
         # a single wall-clock tick.
         from datetime import timedelta
+
         from django.utils import timezone
 
         fixed_now = timezone.now()

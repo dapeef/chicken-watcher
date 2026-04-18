@@ -17,10 +17,10 @@ per-partial.
 """
 
 from django import db
+from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import TemplateView
-from django.shortcuts import render
 
 from ..models import (
     Chicken,
@@ -29,7 +29,6 @@ from ..models import (
     NestingBoxImage,
     NestingBoxPresencePeriod,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

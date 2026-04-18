@@ -1,14 +1,14 @@
 from django.contrib import admin
 
 from .models import (
-    Tag,
     Chicken,
-    NestingBox,
     Egg,
-    NestingBoxPresence,
-    NestingBoxImage,
     HardwareSensor,
+    NestingBox,
+    NestingBoxImage,
+    NestingBoxPresence,
     NestingBoxPresencePeriod,
+    Tag,
 )
 
 admin.site.register(Tag)

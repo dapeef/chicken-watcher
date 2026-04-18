@@ -1,15 +1,18 @@
-import pytest
 from datetime import date, timedelta
+
+import pytest
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+
 from web_app.models import NestingBoxPresence, NestingBoxPresencePeriod
+
 from .factories import (
     ChickenFactory,
     EggFactory,
+    HardwareSensorFactory,
     NestingBoxFactory,
     NestingBoxImageFactory,
     NestingBoxPresencePeriodFactory,
-    HardwareSensorFactory,
     TagFactory,
 )
 

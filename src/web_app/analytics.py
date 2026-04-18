@@ -24,9 +24,10 @@ Contents:
 from __future__ import annotations
 
 import math
-from datetime import timedelta, timezone as dt_timezone
+from collections.abc import Iterable, Sequence
+from datetime import UTC, timedelta
 from math import ceil, floor
-from typing import Iterable, Literal, Sequence
+from typing import Literal
 
 # ---------------------------------------------------------------------------
 # Time-of-day bucketing
@@ -161,8 +162,8 @@ def nesting_time_of_day(periods: Iterable) -> list[int]:
     days_seen: list[set] = [set() for _ in range(BUCKETS_PER_DAY)]
 
     for period in periods:
-        local_start = period.started_at.astimezone(dt_timezone.utc)
-        local_end = period.ended_at.astimezone(dt_timezone.utc)
+        local_start = period.started_at.astimezone(UTC)
+        local_end = period.ended_at.astimezone(UTC)
 
         # Walk forward in BUCKET_MINUTES steps from the start of the
         # period, capping at local_end. For each step record which
@@ -210,7 +211,7 @@ def egg_time_of_day_kde(
 
     times = []
     for egg in eggs:
-        t = egg.laid_at.astimezone(dt_timezone.utc)
+        t = egg.laid_at.astimezone(UTC)
         times.append(t.hour * 60 + t.minute + t.second / 60)
 
     if not times:

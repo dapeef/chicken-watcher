@@ -1,6 +1,7 @@
 import json
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import timedelta, datetime, timezone as dt_timezone
 from django.urls import reverse
 
 from test.web_app.factories import (
@@ -32,10 +33,10 @@ class TestMetricsViewNestingBoxPreference:
                 chicken=hen,
                 nesting_box=box_a,
                 started_at=datetime.combine(
-                    today, datetime.min.time(), tzinfo=dt_timezone.utc
+                    today, datetime.min.time(), tzinfo=UTC
                 ),
                 ended_at=datetime.combine(
-                    today, datetime.min.time(), tzinfo=dt_timezone.utc
+                    today, datetime.min.time(), tzinfo=UTC
                 )
                 + timedelta(minutes=10),
             )
@@ -43,10 +44,10 @@ class TestMetricsViewNestingBoxPreference:
             chicken=hen,
             nesting_box=box_b,
             started_at=datetime.combine(
-                today, datetime.min.time(), tzinfo=dt_timezone.utc
+                today, datetime.min.time(), tzinfo=UTC
             ),
             ended_at=datetime.combine(
-                today, datetime.min.time(), tzinfo=dt_timezone.utc
+                today, datetime.min.time(), tzinfo=UTC
             )
             + timedelta(minutes=5),
         )
@@ -75,7 +76,7 @@ class TestMetricsViewNestingBoxPreference:
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box_a = NestingBoxFactory(name="left")
         box_b = NestingBoxFactory(name="right")
-        base = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        base = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
 
         for _ in range(2):
             NestingBoxPresencePeriodFactory(
@@ -113,7 +114,7 @@ class TestMetricsViewNestingBoxPreference:
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box = NestingBoxFactory(name="left")
-        base = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        base = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
 
         NestingBoxPresencePeriodFactory(
             chicken=c1,
@@ -155,7 +156,7 @@ class TestMetricsViewNestingBoxPreference:
         hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
         box = NestingBoxFactory(name="left")
         before_range = datetime.combine(
-            start - timedelta(days=1), datetime.min.time(), tzinfo=dt_timezone.utc
+            start - timedelta(days=1), datetime.min.time(), tzinfo=UTC
         )
         NestingBoxPresencePeriodFactory(
             chicken=hen,
@@ -185,7 +186,7 @@ class TestMetricsViewNestingBoxPreference:
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box = NestingBoxFactory(name="left")
-        base = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        base = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         NestingBoxPresencePeriodFactory(
             chicken=c2,
             nesting_box=box,
@@ -212,7 +213,7 @@ class TestMetricsViewNestingBoxPreference:
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box = NestingBoxFactory(name="left")
-        base = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        base = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         NestingBoxPresencePeriodFactory(
             chicken=hen,
             nesting_box=box,
@@ -237,7 +238,7 @@ class TestMetricsViewNestingBoxPreference:
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box_a = NestingBoxFactory(name="left")
         box_b = NestingBoxFactory(name="right")
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(4, chicken=hen, nesting_box=box_a, laid_at=today_dt)
         EggFactory.create_batch(1, chicken=hen, nesting_box=box_b, laid_at=today_dt)
 
@@ -263,7 +264,7 @@ class TestMetricsViewNestingBoxPreference:
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box = NestingBoxFactory(name="left")
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=c1, nesting_box=box, laid_at=today_dt)
         EggFactory.create_batch(3, chicken=c2, nesting_box=box, laid_at=today_dt)
 
@@ -288,7 +289,7 @@ class TestMetricsViewNestingBoxPreference:
         hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
         box = NestingBoxFactory(name="left")
         before_range = datetime.combine(
-            start - timedelta(days=1), datetime.min.time(), tzinfo=dt_timezone.utc
+            start - timedelta(days=1), datetime.min.time(), tzinfo=UTC
         )
         EggFactory(chicken=hen, nesting_box=box, laid_at=before_range)
 
@@ -312,7 +313,7 @@ class TestMetricsViewNestingBoxPreference:
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         box = NestingBoxFactory(name="left")
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=c2, nesting_box=box, laid_at=today_dt)
 
         response = client.get(

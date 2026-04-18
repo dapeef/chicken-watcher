@@ -1,6 +1,7 @@
 import json
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import timedelta, datetime, timezone as dt_timezone
 from django.urls import reverse
 
 from test.web_app.factories import ChickenFactory, EggFactory
@@ -57,7 +58,7 @@ class TestMetricsViewAggregates:
         start = today - timedelta(days=6)
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=c1, laid_at=today_dt)
         EggFactory.create_batch(3, chicken=c2, laid_at=today_dt)
 
@@ -84,7 +85,7 @@ class TestMetricsViewAggregates:
         start = today - timedelta(days=6)
         c1 = ChickenFactory(date_of_birth=start - timedelta(days=1))
         c2 = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=dt_timezone.utc)
+        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(2, chicken=c1, laid_at=today_dt)
         EggFactory.create_batch(2, chicken=c2, laid_at=today_dt)
 

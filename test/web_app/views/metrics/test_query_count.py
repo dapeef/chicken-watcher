@@ -1,5 +1,6 @@
+from datetime import datetime, timedelta
+
 import pytest
-from datetime import timedelta, datetime
 from django.urls import reverse
 
 from test.web_app.factories import (

@@ -1,13 +1,16 @@
-import pytest
 from datetime import timedelta
+
+import pytest
 from django.urls import reverse
 from django.utils import timezone
+
+from web_app.models import Egg
+
 from ..factories import (
     ChickenFactory,
     EggFactory,
     NestingBoxFactory,
 )
-from web_app.models import Egg
 
 
 @pytest.mark.django_db

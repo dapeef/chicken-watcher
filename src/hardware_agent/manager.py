@@ -16,17 +16,17 @@ the post-validation registration path is shared via :meth:`_register`.
 """
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from hardware_agent.base import BaseSensor
 from hardware_agent.beam_break_sensor import BeamSensor
 from hardware_agent.camera import USBCamera
 from hardware_agent.rfid_reader import RFIDReader
 from web_app.services.hardware_events import (
-    report_status,
-    handle_tag_read,
-    handle_camera_frame,
     handle_beam_break,
+    handle_camera_frame,
+    handle_tag_read,
+    report_status,
 )
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,7 @@
-import pytest
 import time
+
+import pytest
+
 from hardware_agent.base import BaseSensor
 
 
