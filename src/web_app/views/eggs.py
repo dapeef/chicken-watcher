@@ -28,11 +28,14 @@ class EggListView(ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["sort"] = self.request.GET.get("sort", "-laid_at")
+        # (col_key, label, show_on_mobile). The sort_header tag in
+        # chicken_extras consumes this tuple shape; keeping it
+        # consistent across the list pages lets us share the tag.
         ctx["headers"] = [
-            ("chicken", "Chicken"),
-            ("nesting_box", "Nesting box"),
-            ("laid_at", "Laid at"),
-            ("quality", "Quality"),
+            ("chicken", "Chicken", True),
+            ("nesting_box", "Nesting box", True),
+            ("laid_at", "Laid at", False),
+            ("quality", "Quality", False),
         ]
         return ctx
 

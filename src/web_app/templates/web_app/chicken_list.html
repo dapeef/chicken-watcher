@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load chicken_extras %}
+{% load chicken_extras list_tables %}
 {% block title %}Chickens | Coop{% endblock %}
 
 {% block content %}
@@ -12,19 +12,7 @@
       <thead class="table-light">
         <tr>
           {% for col, label, mobile in headers %}
-            {% if sort == col %}
-              <th scope="col" aria-sort="ascending" class="fw-semibold{% if not mobile %} d-none d-md-table-cell{% endif %}">
-                <a class="text-decoration-none text-body" href="?sort=-{{ col }}" aria-label="{{ label }}, currently sorted ascending. Activate to sort descending.">{{ label }} <span aria-hidden="true">▲</span></a>
-              </th>
-            {% elif sort == '-'|add:col %}
-              <th scope="col" aria-sort="descending" class="fw-semibold{% if not mobile %} d-none d-md-table-cell{% endif %}">
-                <a class="text-decoration-none text-body" href="?sort={{ col }}" aria-label="{{ label }}, currently sorted descending. Activate to sort ascending.">{{ label }} <span aria-hidden="true">▼</span></a>
-              </th>
-            {% else %}
-              <th scope="col" class="fw-semibold text-muted{% if not mobile %} d-none d-md-table-cell{% endif %}">
-                <a class="text-decoration-none text-muted" href="?sort={{ col }}" aria-label="Sort by {{ label }}">{{ label }}</a>
-              </th>
-            {% endif %}
+            {% sort_header col label sort mobile %}
           {% endfor %}
         </tr>
       </thead>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load list_tables %}
 {% block title %}Eggs | Coop{% endblock %}
 
 {% block content %}
@@ -12,16 +13,10 @@
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          {% for col, label in headers %}
-            {% if sort == col %}
-              <th class="fw-semibold{% if forloop.counter > 2 %} d-none d-md-table-cell{% endif %}"><a class="text-decoration-none text-body" href="?sort=-{{ col }}">{{ label }} ▲</a></th>
-            {% elif sort == '-'|add:col %}
-              <th class="fw-semibold{% if forloop.counter > 2 %} d-none d-md-table-cell{% endif %}"><a class="text-decoration-none text-body" href="?sort={{ col }}">{{ label }} ▼</a></th>
-            {% else %}
-              <th class="fw-semibold text-muted{% if forloop.counter > 2 %} d-none d-md-table-cell{% endif %}"><a class="text-decoration-none text-muted" href="?sort={{ col }}">{{ label }}</a></th>
-            {% endif %}
+          {% for col, label, mobile in headers %}
+            {% sort_header col label sort mobile %}
           {% endfor %}
-          <th class="w-auto"></th>
+          <th scope="col" class="w-auto"><span class="visually-hidden">Actions</span></th>
         </tr>
       </thead>
 
