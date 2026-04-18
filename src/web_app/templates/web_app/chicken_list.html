@@ -5,39 +5,40 @@
 {% block content %}
 <h1 class="mb-4">Chickens</h1>
 
-<div class="table-responsive">
-<table class="table table-sm table-hover align-middle">
-  <thead>
-    <tr>
-      {# loop over the header definitions #}
-      {% for col, label in headers %}
-        {% if sort == col %}
-          <th><a href="?sort=-{{ col }}">{{ label }} ▲</a></th>
-        {% elif sort == '-'|add:col %}
-          <th><a href="?sort={{ col }}">{{ label }} ▼</a></th>
-        {% else %}
-          <th><a href="?sort={{ col }}">{{ label }}</a></th>
-        {% endif %}
-      {% endfor %}
-    </tr>
-  </thead>
+<div class="card shadow-sm overflow-hidden">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          {% for col, label in headers %}
+            {% if sort == col %}
+              <th class="fw-semibold"><a class="text-decoration-none text-body" href="?sort=-{{ col }}">{{ label }} ▲</a></th>
+            {% elif sort == '-'|add:col %}
+              <th class="fw-semibold"><a class="text-decoration-none text-body" href="?sort={{ col }}">{{ label }} ▼</a></th>
+            {% else %}
+              <th class="fw-semibold text-muted"><a class="text-decoration-none text-muted" href="?sort={{ col }}">{{ label }}</a></th>
+            {% endif %}
+          {% endfor %}
+        </tr>
+      </thead>
 
-  <tbody>
-  {% for hen in object_list %}
-    <tr onclick="location.href='{% url 'chicken_detail' hen.id %}'"
-        style="cursor:pointer">
-      <td>{{ hen.name }}</td>
-      <td>{{ hen.age_duration|duration_ymd }}</td>
-      <td>{{ hen.tag.number|default:'—' }}</td>
-      <td>{{ hen.eggs_total }}</td>
-      <td>{{ hen.last_egg|date:"Y-m-d H:i" }}</td>
-      <td>{{ hen.date_of_birth }}</td>
-      <td>{{ hen.date_of_death|default:'—' }}</td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="8" class="text-muted text-center">No chickens yet.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+      <tbody>
+      {% for hen in object_list %}
+        <tr onclick="location.href='{% url 'chicken_detail' hen.id %}'"
+            style="cursor:pointer">
+          <td>{{ hen.name }}</td>
+          <td>{{ hen.age_duration|duration_ymd }}</td>
+          <td>{{ hen.tag.number|default:'—' }}</td>
+          <td>{{ hen.eggs_total }}</td>
+          <td class="text-nowrap">{{ hen.last_egg|date:"Y-m-d H:i" }}</td>
+          <td class="text-nowrap">{{ hen.date_of_birth }}</td>
+          <td class="text-nowrap">{{ hen.date_of_death|default:'—' }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-muted text-center py-4">No chickens yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Chickens | Coop{% endblock %}
+{% block title %}Eggs | Coop{% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4">
@@ -7,40 +7,49 @@
   <a href="{% url 'egg_create' %}" class="btn btn-primary">+ Add egg</a>
 </div>
 
-<div class="table-responsive">
-<table class="table table-sm table-hover align-middle">
-  <thead>
-    <tr>
-      {# loop over the header definitions #}
-      {% for col, label in headers %}
-        {% if sort == col %}
-          <th><a href="?sort=-{{ col }}">{{ label }} ▲</a></th>
-        {% elif sort == '-'|add:col %}
-          <th><a href="?sort={{ col }}">{{ label }} ▼</a></th>
-        {% else %}
-          <th><a href="?sort={{ col }}">{{ label }}</a></th>
-        {% endif %}
-      {% endfor %}
-      <th class="w-auto"></th>
-    </tr>
-  </thead>
+<div class="card shadow-sm overflow-hidden">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          {% for col, label in headers %}
+            {% if sort == col %}
+              <th class="fw-semibold"><a class="text-decoration-none text-body" href="?sort=-{{ col }}">{{ label }} ▲</a></th>
+            {% elif sort == '-'|add:col %}
+              <th class="fw-semibold"><a class="text-decoration-none text-body" href="?sort={{ col }}">{{ label }} ▼</a></th>
+            {% else %}
+              <th class="fw-semibold text-muted"><a class="text-decoration-none text-muted" href="?sort={{ col }}">{{ label }}</a></th>
+            {% endif %}
+          {% endfor %}
+          <th class="w-auto"></th>
+        </tr>
+      </thead>
 
-  <tbody>
-  {% for egg in object_list %}
-    <tr style="cursor:pointer">
-      <td>{{ egg.chicken|default:'—' }}</td>
-      <td>{{ egg.nesting_box|default:'—' }}</td>
-      <td>{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
-      <td>{{ egg.get_quality_display }}</td>
-      <td class="text-end text-nowrap">
-        <a href="{% url 'egg_edit' egg.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-        <a href="{% url 'egg_delete' egg.pk %}" class="btn btn-sm btn-outline-danger ms-1">Delete</a>
-      </td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="8" class="text-muted text-center">No eggs yet.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+      <tbody>
+      {% for egg in object_list %}
+        <tr>
+          <td>{{ egg.chicken|default:'—' }}</td>
+          <td>{{ egg.nesting_box|default:'—' }}</td>
+          <td class="text-nowrap">{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
+          <td>
+            {% if egg.quality == 'saleable' %}
+              <span class="badge rounded-pill text-bg-success">Saleable</span>
+            {% elif egg.quality == 'edible' %}
+              <span class="badge rounded-pill text-bg-warning">Edible</span>
+            {% else %}
+              <span class="badge rounded-pill text-bg-danger">Messy</span>
+            {% endif %}
+          </td>
+          <td class="text-end text-nowrap">
+            <a href="{% url 'egg_edit' egg.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+            <a href="{% url 'egg_delete' egg.pk %}" class="btn btn-sm btn-outline-danger ms-1">Delete</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-muted text-center py-4">No eggs yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
