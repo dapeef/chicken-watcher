@@ -10,6 +10,7 @@ from .factories import (
     NestingBoxImageFactory,
     NestingBoxPresencePeriodFactory,
     HardwareSensorFactory,
+    TagFactory,
 )
 
 
@@ -29,6 +30,61 @@ class TestChickenModel:
     def test_str(self):
         chicken = ChickenFactory(name="Bertha")
         assert str(chicken) == "Bertha"
+
+
+@pytest.mark.django_db
+class TestChickenTagUniqueness:
+    """The unique_tag_per_live_chicken partial UniqueConstraint ensures a
+    tag is held by at most one *live* chicken at a time. Dead chickens
+    retain their tag for provenance (they're excluded from the
+    constraint), so tags can be legitimately reassigned after death."""
+
+    def test_two_live_chickens_cannot_share_a_tag(self):
+        tag = TagFactory()
+        ChickenFactory(name="Henrietta", tag=tag)
+        with pytest.raises(IntegrityError), transaction.atomic():
+            ChickenFactory(name="Henrietta II", tag=tag)
+
+    def test_dead_chicken_and_live_chicken_can_share_a_tag(self):
+        """When a chicken dies, its tag can be reassigned to a new live
+        chicken. The dead chicken keeps the historical tag record."""
+        tag = TagFactory()
+        dead = ChickenFactory(
+            name="Old Hen",
+            tag=tag,
+            date_of_death=date.today() - timedelta(days=7),
+        )
+        new = ChickenFactory(name="New Hen", tag=tag)
+        assert dead.tag == tag
+        assert new.tag == tag
+
+    def test_multiple_dead_chickens_can_share_a_tag(self):
+        """Historical data: several chickens held the same tag in
+        succession, all of whom are now dead. All valid."""
+        tag = TagFactory()
+        ChickenFactory(
+            name="First", tag=tag, date_of_death=date.today() - timedelta(days=30)
+        )
+        ChickenFactory(
+            name="Second", tag=tag, date_of_death=date.today() - timedelta(days=7)
+        )
+
+    def test_multiple_live_chickens_can_have_null_tag(self):
+        """The partial constraint only applies when tag IS NOT NULL, so
+        many untagged chickens are allowed."""
+        ChickenFactory(name="Henrietta", tag=None)
+        ChickenFactory(name="Bertha", tag=None)
+        # No exception
+
+    def test_live_chicken_cannot_take_live_chickens_tag(self):
+        """Reassigning a live chicken's tag to another live chicken is
+        rejected (must kill the first chicken or unassign first)."""
+        tag = TagFactory()
+        ChickenFactory(name="Owner", tag=tag)
+        new = ChickenFactory(name="Thief", tag=None)
+        new.tag = tag
+        with pytest.raises(IntegrityError), transaction.atomic():
+            new.save()
 
 
 @pytest.mark.django_db

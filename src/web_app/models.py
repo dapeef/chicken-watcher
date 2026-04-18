@@ -14,9 +14,24 @@ class Chicken(models.Model):
     name = models.CharField(max_length=200)
     date_of_birth = models.DateField()
     date_of_death = models.DateField(null=True, blank=True)
+    # A chicken may have at most one RFID tag, but tags can be reused
+    # after a chicken dies. ForeignKey(+ partial unique constraint below)
+    # models this better than OneToOneField, which would force tag
+    # assignments to be permanent.
     tag = models.ForeignKey(
         Tag, on_delete=models.SET_NULL, null=True, blank=True, related_name="chickens"
     )
+
+    class Meta:
+        constraints = [
+            # Only one *live* chicken may hold a given tag.
+            models.UniqueConstraint(
+                fields=["tag"],
+                condition=models.Q(date_of_death__isnull=True)
+                & models.Q(tag__isnull=False),
+                name="unique_tag_per_live_chicken",
+            ),
+        ]
 
     @property
     def age(self) -> int:
