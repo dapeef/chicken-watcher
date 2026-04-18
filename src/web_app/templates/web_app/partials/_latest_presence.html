@@ -1,25 +1,34 @@
 {% load chicken_extras %}
 <div class="card shadow-sm h-100">
+  <div class="card-header">
+    <h6 class="mb-0 fw-semibold">Most recently in a nesting box</h6>
+  </div>
   <div class="card-body">
-    <h5 class="card-title">Most recently in a nesting box</h5>
     {% if latest_presence %}
       <div class="table-responsive">
         <table class="table align-middle mb-0 small">
-          <thead><tr><th>Chicken</th><th>Box</th><th>Duration</th><th>Departed</th></tr></thead>
+          <thead class="table-light">
+            <tr>
+              <th class="fw-semibold text-muted">Chicken</th>
+              <th class="fw-semibold text-muted">Box</th>
+              <th class="fw-semibold text-muted">Duration</th>
+              <th class="fw-semibold text-muted">Departed</th>
+            </tr>
+          </thead>
           <tbody>
           {% for p in latest_presence %}
             <tr>
               <td>{{ p.chicken.name }}</td>
-              <td>{{ p.nesting_box.name }}</td>
+              <td>{{ p.nesting_box }}</td>
               <td>{{ p.duration|duration_hms }}</td>
-              <td>{{ p.ended_at|timesince }} ago</td>
+              <td class="text-nowrap">{{ p.ended_at|timesince }} ago</td>
             </tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
     {% else %}
-      <p class="text-muted mb-0">No-hen has been in a nesting box yet today.</p>
+      <p class="text-muted mb-0">No hen has been in a nesting box yet today.</p>
     {% endif %}
   </div>
 </div>

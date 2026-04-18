@@ -1,16 +1,18 @@
 <div class="card shadow-sm h-100">
-  <div class="card-body">
-    <h5 class="card-title">Latest events</h5>
+  <div class="card-header">
+    <h6 class="mb-0 fw-semibold">Latest events</h6>
+  </div>
+  <div class="card-body p-0">
     <ul class="list-group list-group-flush">
       {% for egg in latest_events %}
-        <li class="list-group-item">
+        <li class="list-group-item small">
           <strong>{% if egg.chicken %}{{ egg.chicken.name }}{% else %}Unknown hen{% endif %}</strong>
           laid an egg in
-          <strong>{% if egg.nesting_box %}{{ egg.nesting_box.name }}{% else %}unknown{% endif %} box</strong>
-          <span class="text-muted">— {{ egg.laid_at|timesince }} ago</span>
+          <strong>{% if egg.nesting_box %}{{ egg.nesting_box }} box{% else %}unknown box{% endif %}</strong>
+          <span class="text-muted d-block">{{ egg.laid_at|timesince }} ago</span>
         </li>
       {% empty %}
-        <li class="list-group-item text-muted">Nothing yet today.</li>
+        <li class="list-group-item text-muted small">Nothing yet today.</li>
       {% endfor %}
     </ul>
   </div>

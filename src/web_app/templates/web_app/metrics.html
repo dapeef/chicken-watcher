@@ -22,12 +22,8 @@
     font-size: 0.75rem;
     padding: 0.15rem 0.5rem;
   }
-  /* Chart wrappers */
+  /* Chart spacing */
   .chart-card {
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    padding: 1rem 1.25rem;
     margin-bottom: 1.25rem;
   }
 </style>
@@ -155,9 +151,9 @@
   <!-- ── Charts ──────────────────────────────────────────────────────────── -->
   <div class="flex-grow-1 min-width-0">
 
-    <div class="chart-card">
-      <div class="d-flex align-items-baseline justify-content-between mb-3">
-        <h6 class="mb-0">Egg production</h6>
+    <div class="card shadow-sm chart-card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0 fw-semibold">Egg production</h6>
         <div class="d-flex align-items-center gap-2">
           <label class="form-label small mb-0 text-nowrap" for="id_w">Rolling window</label>
           <select class="form-select form-select-sm w-auto" id="id_w"
@@ -170,23 +166,22 @@
           </select>
         </div>
       </div>
-      <canvas id="eggProdChart" height="140"></canvas>
+      <div class="card-body">
+        <canvas id="eggProdChart" height="140"></canvas>
+      </div>
     </div>
 
-    <div class="chart-card p-0">
-      <div class="d-flex align-items-center px-3 py-2"
-           role="button"
-           style="cursor: pointer;"
-           data-bs-toggle="collapse"
-           data-bs-target="#qualityProdCollapse"
-           aria-expanded="false"
-           aria-controls="qualityProdCollapse">
+    <div class="card shadow-sm chart-card">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           role="button" style="cursor:pointer"
+           data-bs-toggle="collapse" data-bs-target="#qualityProdCollapse"
+           aria-expanded="false" aria-controls="qualityProdCollapse">
         <h6 class="mb-0 fw-semibold">Egg quality breakdown</h6>
-        <small class="text-muted ms-2">(click to expand)</small>
+        <small class="text-muted">(click to expand)</small>
       </div>
       <div class="collapse" id="qualityProdCollapse">
-        <div class="px-3 pb-3">
-          <p class="small text-muted mb-1 mt-2">Saleable</p>
+        <div class="card-body">
+          <p class="small text-muted mb-1">Saleable</p>
           <canvas id="saleableProdChart" height="60"></canvas>
           <p class="small text-muted mb-1 mt-3">Edible</p>
           <canvas id="edibleProdChart" height="60"></canvas>
@@ -196,29 +191,24 @@
       </div>
     </div>
 
-    <div class="chart-card p-0">
-      <div class="d-flex align-items-center px-3 py-2"
-           role="button"
-           style="cursor: pointer;"
-           data-bs-toggle="collapse"
-           data-bs-target="#flockSizeCollapse"
-           aria-expanded="false"
-           aria-controls="flockSizeCollapse">
+    <div class="card shadow-sm chart-card">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           role="button" style="cursor:pointer"
+           data-bs-toggle="collapse" data-bs-target="#flockSizeCollapse"
+           aria-expanded="false" aria-controls="flockSizeCollapse">
         <h6 class="mb-0 fw-semibold">Flock size</h6>
-        <small class="text-muted ms-2">(click to expand)</small>
+        <small class="text-muted">(click to expand)</small>
       </div>
       <div class="collapse" id="flockSizeCollapse">
-        <div class="px-3 pb-3">
+        <div class="card-body">
           <canvas id="flockCountChart" height="60"></canvas>
         </div>
       </div>
     </div>
 
-    <div class="chart-card">
-      <div class="d-flex align-items-baseline justify-content-between mb-3">
-        <h6 class="mb-0">Egg laying time of day
-          <small class="text-muted fw-normal">(UTC)</small>
-        </h6>
+    <div class="card shadow-sm chart-card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0 fw-semibold">Egg laying time of day <small class="text-muted fw-normal">(UTC)</small></h6>
         <div class="d-flex align-items-center gap-2">
           <label class="form-label small mb-0 text-nowrap" for="id_kde_bw">Smoothness</label>
           <select class="form-select form-select-sm w-auto" id="id_kde_bw"
@@ -231,14 +221,14 @@
           </select>
         </div>
       </div>
-      <canvas id="todEggChart" height="100"></canvas>
+      <div class="card-body">
+        <canvas id="todEggChart" height="100"></canvas>
+      </div>
     </div>
 
-    <div class="chart-card">
-      <div class="d-flex align-items-baseline justify-content-between mb-3">
-        <h6 class="mb-0">Time of day in nesting box
-          <small class="text-muted fw-normal">(UTC)</small>
-        </h6>
+    <div class="card shadow-sm chart-card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0 fw-semibold">Time of day in nesting box <small class="text-muted fw-normal">(UTC)</small></h6>
         <div class="d-flex align-items-center gap-2">
           <label class="form-label small mb-0 text-nowrap" for="id_nest_sigma">Smoothing</label>
           <select class="form-select form-select-sm w-auto" id="id_nest_sigma"
@@ -251,47 +241,50 @@
           </select>
         </div>
       </div>
-      <canvas id="todNestChart" height="100"></canvas>
+      <div class="card-body">
+        <canvas id="todNestChart" height="100"></canvas>
+      </div>
     </div>
 
-    <div class="chart-card">
-      <h6 class="mb-3">Nesting box preference</h6>
-      <div class="row g-4">
-        <div class="col-sm-4 text-center">
-          <p class="small text-muted mb-2">By time spent</p>
-          <div style="position: relative; height: 260px;">
-            <canvas id="nestBoxTimeChart"></canvas>
+    <div class="card shadow-sm chart-card">
+      <div class="card-header">
+        <h6 class="mb-0 fw-semibold">Nesting box preference</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-4">
+          <div class="col-sm-4 text-center">
+            <p class="small text-muted mb-2">By time spent</p>
+            <div style="position: relative; height: 260px;">
+              <canvas id="nestBoxTimeChart"></canvas>
+            </div>
           </div>
-        </div>
-        <div class="col-sm-4 text-center">
-          <p class="small text-muted mb-2">By visits</p>
-          <div style="position: relative; height: 260px;">
-            <canvas id="nestBoxVisitsChart"></canvas>
+          <div class="col-sm-4 text-center">
+            <p class="small text-muted mb-2">By visits</p>
+            <div style="position: relative; height: 260px;">
+              <canvas id="nestBoxVisitsChart"></canvas>
+            </div>
           </div>
-        </div>
-        <div class="col-sm-4 text-center">
-          <p class="small text-muted mb-2">By eggs</p>
-          <div style="position: relative; height: 260px;">
-            <canvas id="nestBoxEggsChart"></canvas>
+          <div class="col-sm-4 text-center">
+            <p class="small text-muted mb-2">By eggs</p>
+            <div style="position: relative; height: 260px;">
+              <canvas id="nestBoxEggsChart"></canvas>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="chart-card p-0">
-      <div class="d-flex align-items-center px-3 py-2"
-           role="button"
-           style="cursor: pointer;"
-           data-bs-toggle="collapse"
-           data-bs-target="#ageProdCollapse"
-           aria-expanded="false"
-           aria-controls="ageProdCollapse">
+    <div class="card shadow-sm chart-card">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           role="button" style="cursor:pointer"
+           data-bs-toggle="collapse" data-bs-target="#ageProdCollapse"
+           aria-expanded="false" aria-controls="ageProdCollapse">
         <h6 class="mb-0 fw-semibold">Egg production vs age</h6>
-        <small class="text-muted ms-2">(click to expand)</small>
+        <small class="text-muted">(click to expand)</small>
       </div>
       <div class="collapse" id="ageProdCollapse">
-        <div class="px-3 pb-3">
-          <div class="d-flex align-items-center justify-content-end gap-2 mb-3 pt-2">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-end gap-2 mb-3">
             <label class="form-label small mb-0 text-nowrap" for="id_age_w">Rolling window</label>
             <select class="form-select form-select-sm w-auto" id="id_age_w"
                     name="age_w" form="metrics-form" onchange="submitForm()">

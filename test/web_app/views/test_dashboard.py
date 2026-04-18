@@ -125,7 +125,7 @@ class TestDashboardViews:
         assert response.status_code == 200
         content = response.content.decode()
         assert "Henrietta" in content
-        assert "LeftBox" in content
+        assert "Leftbox" in content
         assert "Duration" in content
         assert "Departed" in content
 
@@ -164,7 +164,9 @@ class TestLatestEventsPartial:
         content = response.content.decode()
         assert "Hoppy" in content
         assert "laid an egg in" in content
-        assert "left box" in content
+        assert "Left box" in content
+        assert "laid an egg in" in content
+        assert "Left box" in content
 
     def test_unknown_chicken_shows_unknown_hen(self, client):
         box = NestingBoxFactory(name="left")
@@ -174,7 +176,7 @@ class TestLatestEventsPartial:
         content = response.content.decode()
         assert "Unknown hen" in content
         assert "laid an egg in" in content
-        assert "left box" in content
+        assert "Left box" in content
 
     def test_unknown_nesting_box_shows_unknown_box(self, client):
         hen = ChickenFactory(name="Isla")
