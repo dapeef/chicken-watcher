@@ -102,18 +102,15 @@
 document.addEventListener("DOMContentLoaded", () => {
   const nestContainer = document.getElementById("nest-visualization");
   const nestItems = new vis.DataSet([]);
+  const { startOfDay, endOfDay } = todayWindow();
   const nestTimeline = new vis.Timeline(nestContainer, nestItems, {
     height: "240px",
     stack: true,
     showCurrentTime: true,
     zoomMin: 1000 * 60, // 1 minute
+    start: startOfDay,
+    end: endOfDay,
   });
-
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
-  nestTimeline.setWindow(startOfDay, endOfDay);
 
   function loadNestData(properties) {
     const start = properties.start.toISOString();

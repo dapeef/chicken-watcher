@@ -52,11 +52,7 @@
         { id: 'unknown', content: 'Unknown', stack: true }
     ]);
 
-    // Default range: today 00:00 to 00:00 tomorrow
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    const { startOfDay, endOfDay } = todayWindow();
 
     const options = {
         height: Math.round(window.innerHeight * 0.75) + 'px',
@@ -68,18 +64,6 @@
     };
 
     const timeline = new vis.Timeline(container, items, groups, options);
-
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
 
     let cachedImages = [];
     let objectUrls = [];

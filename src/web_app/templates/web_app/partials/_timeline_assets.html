@@ -68,3 +68,25 @@
     z-index: 10;
   }
 </style>
+<script>
+  // ── Shared timeline utilities ───────────────────────────────────────────────
+
+  /** Returns { startOfDay, endOfDay } for today's 00:00 → tomorrow 00:00. */
+  function todayWindow() {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+    return { startOfDay, endOfDay };
+  }
+
+  /** Standard debounce. */
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => { clearTimeout(timeout); func(...args); };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+</script>
