@@ -190,6 +190,61 @@ class TestEggViews:
 
 
 @pytest.mark.django_db
+class TestEggFormRendering:
+    """Regression tests for the egg_form template. Previously the
+    template hand-rendered every <input>/<select>, which drifted from
+    the form definition and was hard to test. Now it uses
+    _bs_field.html + Django's form rendering machinery."""
+
+    def test_form_renders_bootstrap_classes(self, client):
+        response = client.get(reverse("egg_create"))
+        content = response.content.decode()
+        # Bootstrap classes on the form controls
+        assert "form-select" in content
+        assert "form-control" in content
+        assert "form-check-input" in content
+
+    def test_quality_field_renders_as_radio_group(self, client):
+        """Quality is a radio group (not a dropdown). All three
+        options should render as <input type="radio">."""
+        response = client.get(reverse("egg_create"))
+        content = response.content.decode()
+        assert content.count('type="radio"') == 3
+        # Each quality label appears
+        assert "Saleable" in content
+        assert "Edible" in content
+        assert "Messy" in content
+        # Accessible radiogroup wrapper
+        assert 'role="radiogroup"' in content
+
+    def test_optional_fields_labelled_optional(self, client):
+        response = client.get(reverse("egg_create"))
+        content = response.content.decode()
+        assert "(optional)" in content
+
+    def test_empty_fk_choice_uses_unknown_label(self, client):
+        """The chicken and nesting_box fields should render the
+        empty option as '— Unknown —' rather than Django's default
+        ``---------``."""
+        response = client.get(reverse("egg_create"))
+        content = response.content.decode()
+        assert "— Unknown —" in content
+        assert "---------" not in content
+
+    def test_error_shows_when_post_with_invalid_data(self, client):
+        """Posting obviously invalid data surfaces a field-level error
+        rendered through the _bs_field partial."""
+        response = client.post(
+            reverse("egg_create"),
+            {"laid_at": "not-a-datetime"},
+        )
+        assert response.status_code == 200
+        # The form rerenders with an error
+        content = response.content.decode()
+        assert "text-danger" in content
+
+
+@pytest.mark.django_db
 class TestEggListQueryCount:
     """Regression tests that the egg list view doesn't N+1 over
     chicken/nesting_box when rendering.

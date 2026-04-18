@@ -1,0 +1,40 @@
+{% comment %}
+  Render one form field with Bootstrap 5 styling.
+
+  Radio/checkbox widgets need a different layout than the standard
+  label-above-input pattern, so we detect those and branch. Field
+  widgets already carry their ``form-control`` / ``form-select``
+  classes from the Python side (see forms.py), so this template just
+  handles the wrapping, labels, errors, and help text.
+
+  Context:
+    field     BoundField   the field to render
+    optional  bool (opt)   if true, append "(optional)" to the label
+{% endcomment %}
+<div class="mb-3">
+  {% if field.field.widget.input_type == "radio" %}
+    <label class="form-label" id="{{ field.id_for_label }}_group">
+      {{ field.label }}{% if optional %} <span class="text-muted fw-normal">(optional)</span>{% endif %}
+    </label>
+    <div class="d-flex gap-2 flex-wrap" role="radiogroup" aria-labelledby="{{ field.id_for_label }}_group">
+      {% for sub in field %}
+        <div class="form-check form-check-inline m-0">
+          {{ sub.tag }}
+          <label class="form-check-label" for="{{ sub.id_for_label }}">{{ sub.choice_label }}</label>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <label for="{{ field.id_for_label }}" class="form-label">
+      {{ field.label }}{% if optional %} <span class="text-muted fw-normal">(optional)</span>{% endif %}
+    </label>
+    {{ field }}
+  {% endif %}
+
+  {% if field.help_text %}
+    <div class="form-text">{{ field.help_text }}</div>
+  {% endif %}
+  {% if field.errors %}
+    <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+  {% endif %}
+</div>
