@@ -1,5 +1,5 @@
 import pytest
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.urls import reverse
 from django.utils import timezone
 from ..factories import (
@@ -10,6 +10,14 @@ from ..factories import (
     NestingBoxPresencePeriodFactory,
     NestingBoxFactory,
 )
+
+
+# A safely-daytime instant used to pin ``timezone.now()`` for tests that
+# assert on the exact contents of timeline_data (which also returns
+# night_periods background items). 12:00 UTC on a mid-June day is
+# guaranteed to be full daylight in any timezone the coop might ever be
+# in — no sunrise/sunset overlap for a +/-1 hour query window.
+FIXED_NOON_UTC = datetime(2025, 6, 15, 12, 0, 0, tzinfo=dt_timezone.utc)
 
 
 @pytest.mark.django_db
@@ -80,10 +88,15 @@ class TestTimelineViews:
         # "<" with "\u003C".
         assert "\\u003C" in config_block or "\\u003c" in config_block
 
-    def test_timeline_data(self, client):
+    def test_timeline_data(self, client, mocker):
+        # Pin "now" to a safely-daytime moment so the night-period
+        # background items that timeline_data injects don't overlap the
+        # query window. See FIXED_NOON_UTC for rationale.
+        mocker.patch("django.utils.timezone.now", return_value=FIXED_NOON_UTC)
         url = reverse("timeline_data")
 
-        # Create some data
+        # Create some data. Factories use LazyFunction(timezone.now) so
+        # these land at FIXED_NOON_UTC.
         now = timezone.now()
         egg = EggFactory(laid_at=now)
         presence = NestingBoxPresenceFactory(present_at=now)
@@ -93,19 +106,21 @@ class TestTimelineViews:
         assert response.status_code == 200
         assert response.json() == []
 
-        # Test with range covering now but zoomed out (2 hours)
+        # Test with range covering now but zoomed out (2 hours).
+        # Only the egg should appear — the presence is filtered out
+        # at windows > 3 minutes.
         start = (now - timedelta(hours=1)).isoformat()
         end = (now + timedelta(hours=1)).isoformat()
         response = client.get(f"{url}?start={start}&end={end}")
         assert response.status_code == 200
         data = response.json()
-        # Should only have egg, not presence
         assert len(data) == 1
         ids = [item["id"] for item in data]
         assert f"egg_{egg.id}" in ids
         assert f"presence_{presence.id}" not in ids
 
-        # Test with range covering now and zoomed in (2 minutes)
+        # Test with range covering now and zoomed in (2 minutes).
+        # Presence dots are now included.
         start = (now - timedelta(minutes=1)).isoformat()
         end = (now + timedelta(minutes=1)).isoformat()
         response = client.get(f"{url}?start={start}&end={end}")
@@ -121,6 +136,35 @@ class TestTimelineViews:
         end = (now - timedelta(hours=4)).isoformat()
         response = client.get(f"{url}?start={start}&end={end}")
         assert response.json() == []
+
+    def test_timeline_data_includes_night_periods_when_window_spans_night(
+        self, client, mocker
+    ):
+        """Counterpart to ``test_timeline_data``: explicitly cover the
+        case where the query window straddles sunset/sunrise, so the
+        ``night_periods`` background items appear alongside the eggs
+        and periods. This is the behaviour that would previously cause
+        ``test_timeline_data`` to fail flakily when the wall clock
+        happened to be near dusk."""
+        # Pin to 22:00 UTC — well after London sunset in summer.
+        night_now = datetime(2025, 6, 15, 22, 0, 0, tzinfo=dt_timezone.utc)
+        mocker.patch("django.utils.timezone.now", return_value=night_now)
+
+        # Query a 2-hour window straddling midnight.
+        start = (night_now - timedelta(hours=1)).isoformat()
+        end = (night_now + timedelta(hours=1)).isoformat()
+        url = reverse("timeline_data")
+        response = client.get(f"{url}?start={start}&end={end}")
+
+        assert response.status_code == 200
+        data = response.json()
+        night_items = [d for d in data if d.get("className") == "timeline-night"]
+        # Exactly one night band should appear (the one starting at
+        # sunset on the current day).
+        assert len(night_items) >= 1, (
+            f"Expected at least one timeline-night item in response, got {data!r}"
+        )
+        assert all(item["type"] == "background" for item in night_items)
 
     def test_timeline_data_invalid_dates(self, client):
         url = reverse("timeline_data")
