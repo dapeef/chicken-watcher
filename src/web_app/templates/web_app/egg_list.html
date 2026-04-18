@@ -21,7 +21,7 @@
           <th><a href="?sort={{ col }}">{{ label }}</a></th>
         {% endif %}
       {% endfor %}
-      <th></th>
+      <th class="w-auto"></th>
     </tr>
   </thead>
 
@@ -32,9 +32,9 @@
       <td>{{ egg.nesting_box|default:'—' }}</td>
       <td>{{ egg.laid_at|date:"Y-m-d H:i" }}</td>
       <td>{{ egg.get_quality_display }}</td>
-      <td class="d-flex gap-1">
+      <td class="text-end text-nowrap">
         <a href="{% url 'egg_edit' egg.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-        <a href="{% url 'egg_delete' egg.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+        <a href="{% url 'egg_delete' egg.pk %}" class="btn btn-sm btn-outline-danger ms-1">Delete</a>
       </td>
     </tr>
   {% empty %}
