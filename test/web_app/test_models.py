@@ -6,6 +6,7 @@ from .factories import (
     ChickenFactory,
     EggFactory,
     NestingBoxFactory,
+    NestingBoxImageFactory,
     HardwareSensorFactory,
 )
 
@@ -99,3 +100,10 @@ class TestHardwareSensorModel:
     def test_str_offline(self):
         sensor = HardwareSensorFactory(name="rfid_1", is_connected=False)
         assert str(sensor) == "rfid_1 (Offline)"
+
+
+@pytest.mark.django_db
+class TestNestingBoxImageModel:
+    def test_str(self):
+        image = NestingBoxImageFactory()
+        assert "Image taken at" in str(image)

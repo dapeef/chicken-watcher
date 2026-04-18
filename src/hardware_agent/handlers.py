@@ -209,23 +209,27 @@ def handle_camera_frame(name: str, frame):
 
 def save_frame_to_db(cam_name: str, frame):
     """
-    frame: numpy.ndarray returned by cv2.VideoCapture.read()
-    """
-    # Django needs to save a file, not just the pixels
+    Encode ``frame`` (a numpy array from ``cv2.VideoCapture.read()``) as
+    JPEG and persist it as a :class:`NestingBoxImage`.
 
+    The current deployment uses a single overhead camera that covers
+    multiple nesting boxes (and some surrounding area), so images are
+    stored unassociated with a specific box. The originating camera is
+    recorded in the filename (``{cam_name}_{timestamp}.jpg``) so frames
+    from multiple cameras would remain distinguishable if that ever
+    changes.
+    """
     # 1) encode ndarray → JPEG bytes
     success, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
     if not success:
         raise RuntimeError("Could not encode frame to JPEG")
 
-    # 2) build a unique filename (cam + timestamp or UUID)
+    # 2) build a unique filename (cam + timestamp)
     ts = datetime.now().strftime("%Y%m%dT%H%M%S%f")[:-3]
     filename = f"{cam_name}_{ts}.jpg"
 
-    # 3) wrap in ContentFile and give it the filename
+    # 3) wrap in ContentFile and create the DB row
     django_file = ContentFile(buffer.tobytes(), name=filename)
-
-    # 4) create the DB row
     NestingBoxImage.objects.create(image=django_file)
 
     logger.debug("%s frame saved to db as %s", cam_name, filename)

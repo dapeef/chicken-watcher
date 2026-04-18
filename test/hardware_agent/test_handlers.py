@@ -205,7 +205,8 @@ class TestHardwareHandlers:
 
         image_record = NestingBoxImage.objects.first()
         assert image_record is not None
-        # The filename in image_record.image.name includes the upload_to path
+        # The filename in image_record.image.name includes the upload_to
+        # path prefix and the cam_name we passed in.
         assert "Cam1_" in image_record.image.name
 
     def test_save_frame_to_db_encode_fail(self, mocker):

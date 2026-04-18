@@ -112,6 +112,10 @@ class NestingBoxPresence(models.Model):
 
 
 class NestingBoxImage(models.Model):
+    # The current deployment uses a single overhead camera that covers
+    # both nesting boxes (and some of the surrounding area), so images
+    # aren't associated with a specific box. The originating camera is
+    # recorded in the stored filename (`{cam_name}_{timestamp}.jpg`).
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     image = models.ImageField(upload_to="nesting_box_images")
 
