@@ -68,7 +68,7 @@
                    onchange="submitForm()">
             <label class="form-check-label small" for="hen_{{ hen.pk }}">
               {{ hen.name }}
-              {% if hen.date_of_death %}<span class="text-muted">(†)</span>{% endif %}
+              {% if hen.date_of_death %}<span title="{{ hen.date_of_death }}">🪓</span>{% endif %}
             </label>
           </div>
           {% empty %}
