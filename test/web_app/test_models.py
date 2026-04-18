@@ -209,3 +209,47 @@ class TestNestingBoxImageModel:
     def test_str(self):
         image = NestingBoxImageFactory()
         assert "Image taken at" in str(image)
+
+
+@pytest.mark.django_db
+class TestFactoryTraits:
+    """Smoke tests that factory traits produce the expected model state."""
+
+    def test_chicken_deceased_trait(self):
+        hen = ChickenFactory(deceased=True)
+        assert hen.date_of_death is not None
+        assert not hen.is_alive
+
+    def test_chicken_untagged_trait(self):
+        hen = ChickenFactory(untagged=True)
+        assert hen.tag is None
+
+    def test_egg_edible_trait(self):
+        from web_app.models import Egg
+
+        egg = EggFactory(edible=True)
+        assert egg.quality == Egg.Quality.EDIBLE
+
+    def test_egg_messy_trait(self):
+        from web_app.models import Egg
+
+        egg = EggFactory(messy=True)
+        assert egg.quality == Egg.Quality.MESSY
+
+    def test_hardware_sensor_offline_trait(self):
+        sensor = HardwareSensorFactory(offline=True)
+        assert not sensor.is_connected
+
+    def test_presence_period_default_is_non_zero_duration(self):
+        period = NestingBoxPresencePeriodFactory()
+        assert period.duration.total_seconds() > 0
+
+    def test_presence_period_long_visit_trait(self):
+        period = NestingBoxPresencePeriodFactory(long_visit=True)
+        assert period.duration.total_seconds() >= 3600
+
+    def test_egg_factory_quality_is_enum_not_magic_string(self):
+        from web_app.models import Egg
+
+        egg = EggFactory()
+        assert egg.quality == Egg.Quality.SALEABLE
