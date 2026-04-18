@@ -3,7 +3,6 @@
 {% block title %}Metrics | Coop{% endblock %}
 
 {% block extra_head %}
-<!-- Vendored Chart.js 4.4.0 — see src/web_app/static/web_app/vendor/README.md -->
 <script src="{% static 'web_app/vendor/chartjs-4.4.0/chart.umd.min.js' %}"></script>
 <style>
   /* Sidebar — desktop: sticky column; mobile: collapsible panel above charts */
@@ -36,7 +35,6 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4">
   <h1 class="mb-0">Metrics</h1>
-  <!-- Mobile filter toggle — hidden on md+ -->
   <button class="btn btn-outline-secondary btn-sm d-md-none"
           type="button"
           data-bs-toggle="collapse"
@@ -51,10 +49,8 @@
 
   <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
   <aside id="metrics-sidebar" class="flex-shrink-0">
-    <!-- On mobile the form collapses; on md+ it's always visible -->
     <div class="collapse d-md-block mb-4 mb-md-0" id="metrics-sidebar-collapse">
     <form id="metrics-form" method="get">
-      {# Sentinel: always present so the view can tell a form submission from a fresh page load #}
       <input type="hidden" name="chickens_sent" value="1">
 
       <!-- Chickens -->
@@ -321,7 +317,6 @@
   </div>
 </div>
 
-{# Data handoff to metrics_charts.js. See timeline.html for the pattern. #}
 {{ metrics_chart_data|json_script:"metrics-chart-data" }}
 {% endblock %}
 

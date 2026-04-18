@@ -1,14 +1,3 @@
-{% comment %}
-  HTMX-polling dashboard panel. Rendered by the htmx_poll_panel
-  inclusion tag. Context available here:
-    partial           str  template path for the initial render
-    url               str  URL polled for refreshed HTML
-    columns           str  Bootstrap column classes
-    interval_seconds  int  polling interval in seconds
-    ... plus every variable from the outer context (forwarded by
-    takes_context=True), so the included partial can read its usual
-    dashboard context variables.
-{% endcomment %}
 <div class="{{ columns }}"
      hx-get="{{ url }}"
      hx-trigger="every {{ interval_seconds }}s">

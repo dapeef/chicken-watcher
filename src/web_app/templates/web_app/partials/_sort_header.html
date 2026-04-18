@@ -1,13 +1,3 @@
-{% comment %}
-  Single sortable table <th>. Rendered by the sort_header inclusion tag
-  in list_tables.py. Context:
-    col         str       query-string key for this column
-    label       str       human-readable column title
-    mobile      bool      visible at sub-md breakpoint?
-    direction   str|None  "ascending", "descending" or None
-    next_href   str       ``?sort=…`` to flip the sort
-    arrow       str       "▲", "▼", or ""
-{% endcomment %}
 <th scope="col"
     {% if direction %}aria-sort="{{ direction }}"{% endif %}
     class="fw-semibold{% if not direction %} text-muted{% endif %}{% if not mobile %} d-none d-md-table-cell{% endif %}">

@@ -1,16 +1,3 @@
-{% comment %}
-  Render one form field with Bootstrap 5 styling.
-
-  Radio/checkbox widgets need a different layout than the standard
-  label-above-input pattern, so we detect those and branch. Field
-  widgets already carry their ``form-control`` / ``form-select``
-  classes from the Python side (see forms.py), so this template just
-  handles the wrapping, labels, errors, and help text.
-
-  Context:
-    field     BoundField   the field to render
-    optional  bool (opt)   if true, append "(optional)" to the label
-{% endcomment %}
 <div class="mb-3">
   {% if field.field.widget.input_type == "radio" %}
     <label class="form-label" id="{{ field.id_for_label }}_group">

@@ -35,13 +35,6 @@
 
 </div>
 
-{% comment %}
-  Data handoff to timeline_page.js. json_script emits an HTML-escaped
-  JSON blob inside a <script type="application/json"> tag, which the
-  JS side reads via document.getElementById(...).textContent.
-  This is the safe way to get server-side data into client JS — no
-  risk of quote- or </script>-based XSS regardless of chicken names.
-{% endcomment %}
 {{ timeline_config|json_script:"timeline-config" }}
 {% endblock %}
 

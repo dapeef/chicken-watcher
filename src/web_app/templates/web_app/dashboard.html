@@ -12,9 +12,6 @@
 
   {% htmx_poll_panel "web_app/partials/_laid_chickens.html" url=partial_laid_chickens_url columns="col-12 col-md-6" %}
 
-  {# Latest nesting-box image. Swapped by dashboard_image.js (not htmx)
-     so we can preload the new JPEG before updating <img src>, avoiding
-     a flash between frames. #}
   <div class="col-12" id="image-container">
     {% include 'web_app/partials/_latest_image.html' %}
   </div>
@@ -27,7 +24,6 @@
 
 </div>
 
-{# Data handoff to dashboard_image.js via json_script. #}
 {{ dashboard_config|json_script:"dashboard-config" }}
 {% endblock %}
 
