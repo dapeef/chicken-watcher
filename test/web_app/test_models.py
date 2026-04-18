@@ -1,12 +1,14 @@
 import pytest
 from datetime import date, timedelta
+from django.db import IntegrityError, transaction
 from django.utils import timezone
-from web_app.models import NestingBoxPresence
+from web_app.models import NestingBoxPresence, NestingBoxPresencePeriod
 from .factories import (
     ChickenFactory,
     EggFactory,
     NestingBoxFactory,
     NestingBoxImageFactory,
+    NestingBoxPresencePeriodFactory,
     HardwareSensorFactory,
 )
 
@@ -79,6 +81,51 @@ class TestEggModel:
         assert egg.pk == egg_id, "Egg should still exist after nesting box deletion"
         assert egg.nesting_box is None
         assert egg.chicken == chicken, "Other FK should be unaffected"
+
+
+@pytest.mark.django_db
+class TestNestingBoxPresencePeriodConstraints:
+    """The started_at <= ended_at CheckConstraint was in the original
+    NestingBoxVisit schema (migration 0001) but dropped accidentally when
+    the model was renamed in 0011. Restored in migration 0023."""
+
+    def test_well_ordered_period_saves(self):
+        now = timezone.now()
+        period = NestingBoxPresencePeriodFactory(
+            started_at=now, ended_at=now + timedelta(minutes=5)
+        )
+        assert period.pk is not None
+
+    def test_equal_timestamps_are_allowed(self):
+        """A point-in-time presence (started == ended) is a legitimate
+        state and must be permitted; only 'ends before it starts' is a
+        violation."""
+        now = timezone.now()
+        period = NestingBoxPresencePeriodFactory(started_at=now, ended_at=now)
+        assert period.pk is not None
+
+    def test_ended_before_started_is_rejected(self):
+        """Direct creation of an inverted period must raise IntegrityError."""
+        now = timezone.now()
+        chicken = ChickenFactory()
+        box = NestingBoxFactory()
+        with pytest.raises(IntegrityError), transaction.atomic():
+            NestingBoxPresencePeriod.objects.create(
+                chicken=chicken,
+                nesting_box=box,
+                started_at=now,
+                ended_at=now - timedelta(seconds=1),
+            )
+
+    def test_updating_ended_at_backwards_is_rejected(self):
+        """Updating an existing row to violate the invariant must fail."""
+        now = timezone.now()
+        period = NestingBoxPresencePeriodFactory(
+            started_at=now, ended_at=now + timedelta(minutes=5)
+        )
+        period.ended_at = now - timedelta(minutes=5)
+        with pytest.raises(IntegrityError), transaction.atomic():
+            period.save(update_fields=["ended_at"])
 
 
 @pytest.mark.django_db

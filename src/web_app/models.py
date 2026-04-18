@@ -82,6 +82,14 @@ class NestingBoxPresencePeriod(models.Model):
     started_at = models.DateTimeField(default=timezone.now, db_index=True)
     ended_at = models.DateTimeField(default=timezone.now, db_index=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(ended_at__gte=models.F("started_at")),
+                name="presence_period_started_before_ended",
+            ),
+        ]
+
     @property
     def duration(self):
         return self.ended_at - self.started_at
