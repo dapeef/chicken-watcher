@@ -19,6 +19,67 @@ class TestTimelineViews:
         response = client.get(url)
         assert response.status_code == 200
 
+    def test_timeline_view_emits_timeline_config_json_script(self, client):
+        """The JS side reads group data via <script id='timeline-config'
+        type='application/json'>. Regression test that the config blob
+        is present and contains the chickens/URLs we expect."""
+        ChickenFactory(name="Henrietta")
+        response = client.get(reverse("timeline"))
+        content = response.content.decode()
+        assert 'id="timeline-config"' in content
+        assert 'type="application/json"' in content
+        # Chicken name is rendered inside the JSON, not inline in JS
+        assert "Henrietta" in content
+        # URLs are baked in for the JS to read
+        assert reverse("timeline_data") in content
+        assert reverse("timeline_images") in content
+
+    def test_timeline_view_escapes_dangerous_chicken_names(self, client):
+        """Regression test for a reflected-XSS vector on the timeline
+        page. Previously the template interpolated chicken names into
+        a JavaScript object literal:
+
+            {% for chicken in chickens %}
+            { id: '…', content: '{{ chicken.name }}', stack: false },
+            {% endfor %}
+
+        A chicken named ``"; alert(1); //`` would break out of the
+        string literal and execute arbitrary JS. A name containing
+        ``</script>`` would end the inline <script> tag prematurely
+        and inject a new one with whatever followed.
+
+        The fix: json_script emits the data inside a
+        ``<script type="application/json">`` block, which the browser
+        parses as text data only — and json_script itself escapes
+        ``<``, ``>``, ``&``, and line separators as their ``\\uNNNN``
+        equivalents so the closing-tag attack is impossible.
+        """
+        ChickenFactory(name="attack</script><script>alert(1)</script>")
+
+        response = client.get(reverse("timeline"))
+        content = response.content.decode()
+        assert response.status_code == 200
+
+        # The injected </script> must not appear literally in the
+        # response — if it did, the browser would close the JSON script
+        # block and start executing whatever came next.
+        assert "<script>alert(1)</script>" not in content
+        # The legitimate <script> tags on the page (htmx, bootstrap,
+        # timeline_utils, timeline_page) should exist but none of them
+        # should be inside the timeline-config element.
+        config_start = content.find('id="timeline-config"')
+        assert config_start != -1
+        # Find the matching </script> after the config element's opening
+        config_close = content.find("</script>", config_start)
+        assert config_close != -1
+        config_block = content[config_start:config_close]
+        # Inside the config element, there must be no </script>
+        assert "</script>" not in config_block.lower()
+        assert "<script>" not in config_block.lower()
+        # The escaped form is what we expect — json_script replaces
+        # "<" with "\u003C".
+        assert "\\u003C" in config_block or "\\u003c" in config_block
+
     def test_timeline_data(self, client):
         url = reverse("timeline_data")
 

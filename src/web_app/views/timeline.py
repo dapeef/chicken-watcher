@@ -1,4 +1,5 @@
 from datetime import timedelta
+from django.urls import reverse
 from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -26,7 +27,16 @@ class TimelineView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["chickens"] = Chicken.objects.all()
+        # The template emits this as ``{{ timeline_config|json_script:"…" }}``
+        # and ``static/web_app/js/timeline_page.js`` reads it. Using
+        # json_script means chicken names containing quotes, backslashes
+        # or ``</script>`` are properly escaped — previously these would
+        # break the page or allow reflected XSS via a chicken's name.
+        context["timeline_config"] = {
+            "chickens": list(Chicken.objects.values("id", "name").order_by("name")),
+            "timeline_data_url": reverse("timeline_data"),
+            "timeline_images_url": reverse("timeline_images"),
+        }
         return context
 
 

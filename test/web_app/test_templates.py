@@ -22,6 +22,66 @@ def _all_templates() -> list[Path]:
     return sorted(TEMPLATES_DIR.rglob("*.html"))
 
 
+class TestNoLargeInlineScripts:
+    """Inline <script> blocks over a certain size are a code smell:
+    they can't be cached by the browser, can't be covered by a CSP
+    policy, and are a pain to test and lint. Wave 4 is extracting the
+    three large inline scripts (metrics, timeline, chicken_detail)
+    into ``static/web_app/js/``. This test pins that decision so
+    future inline scripts stay small.
+
+    ``STILL_INLINE`` lists templates that are being migrated across
+    Wave 4 items and are currently expected to fail this check.
+    Remove from the set as each extraction lands.
+    """
+
+    MAX_INLINE_SCRIPT_CHARS = 500
+
+    # Templates known to still have oversized inline scripts. Each
+    # entry will be removed by its corresponding Wave 4 extraction
+    # commit.
+    STILL_INLINE: set[str] = {
+        "metrics.html",  # Wave 4 item 3
+        "chicken_detail.html",  # Wave 4 item 4
+        "dashboard.html",  # Wave 4 item 4 (DOMParser image-swap helper)
+    }
+
+    @pytest.mark.parametrize("template_path", _all_templates(), ids=lambda p: p.name)
+    def test_no_oversized_inline_script_blocks(self, template_path: Path):
+        import re
+
+        if template_path.name in self.STILL_INLINE:
+            pytest.xfail(
+                f"{template_path.name} still has an inline script pending "
+                f"extraction in a subsequent Wave 4 commit"
+            )
+
+        content = template_path.read_text()
+        # Match a <script> ... </script> block that does NOT carry a
+        # src= or type="application/json" attribute. Those are the
+        # legitimate cases (external file, data handoff).
+        inline_pattern = re.compile(
+            r"<script(?![^>]*\bsrc=)(?![^>]*type=\"application/json\")[^>]*>(.*?)</script>",
+            re.DOTALL | re.IGNORECASE,
+        )
+        for match in inline_pattern.finditer(content):
+            body = match.group(1).strip()
+            assert len(body) <= self.MAX_INLINE_SCRIPT_CHARS, (
+                f"{template_path.name} has an inline <script> block of "
+                f"{len(body)} chars (limit {self.MAX_INLINE_SCRIPT_CHARS}). "
+                f"Extract to a file under src/web_app/static/web_app/js/ "
+                f"and reference via {{% static %}}."
+            )
+        for match in inline_pattern.finditer(content):
+            body = match.group(1).strip()
+            assert len(body) <= self.MAX_INLINE_SCRIPT_CHARS, (
+                f"{template_path.name} has an inline <script> block of "
+                f"{len(body)} chars (limit {self.MAX_INLINE_SCRIPT_CHARS}). "
+                f"Extract to a file under src/web_app/static/web_app/js/ "
+                f"and reference via {{% static %}}."
+            )
+
+
 class TestNoCDNReferences:
     """All third-party assets should be vendored locally. A CDN
     reference in any template is a regression — see Wave 4 / item 30

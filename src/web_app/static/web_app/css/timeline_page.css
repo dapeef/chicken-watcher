@@ -1,0 +1,12 @@
+/* Styles specific to the full timeline page. Shared timeline item/dot
+   styles live in timeline.css. */
+
+#visualization {
+  width: 100%;
+}
+
+/* The vis-timeline library renders its own 1px border; we already have
+   a card border, so suppress the library's. */
+#visualization .vis-timeline {
+  border: none !important;
+}
