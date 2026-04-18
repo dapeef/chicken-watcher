@@ -245,6 +245,55 @@ class TestEggFormRendering:
 
 
 @pytest.mark.django_db
+class TestEggListPagination:
+    """EggListView paginates by 50 rows. The ``?sort=`` param must
+    survive across page links."""
+
+    def test_list_is_paginated_at_51_eggs(self, client):
+        for _ in range(51):
+            EggFactory()
+        response = client.get(reverse("egg_list"))
+        assert response.status_code == 200
+        assert response.context["is_paginated"] is True
+        assert len(response.context["object_list"]) == 50
+
+    def test_list_is_not_paginated_at_50_eggs(self, client):
+        for _ in range(50):
+            EggFactory()
+        response = client.get(reverse("egg_list"))
+        assert response.context["is_paginated"] is False
+
+    def test_page_2_shows_remaining_eggs(self, client):
+        for _ in range(51):
+            EggFactory()
+        response = client.get(reverse("egg_list") + "?page=2")
+        assert response.status_code == 200
+        assert len(response.context["object_list"]) == 1
+
+    def test_sort_param_survives_across_pages(self, client):
+        """The pagination partial should include ``?sort=…`` in every
+        page link so clicking ``Next`` doesn't reset the sort."""
+        for _ in range(60):
+            EggFactory()
+        response = client.get(reverse("egg_list") + "?sort=laid_at")
+        content = response.content.decode()
+        # The "Next" link should include both page=2 and sort=laid_at
+        assert "page=2" in content
+        assert "sort=laid_at" in content
+
+    def test_querystring_without_page_excludes_page_param(self, client):
+        """The helper context variable drops ``page`` so pagination
+        links don't produce ``?page=3&page=2`` when you click Next
+        from page 2."""
+        for _ in range(60):
+            EggFactory()
+        response = client.get(reverse("egg_list") + "?sort=laid_at&page=2")
+        qs = response.context["querystring_without_page"]
+        assert "sort=laid_at" in qs
+        assert "page=" not in qs
+
+
+@pytest.mark.django_db
 class TestEggListQueryCount:
     """Regression tests that the egg list view doesn't N+1 over
     chicken/nesting_box when rendering.

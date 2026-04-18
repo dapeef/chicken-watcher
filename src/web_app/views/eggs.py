@@ -8,16 +8,13 @@ from ..forms import EggForm
 class EggListView(ListView):
     model = Egg
     template_name = "web_app/egg_list.html"
+    paginate_by = 50  # 50 rows/page is comfortable on the Pi and phones
 
     def get_queryset(self):
         # select_related avoids an N+1 over chicken and nesting_box on
         # the egg_list template (which prints {{ egg.chicken.name }} and
         # {{ egg.nesting_box.name }} for every row). Without it a page
         # showing 200 eggs runs ~401 queries; with it, 1.
-        #
-        # Pagination is still TODO — see Wave 4 / Wave 5 in
-        # docs/tech-debt-review.md. Adding paginate_by without updating
-        # the template would silently truncate the list.
         qs = Egg.objects.select_related("chicken", "nesting_box")
 
         sort_param = self.request.GET.get("sort", "-laid_at")
@@ -37,6 +34,12 @@ class EggListView(ListView):
             ("laid_at", "Laid at", False),
             ("quality", "Quality", False),
         ]
+        # For the _pagination.html partial — preserve all query-string
+        # params across page links EXCEPT ``page`` (which gets replaced
+        # per link). Using .copy() produces a QueryDict we can mutate.
+        qs = self.request.GET.copy()
+        qs.pop("page", None)
+        ctx["querystring_without_page"] = qs.urlencode()
         return ctx
 
 
