@@ -187,3 +187,49 @@ class TestEggViews:
         }
         client.post(url, data)
         assert Egg.objects.count() == 1
+
+
+@pytest.mark.django_db
+class TestEggListQueryCount:
+    """Regression tests that the egg list view doesn't N+1 over
+    chicken/nesting_box when rendering.
+
+    Template iterates ``{{ egg.chicken.name }}`` and
+    ``{{ egg.nesting_box.name }}`` for every row. Without
+    ``select_related``, a 200-egg page produces 401 queries (1 for the
+    list + 200 for chickens + 200 for boxes). With it, 1.
+    """
+
+    def test_egg_list_is_constant_query_count(
+        self, client, django_assert_max_num_queries
+    ):
+        # Create a mix of eggs so chicken and box FK lookups both fire.
+        for _ in range(10):
+            EggFactory()
+
+        # Budget: the list query itself + session/other middleware queries.
+        # We assert on a small, generous ceiling rather than an exact number
+        # so unrelated middleware changes don't break this regression test.
+        with django_assert_max_num_queries(10):
+            response = client.get(reverse("egg_list"))
+            assert response.status_code == 200
+            # Force the template to render all rows (Django querysets are lazy)
+            list(response.context["object_list"])
+            # Access FK fields to trigger any lazy loads
+            for egg in response.context["object_list"]:
+                _ = egg.chicken and egg.chicken.name
+                _ = egg.nesting_box and egg.nesting_box.name
+
+    def test_egg_list_query_count_does_not_grow_with_egg_count(
+        self, client, django_assert_max_num_queries
+    ):
+        """Whether 1 egg or 50, query count should be the same."""
+        for _ in range(50):
+            EggFactory()
+
+        with django_assert_max_num_queries(10):
+            response = client.get(reverse("egg_list"))
+            assert response.status_code == 200
+            for egg in response.context["object_list"]:
+                _ = egg.chicken and egg.chicken.name
+                _ = egg.nesting_box and egg.nesting_box.name

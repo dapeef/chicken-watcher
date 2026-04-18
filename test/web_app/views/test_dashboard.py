@@ -203,3 +203,73 @@ class TestLatestEventsPartial:
         content = response.content.decode()
         # Should not silently render an empty <strong></strong> for the chicken
         assert "<strong></strong>" not in content
+
+
+@pytest.mark.django_db
+class TestDashboardPartialQueryCount:
+    """Each dashboard partial now only queries what its own panel
+    needs, instead of the previous monolithic
+    ``get_dashboard_context()`` that ran all 7 queries on every 5-second
+    HTMX refresh (× 6 panels = 42 queries per cycle, idle)."""
+
+    def _populate(self):
+        """A realistic mix: a few chickens, eggs today, sensors, an
+        image, and a presence period."""
+        c1 = ChickenFactory(name="C1")
+        c2 = ChickenFactory(name="C2")
+        b1 = NestingBoxFactory(name="left")
+        b2 = NestingBoxFactory(name="right")
+        EggFactory(chicken=c1, nesting_box=b1)
+        EggFactory(chicken=c2, nesting_box=b2)
+        NestingBoxPresencePeriodFactory(
+            chicken=c1,
+            nesting_box=b1,
+            started_at=timezone.now() - timedelta(minutes=5),
+            ended_at=timezone.now(),
+        )
+        HardwareSensorFactory(name="rfid_left_1", is_connected=True)
+        HardwareSensorFactory(name="camera_cam", is_connected=False)
+
+    def test_partial_eggs_today_is_cheap(self, client, django_assert_max_num_queries):
+        self._populate()
+        with django_assert_max_num_queries(3):
+            response = client.get(reverse("partial_eggs_today"))
+            assert response.status_code == 200
+
+    def test_partial_laid_chickens_is_cheap(
+        self, client, django_assert_max_num_queries
+    ):
+        self._populate()
+        with django_assert_max_num_queries(5):
+            response = client.get(reverse("partial_laid_chickens"))
+            assert response.status_code == 200
+
+    def test_partial_sensors_is_cheap(self, client, django_assert_max_num_queries):
+        self._populate()
+        with django_assert_max_num_queries(3):
+            response = client.get(reverse("partial_sensors"))
+            assert response.status_code == 200
+
+    def test_partial_latest_image_is_cheap(self, client, django_assert_max_num_queries):
+        self._populate()
+        with django_assert_max_num_queries(3):
+            response = client.get(reverse("partial_latest_image"))
+            assert response.status_code == 200
+
+    def test_partial_latest_events_is_cheap(
+        self, client, django_assert_max_num_queries
+    ):
+        self._populate()
+        with django_assert_max_num_queries(5):
+            response = client.get(reverse("partial_latest_events"))
+            assert response.status_code == 200
+
+    def test_partial_latest_presence_is_cheap(
+        self, client, django_assert_max_num_queries
+    ):
+        self._populate()
+        # latest_presence does one query per active box on SQLite;
+        # with two boxes that's ~4 queries total. Postgres does 1.
+        with django_assert_max_num_queries(8):
+            response = client.get(reverse("partial_latest_presence"))
+            assert response.status_code == 200

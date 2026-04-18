@@ -254,6 +254,10 @@ class MetricsView(TemplateView):
             # Fresh page load — default to all chickens
             chosen = list(all_chickens)
 
+        # Used by the batched "age production" query below to convert
+        # laid_at → age without re-fetching each hen's DoB.
+        chosen_dob_by_id = {hen.pk: hen.date_of_birth for hen in chosen}
+
         show_sum = req.get("show_sum", "") == "1"
         # Default mean to on for fresh page loads; respect the form value once submitted
         show_mean = req.get("show_mean", "" if chickens_sent else "1") == "1"
@@ -354,16 +358,25 @@ class MetricsView(TemplateView):
         ]
 
         # ── Egg time-of-day KDE (one series per hen + optional sum/mean) ──────
+        # Fetch all eggs for all chosen hens in a single query, then
+        # group in Python. Previously this was N+1 (one query per hen).
+        eggs_by_chicken: dict[int, list] = {hen.pk: [] for hen in chosen}
+        if chosen:
+            batched_eggs = Egg.objects.filter(
+                Q(chicken__in=chosen) & normal_egg_filter,
+                laid_at__date__range=(start, end),
+            ).only("id", "chicken_id", "laid_at")
+            for egg in batched_eggs:
+                eggs_by_chicken.setdefault(egg.chicken_id, []).append(egg)
+
         tod_egg_datasets = []
         kde_per_hen: list[list[float]] = []
 
         for idx, hen in enumerate(chosen):
             colour = PALETTE[idx % len(PALETTE)]
-            hen_eggs = Egg.objects.filter(
-                Q(chicken=hen) & normal_egg_filter,
-                laid_at__date__range=(start, end),
+            kde = egg_time_of_day_kde(
+                eggs_by_chicken.get(hen.pk, []), bandwidth=kde_bandwidth
             )
-            kde = egg_time_of_day_kde(hen_eggs, bandwidth=kde_bandwidth)
             kde_per_hen.append(kde)
             tod_egg_datasets.append(
                 {
@@ -436,16 +449,22 @@ class MetricsView(TemplateView):
                 )
 
         # ── Nesting time-of-day (one series per hen + optional sum/mean) ──────
+        # Same batch-then-group pattern as the egg KDE above.
+        periods_by_chicken: dict[int, list] = {hen.pk: [] for hen in chosen}
+        if chosen:
+            batched_periods = NestingBoxPresencePeriod.objects.filter(
+                chicken__in=chosen,
+                started_at__date__range=(start, end),
+            ).only("id", "chicken_id", "started_at", "ended_at")
+            for p in batched_periods:
+                periods_by_chicken.setdefault(p.chicken_id, []).append(p)
+
         tod_nest_datasets = []
         nest_per_hen: list[list[int]] = []
 
         for idx, hen in enumerate(chosen):
             colour = PALETTE[idx % len(PALETTE)]
-            periods = NestingBoxPresencePeriod.objects.filter(
-                chicken=hen,
-                started_at__date__range=(start, end),
-            )
-            counts = nesting_time_of_day(periods)
+            counts = nesting_time_of_day(periods_by_chicken.get(hen.pk, []))
             nest_per_hen.append(counts)
             smoothed = gaussian_smooth_circular(counts, nest_sigma)
             tod_nest_datasets.append(
@@ -629,25 +648,28 @@ class MetricsView(TemplateView):
         age_prod_datasets = []
         age_raw_counts_per_hen: list[list] = []
         if chosen and max_age_days > 0:
+            # One query for every chosen hen's egg-per-day aggregates;
+            # group by chicken_id in Python. Previously this ran one
+            # query per hen (N+1).
+            age_rows = (
+                Egg.objects.filter(Q(chicken__in=chosen) & normal_egg_filter)
+                .values("chicken_id", "laid_at__date")
+                .annotate(cnt=Count("id"))
+            )
+            age_counts_by_chicken: dict[int, dict] = {hen.pk: {} for hen in chosen}
+            for row in age_rows:
+                hen_id = row["chicken_id"]
+                age_day = (row["laid_at__date"] - chosen_dob_by_id[hen_id]).days
+                age_counts_by_chicken[hen_id][age_day] = row["cnt"]
+
             for idx, hen in enumerate(chosen):
                 colour = PALETTE[idx % len(PALETTE)]
                 dob = hen.date_of_birth
                 dod = hen.date_of_death or today
 
-                # All eggs for this hen across her full lifetime
-                hen_eggs_qs = (
-                    Egg.objects.filter(Q(chicken=hen) & normal_egg_filter)
-                    .values("laid_at__date")
-                    .annotate(cnt=Count("id"))
-                )
-                # Map age_day → count
-                age_counts: dict[int, int] = {}
-                for row in hen_eggs_qs:
-                    age_day = (row["laid_at__date"] - dob).days
-                    age_counts[age_day] = row["cnt"]
-
                 # Mask days outside this hen's lifetime with None.
                 max_alive_age = (dod - dob).days
+                age_counts = age_counts_by_chicken[hen.pk]
                 counts_by_age = [
                     age_counts.get(a, 0) if 0 <= a <= max_alive_age else None
                     for a in age_data_labels

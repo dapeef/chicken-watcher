@@ -10,7 +10,15 @@ class EggListView(ListView):
     template_name = "web_app/egg_list.html"
 
     def get_queryset(self):
-        qs = Egg.objects
+        # select_related avoids an N+1 over chicken and nesting_box on
+        # the egg_list template (which prints {{ egg.chicken.name }} and
+        # {{ egg.nesting_box.name }} for every row). Without it a page
+        # showing 200 eggs runs ~401 queries; with it, 1.
+        #
+        # Pagination is still TODO — see Wave 4 / Wave 5 in
+        # docs/tech-debt-review.md. Adding paginate_by without updating
+        # the template would silently truncate the list.
+        qs = Egg.objects.select_related("chicken", "nesting_box")
 
         sort_param = self.request.GET.get("sort", "-laid_at")
         qs = qs.order_by(sort_param)

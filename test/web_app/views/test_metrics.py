@@ -1701,3 +1701,68 @@ class TestMetricsViewAgeProd:
         labels = {d["label"] for d in datasets}
         assert "Sum" not in labels
         assert "Mean" not in labels
+
+
+@pytest.mark.django_db
+class TestMetricsViewQueryCount:
+    """The metrics view previously ran several per-hen queries inside
+    loops (egg KDE, nesting TOD, age production), so query count grew
+    linearly with the flock size. These tests pin the query count to
+    a constant ceiling regardless of how many hens are chosen."""
+
+    def _make_flock(self, n_hens: int, eggs_per_hen: int = 3):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        for _ in range(n_hens):
+            hen = ChickenFactory(date_of_birth=today - timedelta(days=365))
+            for d in range(eggs_per_hen):
+                EggFactory(
+                    chicken=hen,
+                    laid_at=timezone.make_aware(
+                        datetime.combine(
+                            today - timedelta(days=d),
+                            datetime.min.time(),
+                        )
+                    ),
+                )
+                NestingBoxPresencePeriodFactory(
+                    chicken=hen,
+                    started_at=timezone.make_aware(
+                        datetime.combine(
+                            today - timedelta(days=d),
+                            datetime.min.time(),
+                        )
+                    ),
+                    ended_at=timezone.make_aware(
+                        datetime.combine(
+                            today - timedelta(days=d),
+                            datetime.min.time(),
+                        )
+                    )
+                    + timedelta(minutes=5),
+                )
+
+    def test_query_count_is_bounded_at_10_hens(
+        self, client, django_assert_max_num_queries
+    ):
+        """Whatever the exact number of queries, it must not explode
+        with flock size. A generous ceiling of 40 queries catches the
+        old O(N) behaviour (which at 10 hens would exceed 60 queries)
+        without pinning the exact number."""
+        self._make_flock(10)
+        with django_assert_max_num_queries(40):
+            response = client.get(reverse("metrics"))
+            assert response.status_code == 200
+
+    def test_query_count_does_not_grow_with_flock_size(
+        self, client, django_assert_max_num_queries
+    ):
+        """Going from 5 to 20 hens must not add any queries. If it
+        does, there's another N+1 lurking."""
+        self._make_flock(20)
+        with django_assert_max_num_queries(40):
+            response = client.get(reverse("metrics"))
+            assert response.status_code == 200
