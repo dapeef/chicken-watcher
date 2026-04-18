@@ -101,8 +101,17 @@ Dashboard queries use PostgreSQL's `DISTINCT ON` when available, with a per-box 
 ## Management Commands
 
 - `seed` — multi-mode: generate test data, clear data, or upsert from CSV files
+  - `seed --mode=spawn_test_data --yes` — clear + repopulate with fake data (requires `DEBUG=True`)
+  - `seed --mode=clear --yes` — wipe all app data
+  - `seed --mode=seed_chickens` — upsert chickens from `chickens.csv`
+  - `seed --mode=seed_tags` — upsert RFID tags from `tags.csv`
+  - `seed --mode=seed_nesting_boxes` — ensure the standard nesting boxes exist
+- `import_chickens` — alias for `seed --mode=seed_chickens`
+- `import_tags` — alias for `seed --mode=seed_tags`
+- `ensure_nesting_boxes` — alias for `seed --mode=seed_nesting_boxes` (idempotent, safe for deployment)
 - `run_hardware_agent` — starts the hardware polling daemon
 - `prune_nesting_box_images` — deletes images not near any presence period or egg (run nightly)
+- `prune_nesting_box_images --all --yes` — deletes ALL images (requires explicit confirmation)
 
 ## Linting
 
