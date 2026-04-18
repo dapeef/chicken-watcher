@@ -29,10 +29,14 @@ def get_dashboard_context():
             .distinct("nesting_box_id")
         )
     else:
-        # Fallback for SQLite: pick the most recent period per box
+        # Fallback for SQLite: pick the most recent period per box.
+        # ``order_by()`` clears the default Meta.ordering before
+        # distinct(), otherwise Django silently adds the ordering
+        # columns to the SELECT list and distinct becomes a no-op.
         latest_presence = []
         box_ids = (
             NestingBoxPresencePeriod.objects.filter(ended_at__gte=today_start)
+            .order_by()
             .values_list("nesting_box_id", flat=True)
             .distinct()
         )

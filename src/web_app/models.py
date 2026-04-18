@@ -1,10 +1,124 @@
+from datetime import date, datetime, timedelta
+
 from django.db import models
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
+
+
+# ---------------------------------------------------------------------------
+# Custom QuerySets / Managers
+#
+# Keeping these alongside the models rather than in a separate ``managers.py``
+# because each queryset is tightly coupled to the fields on its model.
+# ---------------------------------------------------------------------------
+
+
+class ChickenQuerySet(models.QuerySet):
+    """Common filters on :class:`Chicken`."""
+
+    def alive(self) -> "ChickenQuerySet":
+        """Chickens without a date of death."""
+        return self.filter(date_of_death__isnull=True)
+
+    def deceased(self) -> "ChickenQuerySet":
+        """Chickens with a recorded date of death."""
+        return self.filter(date_of_death__isnull=False)
+
+
+class EggQuerySet(models.QuerySet):
+    """Common filters on :class:`Egg`."""
+
+    def saleable(self) -> "EggQuerySet":
+        return self.filter(quality=Egg.Quality.SALEABLE)
+
+    def edible(self) -> "EggQuerySet":
+        return self.filter(quality=Egg.Quality.EDIBLE)
+
+    def messy(self) -> "EggQuerySet":
+        return self.filter(quality=Egg.Quality.MESSY)
+
+    def laid_on(self, local_date: date) -> "EggQuerySet":
+        """Eggs laid on a specific **local** date.
+
+        Uses ``laid_at__date`` which Django evaluates in the current
+        timezone (``TIME_ZONE=Europe/London``), not UTC. For "today",
+        call with ``timezone.localdate()``.
+        """
+        return self.filter(laid_at__date=local_date)
+
+    def laid_between(self, start: date, end: date) -> "EggQuerySet":
+        """Eggs laid on local dates in the inclusive range ``[start, end]``."""
+        return self.filter(laid_at__date__range=(start, end))
+
+
+class NestingBoxPresencePeriodQuerySet(models.QuerySet):
+    """Common filters on :class:`NestingBoxPresencePeriod`."""
+
+    def ended_since(self, moment: datetime) -> "NestingBoxPresencePeriodQuerySet":
+        """Periods whose ``ended_at`` is at or after ``moment``.
+
+        Useful for "today's activity" queries where ``moment`` is the
+        local start-of-day converted to UTC.
+        """
+        return self.filter(ended_at__gte=moment)
+
+    def for_box(self, box) -> "NestingBoxPresencePeriodQuerySet":
+        return self.filter(nesting_box=box)
+
+    def overlapping(
+        self, start: datetime, end: datetime
+    ) -> "NestingBoxPresencePeriodQuerySet":
+        """Periods that overlap the interval ``[start, end]``.
+
+        Two intervals [a, b] and [c, d] overlap iff a <= d AND c <= b.
+        """
+        return self.filter(started_at__lte=end, ended_at__gte=start)
+
+
+class HardwareSensorQuerySet(models.QuerySet):
+    """Common filters on :class:`HardwareSensor`."""
+
+    def online(self) -> "HardwareSensorQuerySet":
+        return self.filter(is_connected=True)
+
+    def offline(self) -> "HardwareSensorQuerySet":
+        return self.filter(is_connected=False)
+
+
+class NestingBoxImageQuerySet(models.QuerySet):
+    """Common filters on :class:`NestingBoxImage`."""
+
+    def far_from_events(self, window: timedelta) -> "NestingBoxImageQuerySet":
+        """Images that are NOT within ``window`` of any
+        NestingBoxPresencePeriod or Egg.
+
+        Used by the prune job to delete "boring" frames (no chicken was
+        there and no egg was laid nearby in time). Encapsulated here so
+        the complex Exists() subquery is reusable and testable without
+        reaching into the management command.
+        """
+        nearby_presence = NestingBoxPresencePeriod.objects.filter(
+            started_at__lte=OuterRef("created_at") + window,
+            ended_at__gte=OuterRef("created_at") - window,
+        )
+        nearby_egg = Egg.objects.filter(
+            laid_at__gte=OuterRef("created_at") - window,
+            laid_at__lte=OuterRef("created_at") + window,
+        )
+        return self.filter(~Exists(nearby_presence) & ~Exists(nearby_egg))
+
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
 
 
 class Tag(models.Model):
     rfid_string = models.CharField(max_length=200, unique=True)
     number = models.PositiveIntegerField(unique=True)
+
+    class Meta:
+        ordering = ["number"]
 
     def __str__(self):
         return f"Tag {self.number} ({self.rfid_string})"
@@ -22,7 +136,10 @@ class Chicken(models.Model):
         Tag, on_delete=models.SET_NULL, null=True, blank=True, related_name="chickens"
     )
 
+    objects = ChickenQuerySet.as_manager()
+
     class Meta:
+        ordering = ["name"]
         constraints = [
             # Only one *live* chicken may hold a given tag.
             models.UniqueConstraint(
@@ -39,6 +156,10 @@ class Chicken(models.Model):
         end = self.date_of_death or timezone.localdate()
         return (end - self.date_of_birth).days
 
+    @property
+    def is_alive(self) -> bool:
+        return self.date_of_death is None
+
     def __str__(self):
         return self.name
 
@@ -46,11 +167,12 @@ class Chicken(models.Model):
 class NestingBox(models.Model):
     name = models.CharField(max_length=200)
 
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "nesting boxes"
+
     def __str__(self):
         return self.name.title()
-
-    class Meta:
-        verbose_name_plural = "nesting boxes"
 
 
 class Egg(models.Model):
@@ -72,6 +194,11 @@ class Egg(models.Model):
         default=Quality.SALEABLE,
         db_index=True,
     )
+
+    objects = EggQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-laid_at"]
 
     @property
     def is_saleable(self) -> bool:
@@ -97,7 +224,10 @@ class NestingBoxPresencePeriod(models.Model):
     started_at = models.DateTimeField(default=timezone.now, db_index=True)
     ended_at = models.DateTimeField(default=timezone.now, db_index=True)
 
+    objects = NestingBoxPresencePeriodQuerySet.as_manager()
+
     class Meta:
+        ordering = ["-started_at"]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(ended_at__gte=models.F("started_at")),
@@ -128,6 +258,9 @@ class NestingBoxPresence(models.Model):
     # Null for legacy records or when the sensor is not known.
     sensor_id = models.CharField(max_length=200, blank=True, default="")
 
+    class Meta:
+        ordering = ["-present_at"]
+
     def __str__(self):
         return (
             f"{self.chicken.name}, in {self.nesting_box.name} box at {self.present_at}"
@@ -141,6 +274,11 @@ class NestingBoxImage(models.Model):
     # recorded in the stored filename (`{cam_name}_{timestamp}.jpg`).
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     image = models.ImageField(upload_to="nesting_box_images")
+
+    objects = NestingBoxImageQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"Image taken at {self.created_at}"
@@ -158,6 +296,11 @@ class HardwareSensor(models.Model):
     status_message = models.TextField(
         blank=True
     )  # Error messages (e.g., "Permission Denied")
+
+    objects = HardwareSensorQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self):
         status = "Online" if self.is_connected else "Offline"
