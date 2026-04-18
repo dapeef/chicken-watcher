@@ -1,8 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Metrics | Coop{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Vendored Chart.js 4.4.0 — see src/web_app/static/web_app/vendor/README.md -->
+<script src="{% static 'web_app/vendor/chartjs-4.4.0/chart.umd.min.js' %}"></script>
 <style>
   /* Sidebar — desktop: sticky column; mobile: collapsible panel above charts */
   @media (min-width: 768px) {

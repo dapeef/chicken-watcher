@@ -1,16 +1,15 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Coop{% endblock %}</title>
 
-    <!-- Bootstrap -->
-    <link  href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-           rel="stylesheet">
-    
-    <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- Vendored Bootstrap 5.3.2. See src/web_app/static/web_app/vendor/README.md -->
+    <link href="{% static 'web_app/vendor/bootstrap-5.3.2/css/bootstrap.min.css' %}" rel="stylesheet">
+
+    <!-- Vendored HTMX 1.9.10 -->
+    <script src="{% static 'web_app/vendor/htmx-1.9.10/htmx.min.js' %}" defer></script>
 
     {% block extra_head %}{% endblock %}
 </head>
@@ -18,25 +17,42 @@
 
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand" href="{% url 'dashboard' %}">🐔 Coop</a>
+    <a class="navbar-brand" href="{% url 'dashboard' %}" aria-label="Coop — home">
+      <span aria-hidden="true">🐔</span> Coop
+    </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="mainNav">
       <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">Today</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'chicken_list' %}">Chickens</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'egg_list' %}">Eggs</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'metrics' %}">Metrics</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'timeline' %}">Timeline</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Today</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'chicken_list' or request.resolver_match.url_name == 'chicken_detail' %}active{% endif %}" href="{% url 'chicken_list' %}">Chickens</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'egg_list' or request.resolver_match.url_name == 'egg_create' or request.resolver_match.url_name == 'egg_edit' %}active{% endif %}" href="{% url 'egg_list' %}">Eggs</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'metrics' %}active{% endif %}" href="{% url 'metrics' %}">Metrics</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'timeline' %}active{% endif %}" href="{% url 'timeline' %}">Timeline</a></li>
       </ul>
     </div>
   </div>
 </nav>
 
-<div class="container pb-5">
+<main class="container pb-5" id="main-content">
+    {% if messages %}
+      <div class="mb-3" role="status" aria-live="polite">
+        {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
     {% block content %}{% endblock %}
-</div>
+</main>
+
+<!-- Vendored Bootstrap JS bundle (popper + js). End-of-body is intentional:
+     defers execution until after parsing, avoiding render-blocking. -->
+<script src="{% static 'web_app/vendor/bootstrap-5.3.2/js/bootstrap.bundle.min.js' %}"></script>
+
+{% block extra_scripts %}{% endblock %}
 </body>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </html>
