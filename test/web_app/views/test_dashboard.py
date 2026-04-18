@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, timedelta
 
 import pytest
 from django.urls import reverse
@@ -62,23 +62,35 @@ class TestDashboardViews:
         assert len(box1_entries) == 1
         assert box1_entries[0] == latest
 
-    def test_latest_presence_separate_entries_per_box(self, client):
-        """One entry is returned for each box that has a period today."""
+    def test_latest_presence_separate_entries_per_box(self, client, mocker):
+        """One entry is returned for each box that has a period today.
+
+        Pinned to midday so the test doesn't fail near BST midnight
+        (where timezone.now() and today_start straddle the UTC↔BST
+        boundary and periods created with timezone.now() - 20min might
+        fall on "yesterday" in local time).
+        """
+        from datetime import datetime
+
+        fixed_noon = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
+        mocker.patch("django.utils.timezone.now", return_value=fixed_noon)
+
         c1 = ChickenFactory(name="C1")
         b1 = NestingBoxFactory(name="Box1")
         b2 = NestingBoxFactory(name="Box2")
 
+        now = timezone.now()
         p1 = NestingBoxPresencePeriodFactory(
             chicken=c1,
             nesting_box=b1,
-            started_at=timezone.now() - timedelta(minutes=20),
-            ended_at=timezone.now() - timedelta(minutes=15),
+            started_at=now - timedelta(minutes=20),
+            ended_at=now - timedelta(minutes=15),
         )
         p2 = NestingBoxPresencePeriodFactory(
             chicken=c1,
             nesting_box=b2,
-            started_at=timezone.now() - timedelta(minutes=10),
-            ended_at=timezone.now() - timedelta(minutes=5),
+            started_at=now - timedelta(minutes=10),
+            ended_at=now - timedelta(minutes=5),
         )
 
         response = client.get(reverse("dashboard"))

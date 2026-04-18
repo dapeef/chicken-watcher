@@ -226,6 +226,9 @@ def populate_data():
 
                 earliest_egg = day_start + datetime.timedelta(hours=6)
                 latest_egg = min(day_start + datetime.timedelta(hours=20), timezone.localtime())
+                if latest_egg <= earliest_egg:
+                    # Running during early hours of this day: skip today's eggs
+                    continue
                 start_time = random_date(earliest_egg, latest_egg)
 
                 seconds_in_box = randint(10, 5 * 60)  # Between 10 secs and 5 mins

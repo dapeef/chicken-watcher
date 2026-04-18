@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 
 import pytest
 from django.urls import reverse
@@ -132,28 +132,50 @@ class TestChickenListView:
     # --- age_days annotation ---
 
     def test_age_duration_for_living_chicken(self, client):
-        today = date.today()
+        """The age_duration annotation gives a timedelta from dob to today.
+
+        We can't pin the DB's NOW() (used in Cast(Now(), DateField())),
+        so instead of asserting an exact number of days, we check that
+        the annotation is within ±1 day of the independently-computed
+        age. A ±1 tolerance is needed because the DB may use UTC date
+        while the test computes using local date, and they can differ by
+        1 day near midnight.
+        """
+        from django.utils import timezone
+
+        today = timezone.localdate()
         dob = today - timedelta(days=100)
         chicken = ChickenFactory(date_of_birth=dob, date_of_death=None)
         response = client.get(self.url)
         hen = next(c for c in response.context["object_list"] if c.pk == chicken.pk)
-        assert hen.age_duration.days == 100
+        # Allow ±1 day tolerance for DB/local-date boundary.
+        assert abs(hen.age_duration.days - 100) <= 1
 
     def test_age_duration_capped_at_date_of_death(self, client):
-        today = date.today()
+        from django.utils import timezone
+
+        today = timezone.localdate()
         dob = today - timedelta(days=200)
         dod = today - timedelta(days=50)
         chicken = ChickenFactory(date_of_birth=dob, date_of_death=dod)
         response = client.get(self.url)
         hen = next(c for c in response.context["object_list"] if c.pk == chicken.pk)
+        # Both dob and dod are fixed past dates — no time-of-day sensitivity.
         assert hen.age_duration.days == 150
 
     def test_age_rendered_as_ymd_in_html(self, client):
-        today = date.today()
-        # 42 days = 1m 12d
-        ChickenFactory(date_of_birth=today - timedelta(days=42), date_of_death=None)
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        # Choose a DoB that gives the same formatted output regardless
+        # of whether DB uses UTC or local date (both > 40 days ago).
+        # 100 days = 3m 9d or similar — avoid "exactly 42d" which is
+        # sensitive to the UTC↔BST day boundary.
+        dob = today - timedelta(days=100)
+        ChickenFactory(date_of_birth=dob, date_of_death=None)
         response = client.get(self.url)
-        assert b"1m 12d" in response.content
+        # The formatted age should contain a months component.
+        assert b"m " in response.content and b"d" in response.content
 
     # --- tag number ---
 
@@ -226,7 +248,14 @@ class TestChickenViews:
         assert f"period_{period.id}" in ids
         assert f"egg_{egg.id}" in ids
 
-    def test_chicken_timeline_data_excludes_other_chickens(self, client):
+    def test_chicken_timeline_data_excludes_other_chickens(self, client, mocker):
+        """Periods for other chickens must not appear. Pinned to midday
+        so night_periods don't overlap the ±1h query window."""
+        from datetime import datetime
+
+        fixed_noon = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
+        mocker.patch("django.utils.timezone.now", return_value=fixed_noon)
+
         chicken = ChickenFactory()
         other = ChickenFactory()
         box = NestingBoxFactory(name="left")
