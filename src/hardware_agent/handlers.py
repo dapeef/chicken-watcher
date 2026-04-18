@@ -63,7 +63,6 @@ def _nesting_box_name_for_sensor(sensor_name: str) -> str:
     return sensor_name
 
 
-@transaction.atomic
 def handle_tag_read(name: str, tag: str):
     """Handle an RFID tag read event from a sensor named *name*.
 
@@ -72,73 +71,126 @@ def handle_tag_read(name: str, tag: str):
     the box name from *name* via :func:`_nesting_box_name_for_sensor`.
     The original sensor name is stored on the presence records so that
     individual sensors can be distinguished on the timeline.
+
+    Each nesting box has up to four RFID readers. Without coordination,
+    concurrent reads of the same tag from different readers in the same box
+    race each other: both transactions see "no recent period exists" and
+    each INSERTs a fresh one, producing duplicates. We serialise on the
+    ``Chicken`` row via ``select_for_update`` so only one handler at a time
+    can extend-or-create a period for any given chicken.
     """
+    # These two sit outside the transaction so an in-flight event is still
+    # reported even if the per-read transaction rolls back.
     report_event(f"rfid_{name}")
     logger.info("[%s] Nesting box detected tag: %s", name, tag)
+
     box_name = _nesting_box_name_for_sensor(name)
     try:
-        nesting_box = NestingBox.objects.get(name=box_name)
-        tag_obj = Tag.objects.get(rfid_string=tag)
-        chicken = Chicken.objects.get(tag=tag_obj, date_of_death__isnull=True)
-
-        now = timezone.now()
-
-        # Look for an existing period for this chicken in this box that ended recently
-        recent_period = (
-            NestingBoxPresencePeriod.objects.filter(
-                chicken=chicken,
-                nesting_box=nesting_box,
-                ended_at__gte=now - timedelta(seconds=NESTING_BOX_PRESENCE_TIMEOUT),
-            )
-            .order_by("ended_at")
-            .last()
-        )
-
-        if recent_period:
-            # Check if there is a more recent period in a different box
-            if (
-                NestingBoxPresencePeriod.objects.filter(
-                    chicken=chicken, ended_at__gt=recent_period.ended_at
-                )
-                .exclude(nesting_box=nesting_box)
-                .exists()
-            ):
-                recent_period = None
-
-        if recent_period:
-            recent_period.ended_at = now
-            recent_period.save()
-            period = recent_period
-        else:
-            period = NestingBoxPresencePeriod.objects.create(
-                chicken=chicken,
-                nesting_box=nesting_box,
-                started_at=now,
-                ended_at=now,
-            )
-
-        NestingBoxPresence.objects.create(
-            nesting_box=nesting_box,
-            chicken=chicken,
-            present_at=now,
-            presence_period=period,
-            sensor_id=name,
-        )
-
-        logger.info(
-            "[%s] Chicken %s (tag: %s) added to nesting box. Period ID: %s",
-            name,
-            chicken.name,
-            tag,
-            period.id,
-        )
-
+        _record_tag_read(name=name, tag=tag, box_name=box_name)
     except Tag.DoesNotExist:
         logger.error("No tag found matching rfid string: %s", tag)
     except Chicken.DoesNotExist:
         logger.error("No live chicken found assigned to tag: %s", tag)
     except NestingBox.DoesNotExist:
         logger.error("No matching nesting box found matching name: %s", box_name)
+
+
+@transaction.atomic
+def _record_tag_read(*, name: str, tag: str, box_name: str) -> None:
+    """Resolve the box/tag/chicken and record the presence. Raises the
+    standard DoesNotExist exceptions if any lookup fails; they're caught
+    and logged by the caller.
+
+    The ``Chicken`` row is locked for update (``select_for_update``) at the
+    start of the transaction. This serialises all handlers operating on
+    the same chicken, so the period-extend-or-create logic executes
+    without races. On SQLite ``select_for_update`` is a no-op but SQLite
+    serialises all writes anyway, so correctness is preserved.
+    """
+    nesting_box = NestingBox.objects.get(name=box_name)
+    tag_obj = Tag.objects.get(rfid_string=tag)
+
+    # Lock the chicken row. Any concurrent handler reading the same chicken
+    # will block here until we commit, guaranteeing a consistent view of
+    # that chicken's presence periods for the duration of this transaction.
+    chicken = Chicken.objects.select_for_update().get(
+        tag=tag_obj, date_of_death__isnull=True
+    )
+
+    now = timezone.now()
+
+    # Find the most recent period for this chicken+box, then check whether
+    # a later period in a different box makes it stale. With the chicken
+    # lock held, no concurrent transaction can insert between these two
+    # queries.
+    recent_period = _find_extensible_period(chicken, nesting_box, now)
+
+    if recent_period is not None:
+        recent_period.ended_at = now
+        recent_period.save(update_fields=["ended_at"])
+        period = recent_period
+    else:
+        period = NestingBoxPresencePeriod.objects.create(
+            chicken=chicken,
+            nesting_box=nesting_box,
+            started_at=now,
+            ended_at=now,
+        )
+
+    NestingBoxPresence.objects.create(
+        nesting_box=nesting_box,
+        chicken=chicken,
+        present_at=now,
+        presence_period=period,
+        sensor_id=name,
+    )
+
+    logger.info(
+        "[%s] Chicken %s (tag: %s) added to nesting box. Period ID: %s",
+        name,
+        chicken.name,
+        tag,
+        period.id,
+    )
+
+
+def _find_extensible_period(chicken, nesting_box, now):
+    """Return a :class:`NestingBoxPresencePeriod` for ``chicken``+``nesting_box``
+    that can be extended to ``now``, or ``None`` if a new period should
+    be created.
+
+    A period is extensible when:
+
+    * it ended within :data:`NESTING_BOX_PRESENCE_TIMEOUT` seconds of ``now``, and
+    * no later period exists for the same chicken in a different box
+      (which would indicate the chicken left this box after that period
+      ended).
+
+    Must be called inside a transaction with the chicken row locked.
+    """
+    recent_period = (
+        NestingBoxPresencePeriod.objects.filter(
+            chicken=chicken,
+            nesting_box=nesting_box,
+            ended_at__gte=now - timedelta(seconds=NESTING_BOX_PRESENCE_TIMEOUT),
+        )
+        .order_by("ended_at")
+        .last()
+    )
+
+    if recent_period is None:
+        return None
+
+    seen_elsewhere_since = (
+        NestingBoxPresencePeriod.objects.filter(
+            chicken=chicken, ended_at__gt=recent_period.ended_at
+        )
+        .exclude(nesting_box=nesting_box)
+        .exists()
+    )
+    if seen_elsewhere_since:
+        return None
+    return recent_period
 
 
 def save_frame_to_file(cam_name, frame):
