@@ -23,7 +23,7 @@ def run_agent():
             port = os.environ.get(f"RFID_PORT_{box.upper()}_{n}")
             manager.add_rfid_reader(f"{box}_{n}", port)
 
-    manager.add_camera("cam", os.environ.get("CAMERA_DEVICE_BY_ID"))
+    manager.add_camera("cam", os.environ.get("CAMERA_DEVICE"))
 
     if LGPIOFactory is None:
         logger.warning("lgpio is not available; GPIO/beam sensors will be disabled")
