@@ -85,9 +85,7 @@ class TestMetricsViewAgeProd:
         EggFactory(chicken=hen_old, laid_at=egg_dt)
         EggFactory(chicken=hen_young, laid_at=egg_dt)
 
-        response = client.get(
-            reverse("metrics"), self._params(start, end, [hen_old, hen_young])
-        )
+        response = client.get(reverse("metrics"), self._params(start, end, [hen_old, hen_young]))
         datasets = json.loads(response.context["age_prod_datasets_json"])
         labels = json.loads(response.context["age_prod_labels_json"])
 
@@ -107,9 +105,7 @@ class TestMetricsViewAgeProd:
         hen = ChickenFactory(date_of_birth=dob)
         start = today - timedelta(days=6)
         age_100_date = dob + timedelta(days=100)
-        egg_dt = datetime.combine(
-            age_100_date, datetime.min.time(), tzinfo=UTC
-        )
+        egg_dt = datetime.combine(age_100_date, datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen, laid_at=egg_dt)
 
         response = client.get(reverse("metrics"), self._params(start, today, [hen]))

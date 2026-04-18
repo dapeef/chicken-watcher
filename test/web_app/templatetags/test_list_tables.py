@@ -4,9 +4,7 @@ from django.template import Context, Template
 
 
 def _render(col: str, label: str, current_sort: str, mobile: bool = True) -> str:
-    tmpl = Template(
-        "{% load list_tables %}{% sort_header col label current_sort mobile %}"
-    )
+    tmpl = Template("{% load list_tables %}{% sort_header col label current_sort mobile %}")
     return tmpl.render(
         Context(
             {

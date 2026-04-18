@@ -65,9 +65,7 @@ class HardwareManager:
 
     def add_camera(self, name: str, device: str) -> None:
         if not device:
-            self._skip(
-                CAMERA_PREFIX, name, "No device provided", "No device configured"
-            )
+            self._skip(CAMERA_PREFIX, name, "No device provided", "No device configured")
             return
 
         camera = USBCamera(name, device=device, fps=1)

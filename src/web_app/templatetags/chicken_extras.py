@@ -73,9 +73,7 @@ def duration_hms(value) -> str:
     if value is None:
         return "0.0 secs"
     try:
-        total_seconds_f = (
-            value.total_seconds() if isinstance(value, timedelta) else float(value)
-        )
+        total_seconds_f = value.total_seconds() if isinstance(value, timedelta) else float(value)
     except (TypeError, ValueError, AttributeError):
         return "0.0 secs"
 

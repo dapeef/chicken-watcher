@@ -45,9 +45,7 @@ def run_agent() -> None:
             pin_factory = None
 
     manager.add_beam_sensor("left", os.environ.get("BEAM_BREAK_GPIO_LEFT"), pin_factory)
-    manager.add_beam_sensor(
-        "right", os.environ.get("BEAM_BREAK_GPIO_RIGHT"), pin_factory
-    )
+    manager.add_beam_sensor("right", os.environ.get("BEAM_BREAK_GPIO_RIGHT"), pin_factory)
 
     logger.info("Hardware Manager started. Sensors are connecting in background.")
 

@@ -201,8 +201,7 @@ class TestEggListTimezoneDisplay:
             "Expected BST local time '10:30' in egg list but it was not found"
         )
         assert "09:30" not in content, (
-            "UTC time '09:30' appeared in egg list – template is not converting "
-            "to local time"
+            "UTC time '09:30' appeared in egg list – template is not converting to local time"
         )
 
     def test_gmt_egg_displayed_same_as_utc(self, client):
@@ -244,12 +243,8 @@ class TestEggListTimezoneDisplay:
         response = client.get(url)
         content = response.content.decode()
 
-        assert "2025-06-15" in content, (
-            "Expected BST date June 15 but it was not in the response"
-        )
-        assert "2025-06-14" not in content, (
-            "UTC date June 14 appeared – template is using UTC date"
-        )
+        assert "2025-06-15" in content, "Expected BST date June 15 but it was not in the response"
+        assert "2025-06-14" not in content, "UTC date June 14 appeared – template is using UTC date"
 
 
 # ---------------------------------------------------------------------------
@@ -338,13 +333,9 @@ class TestDashboardTimezone:
         )
 
         # 3 eggs all within BST today (between 23:00 UTC June 14 and now)
-        EggFactory(
-            laid_at=datetime(2025, 6, 14, 23, 30, tzinfo=UTC)
-        )  # 00:30 BST June 15
+        EggFactory(laid_at=datetime(2025, 6, 14, 23, 30, tzinfo=UTC))  # 00:30 BST June 15
         EggFactory(laid_at=datetime(2025, 6, 15, 7, 0, tzinfo=UTC))  # 08:00 BST June 15
-        EggFactory(
-            laid_at=datetime(2025, 6, 15, 11, 0, tzinfo=UTC)
-        )  # 12:00 BST June 15
+        EggFactory(laid_at=datetime(2025, 6, 15, 11, 0, tzinfo=UTC))  # 12:00 BST June 15
 
         ctx = get_dashboard_context()
         assert ctx["eggs_today"] == 3

@@ -33,16 +33,12 @@ def test_seed_command_spawn_test_data(settings):
 
     # Every period should be linked to a chicken and a nesting box
     assert not NestingBoxPresencePeriod.objects.filter(chicken__isnull=True).exists()
-    assert not NestingBoxPresencePeriod.objects.filter(
-        nesting_box__isnull=True
-    ).exists()
+    assert not NestingBoxPresencePeriod.objects.filter(nesting_box__isnull=True).exists()
 
     # Every period should have ended_at >= started_at
     from django.db.models import F
 
-    assert not NestingBoxPresencePeriod.objects.filter(
-        ended_at__lt=F("started_at")
-    ).exists()
+    assert not NestingBoxPresencePeriod.objects.filter(ended_at__lt=F("started_at")).exists()
 
 
 @pytest.mark.django_db
@@ -183,9 +179,7 @@ def test_seed_chickens_creates_from_csv(tmp_path):
     TagFactory(number=2, rfid_string="11223344")
 
     csv_path = tmp_path / "chickens.csv"
-    csv_path.write_text(
-        "Name,DoB,Tag number\nHenrietta,2025-01-15,1\nCluckers,2025-03-20,2\n"
-    )
+    csv_path.write_text("Name,DoB,Tag number\nHenrietta,2025-01-15,1\nCluckers,2025-03-20,2\n")
 
     from web_app.management.commands.seed import seed_chickens_from_csv
 
@@ -202,9 +196,7 @@ def test_seed_chickens_creates_from_csv(tmp_path):
 def test_seed_chickens_updates_existing_chicken(tmp_path):
     old_tag = TagFactory(number=1, rfid_string="OLDTAG")
     new_tag = TagFactory(number=2, rfid_string="NEWTAG")
-    ChickenFactory(
-        name="Henrietta", date_of_birth=datetime.date(2024, 1, 1), tag=old_tag
-    )
+    ChickenFactory(name="Henrietta", date_of_birth=datetime.date(2024, 1, 1), tag=old_tag)
 
     csv_path = tmp_path / "chickens.csv"
     csv_path.write_text("Name,DoB,Tag number\nHenrietta,2025-01-15,2\n")
@@ -323,9 +315,7 @@ class TestDestructiveModeGuards:
         # Data untouched
         assert Chicken.objects.count() == 1
 
-    def test_spawn_test_data_refuses_without_yes_in_non_interactive(
-        self, mocker, settings
-    ):
+    def test_spawn_test_data_refuses_without_yes_in_non_interactive(self, mocker, settings):
         """Even with DEBUG=True, spawn_test_data requires --yes when
         non-interactive. The DEBUG guard is layered on top of, not a
         replacement for, the confirmation guard."""

@@ -170,9 +170,7 @@ def nesting_time_of_day(periods: Iterable) -> list[int]:
         # calendar date and which bucket index it falls in.
         cursor = local_start.replace(second=0, microsecond=0)
         # Snap cursor back to the start of its bucket
-        cursor = cursor.replace(
-            minute=(cursor.minute // BUCKET_MINUTES) * BUCKET_MINUTES
-        )
+        cursor = cursor.replace(minute=(cursor.minute // BUCKET_MINUTES) * BUCKET_MINUTES)
 
         while cursor < local_end:
             bucket = (cursor.hour * 60 + cursor.minute) // BUCKET_MINUTES
@@ -190,9 +188,7 @@ def nesting_time_of_day(periods: Iterable) -> list[int]:
 KDE_BANDWIDTH_MINUTES = 25
 
 
-def egg_time_of_day_kde(
-    eggs: Iterable, bandwidth: int = KDE_BANDWIDTH_MINUTES
-) -> list[float]:
+def egg_time_of_day_kde(eggs: Iterable, bandwidth: int = KDE_BANDWIDTH_MINUTES) -> list[float]:
     """Given an iterable of :class:`Egg` instances, return a list of
     :data:`BUCKETS_PER_DAY` density values using a circular Gaussian KDE.
 

@@ -190,9 +190,7 @@ class TestChickenListView:
 class TestChickenViews:
     def test_chicken_detail_view(self, client):
         chicken = ChickenFactory()
-        EggFactory.create_batch(
-            5, chicken=chicken, laid_at=timezone.now() - timedelta(days=1)
-        )
+        EggFactory.create_batch(5, chicken=chicken, laid_at=timezone.now() - timedelta(days=1))
 
         url = reverse("chicken_detail", kwargs={"pk": chicken.pk})
         response = client.get(url)

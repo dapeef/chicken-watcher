@@ -18,7 +18,6 @@ from web_app.services.hardware_events import (
     report_event,
     report_status,
     save_frame_to_db,
-    save_frame_to_file,
 )
 
 # The tests below use caplog with this logger name; centralised so it's
@@ -35,9 +34,7 @@ class TestHardwareHandlers:
 
         handle_tag_read("Box1", "12345")
 
-        presence = NestingBoxPresence.objects.filter(
-            chicken=chicken, nesting_box=box
-        ).first()
+        presence = NestingBoxPresence.objects.filter(chicken=chicken, nesting_box=box).first()
         assert presence is not None
         assert presence.presence_period is not None
         assert presence.presence_period.chicken == chicken
@@ -125,9 +122,7 @@ class TestHardwareHandlers:
         mocker.patch("django.utils.timezone.now", return_value=t2)
         handle_tag_read("Box1", "12345")
 
-        periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by(
-            "started_at"
-        )
+        periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by("started_at")
         assert periods.count() == 2
         assert periods[0].ended_at == t0
         assert periods[1].started_at == t2
@@ -138,8 +133,7 @@ class TestHardwareHandlers:
             handle_tag_read("Box1", "unknown")
         assert NestingBoxPresence.objects.count() == 0
         assert any(
-            "No tag found matching rfid string" in r.message
-            and r.levelno == logging.ERROR
+            "No tag found matching rfid string" in r.message and r.levelno == logging.ERROR
             for r in caplog.records
         )
 
@@ -151,8 +145,7 @@ class TestHardwareHandlers:
             handle_tag_read("Box1", "12345")
         assert NestingBoxPresence.objects.count() == 0
         assert any(
-            "No live chicken found assigned to tag" in r.message
-            and r.levelno == logging.ERROR
+            "No live chicken found assigned to tag" in r.message and r.levelno == logging.ERROR
             for r in caplog.records
         )
 
@@ -189,8 +182,7 @@ class TestHardwareHandlers:
             handle_beam_break("Box1")
         assert Egg.objects.count() == 0
         assert any(
-            "No NestingBoxPresence found for box" in r.message
-            and r.levelno == logging.WARNING
+            "No NestingBoxPresence found for box" in r.message and r.levelno == logging.WARNING
             for r in caplog.records
         )
 
@@ -237,19 +229,6 @@ class TestHardwareHandlers:
         assert sensor.is_connected is True
         assert sensor.last_event_at is not None
 
-    def test_save_frame_to_file(self, tmp_path, mocker):
-        # Mock pathlib.Path("frames") to use tmp_path
-        mocker.patch(
-            "web_app.services.hardware_events.pathlib.Path", return_value=tmp_path
-        )
-
-        frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        save_frame_to_file("CamTest", frame)
-
-        # Check if file was created in tmp_path
-        files = list(tmp_path.glob("CamTest_*.jpg"))
-        assert len(files) == 1
-
     def test_save_frame_to_db_logs_debug(self, caplog):
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
         with caplog.at_level(logging.DEBUG, logger=LOGGER_NAME):
@@ -267,8 +246,7 @@ class TestHardwareHandlers:
         with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             report_status("test_sensor", True)
         assert any(
-            "Error reporting status for test_sensor" in r.message
-            and r.levelno == logging.ERROR
+            "Error reporting status for test_sensor" in r.message and r.levelno == logging.ERROR
             for r in caplog.records
         )
 
@@ -280,8 +258,7 @@ class TestHardwareHandlers:
         with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             report_event("test_sensor")
         assert any(
-            "Error reporting event for test_sensor" in r.message
-            and r.levelno == logging.ERROR
+            "Error reporting event for test_sensor" in r.message and r.levelno == logging.ERROR
             for r in caplog.records
         )
 
@@ -398,8 +375,7 @@ class TestHandleTagReadRaceCondition:
         # instead of creating a duplicate.
         periods = list(NestingBoxPresencePeriod.objects.all())
         assert len(periods) == 1, (
-            f"Expected one period from two same-instant reads, got "
-            f"{len(periods)}: {periods}"
+            f"Expected one period from two same-instant reads, got {len(periods)}: {periods}"
         )
         assert NestingBoxPresence.objects.count() == 2
 
@@ -448,9 +424,7 @@ class TestMultiSensorTagRead:
         for n in range(1, 5):
             handle_tag_read(f"left_{n}", "12345")
 
-        presences = NestingBoxPresence.objects.filter(nesting_box=box).order_by(
-            "present_at"
-        )
+        presences = NestingBoxPresence.objects.filter(nesting_box=box).order_by("present_at")
         assert presences.count() == 4
         assert [p.sensor_id for p in presences] == [
             "left_1",

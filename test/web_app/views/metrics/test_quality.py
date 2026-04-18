@@ -131,9 +131,7 @@ class TestMetricsViewQualityEggs:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
-        before_range = datetime.combine(
-            start - timedelta(days=1), datetime.min.time(), tzinfo=UTC
-        )
+        before_range = datetime.combine(start - timedelta(days=1), datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=hen, laid_at=before_range, quality="messy")
 
         params = {**self._base_params(start, today), "chickens": str(hen.pk)}
@@ -229,13 +227,9 @@ class TestMetricsViewQualityEggs:
         today = timezone.localdate()
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=1))
-        midnight_dt = datetime.combine(
-            today, datetime.min.time(), tzinfo=UTC
-        )
+        midnight_dt = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
         noon_dt = midnight_dt.replace(hour=12)
-        EggFactory.create_batch(
-            10, chicken=hen, laid_at=midnight_dt, quality="saleable"
-        )
+        EggFactory.create_batch(10, chicken=hen, laid_at=midnight_dt, quality="saleable")
         EggFactory.create_batch(10, chicken=hen, laid_at=noon_dt, quality="messy")
 
         base = {**self._base_params(start, today), "chickens": str(hen.pk)}
@@ -264,9 +258,7 @@ class TestMetricsViewQualityEggs:
         EggFactory.create_batch(
             3, chicken=hen, nesting_box=box, laid_at=today_dt, quality="saleable"
         )
-        EggFactory.create_batch(
-            2, chicken=hen, nesting_box=box, laid_at=today_dt, quality="messy"
-        )
+        EggFactory.create_batch(2, chicken=hen, nesting_box=box, laid_at=today_dt, quality="messy")
 
         base = {**self._base_params(start, today), "chickens": str(hen.pk)}
         r_off = client.get(reverse("metrics"), base)

@@ -238,9 +238,7 @@ class TestDashboardPartialQueryCount:
             response = client.get(reverse("partial_eggs_today"))
             assert response.status_code == 200
 
-    def test_partial_laid_chickens_is_cheap(
-        self, client, django_assert_max_num_queries
-    ):
+    def test_partial_laid_chickens_is_cheap(self, client, django_assert_max_num_queries):
         self._populate()
         with django_assert_max_num_queries(5):
             response = client.get(reverse("partial_laid_chickens"))
@@ -258,17 +256,13 @@ class TestDashboardPartialQueryCount:
             response = client.get(reverse("partial_latest_image"))
             assert response.status_code == 200
 
-    def test_partial_latest_events_is_cheap(
-        self, client, django_assert_max_num_queries
-    ):
+    def test_partial_latest_events_is_cheap(self, client, django_assert_max_num_queries):
         self._populate()
         with django_assert_max_num_queries(5):
             response = client.get(reverse("partial_latest_events"))
             assert response.status_code == 200
 
-    def test_partial_latest_presence_is_cheap(
-        self, client, django_assert_max_num_queries
-    ):
+    def test_partial_latest_presence_is_cheap(self, client, django_assert_max_num_queries):
         self._populate()
         # latest_presence does one query per active box on SQLite;
         # with two boxes that's ~4 queries total. Postgres does 1.

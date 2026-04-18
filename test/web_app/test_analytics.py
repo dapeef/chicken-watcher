@@ -39,9 +39,7 @@ def _utc(hour: int, minute: int = 0, day: int = 1) -> datetime:
 
 def _make_period(started_at: datetime, ended_at: datetime):
     """Build an unsaved NestingBoxPresencePeriod-like object for unit tests."""
-    return NestingBoxPresencePeriodFactory.build(
-        started_at=started_at, ended_at=ended_at
-    )
+    return NestingBoxPresencePeriodFactory.build(started_at=started_at, ended_at=ended_at)
 
 
 def _make_egg(laid_at: datetime):

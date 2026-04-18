@@ -142,15 +142,11 @@ class MetricsParams:
         # payload — we need the sentinel to know what "absent" means.
         show_sum = req.get("show_sum", "") == "1"
         show_mean = req.get("show_mean", "" if chickens_sent else "1") == "1"
-        include_unknown = (
-            req.get("include_unknown", "" if chickens_sent else "1") == "1"
-        )
+        include_unknown = req.get("include_unknown", "" if chickens_sent else "1") == "1"
         include_non_saleable = req.get("include_non_saleable", "") == "1"
 
         window = _parse_int_choice(req.get("w"), WINDOW_CHOICES, DEFAULT_WINDOW)
-        age_window = _parse_int_choice(
-            req.get("age_w"), WINDOW_CHOICES, DEFAULT_AGE_WINDOW
-        )
+        age_window = _parse_int_choice(req.get("age_w"), WINDOW_CHOICES, DEFAULT_AGE_WINDOW)
         nest_sigma = _parse_int_choice(
             req.get("nest_sigma"), NEST_SIGMA_CHOICES, DEFAULT_NEST_SIGMA
         )
@@ -225,9 +221,7 @@ class MetricsView(TemplateView):
         data_start = params.start - timedelta(days=params.window)
         days = (params.end - params.start).days + 1
         date_labels = [params.start + timedelta(days=i) for i in range(days)]
-        data_date_labels = [
-            data_start + timedelta(days=i) for i in range(days + params.window)
-        ]
+        data_date_labels = [data_start + timedelta(days=i) for i in range(days + params.window)]
 
         egg_prod_datasets = build_egg_prod_datasets(
             chosen=params.chosen,
@@ -366,16 +360,10 @@ class MetricsView(TemplateView):
                 "kde_bandwidth_choices": KDE_BANDWIDTH_CHOICES,
                 # Per-chart JSON strings, retained for the in-context
                 # assertions that the test suite relies on.
-                "egg_prod_labels_json": json.dumps(
-                    [d.isoformat() for d in date_labels]
-                ),
+                "egg_prod_labels_json": json.dumps([d.isoformat() for d in date_labels]),
                 "egg_prod_datasets_json": json.dumps(egg_prod_datasets),
-                "saleable_prod_datasets_json": json.dumps(
-                    quality_prod_datasets["saleable"]
-                ),
-                "edible_prod_datasets_json": json.dumps(
-                    quality_prod_datasets["edible"]
-                ),
+                "saleable_prod_datasets_json": json.dumps(quality_prod_datasets["saleable"]),
+                "edible_prod_datasets_json": json.dumps(quality_prod_datasets["edible"]),
                 "messy_prod_datasets_json": json.dumps(quality_prod_datasets["messy"]),
                 "flock_count_dataset_json": json.dumps(flock_count_dataset),
                 "tod_labels_json": json.dumps(tod_labels),

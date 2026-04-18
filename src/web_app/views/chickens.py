@@ -77,9 +77,7 @@ class ChickenDetailView(DetailView):
         stats = Egg.objects.filter(chicken=chicken).aggregate(
             total=Count("id"),
             last=Max("laid_at"),
-            last30=Count(
-                "id", filter=Q(laid_at__gte=timezone.now() - timedelta(days=30))
-            ),
+            last30=Count("id", filter=Q(laid_at__gte=timezone.now() - timedelta(days=30))),
         )
         ctx["stats"] = stats
         # Consumed by chicken_detail.js via json_script (no XSS surface).
@@ -97,18 +95,16 @@ def chicken_timeline_data(request, pk):
     except (ValueError, TypeError, OverflowError):
         return empty_range_response(request)
 
-    eggs = Egg.objects.filter(
-        chicken=chicken, laid_at__range=(start, end)
-    ).select_related("nesting_box")
+    eggs = Egg.objects.filter(chicken=chicken, laid_at__range=(start, end)).select_related(
+        "nesting_box"
+    )
 
     periods = NestingBoxPresencePeriod.objects.filter(
         chicken=chicken, started_at__lte=end, ended_at__gte=start
     ).select_related("nesting_box")
 
     items = (
-        night_periods(start, end)
-        + [egg_item(e) for e in eggs]
-        + [period_item(p) for p in periods]
+        night_periods(start, end) + [egg_item(e) for e in eggs] + [period_item(p) for p in periods]
     )
 
     return JsonResponse(items, safe=False)

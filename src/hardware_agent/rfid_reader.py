@@ -10,7 +10,6 @@ from hardware_agent.base import BaseSensor
 logger = logging.getLogger(__name__)
 
 START_BYTE, END_BYTE = 0x02, 0x03
-MIN_RESET_INTERVAL = 0.1  # Seconds
 
 
 class RFIDReader(BaseSensor):
@@ -70,7 +69,7 @@ class RFIDReader(BaseSensor):
 
             # Reset reader so that it can read the same tag repeatedly
             self.serial_conn.rts = True
-            time.sleep(max(MIN_RESET_INTERVAL, self.reset_interval))
+            time.sleep(self.reset_interval)
             self.serial_conn.rts = False
 
     def read_tag(self) -> str | None:

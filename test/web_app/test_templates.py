@@ -13,9 +13,7 @@ from django.urls import reverse
 
 from .factories import ChickenFactory
 
-TEMPLATES_DIR = (
-    Path(__file__).resolve().parent.parent.parent / "src" / "web_app" / "templates"
-)
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "src" / "web_app" / "templates"
 
 
 def _all_templates() -> list[Path]:

@@ -15,9 +15,7 @@ class TestHardwareManager:
         with caplog.at_level(logging.WARNING, logger="hardware_agent.manager"):
             manager.add_rfid_reader("TestReader", "")
 
-        mock_report.assert_called_once_with(
-            "rfid_TestReader", False, "No port configured"
-        )
+        mock_report.assert_called_once_with("rfid_TestReader", False, "No port configured")
         assert len(manager.sensors) == 0
         assert any(
             "Skipping RFID reader" in r.message and "TestReader" in r.message
@@ -41,13 +39,10 @@ class TestHardwareManager:
         with caplog.at_level(logging.WARNING, logger="hardware_agent.manager"):
             manager.add_camera("TestCam", "")
 
-        mock_report.assert_called_once_with(
-            "camera_TestCam", False, "No device configured"
-        )
+        mock_report.assert_called_once_with("camera_TestCam", False, "No device configured")
         assert len(manager.sensors) == 0
         assert any(
-            "Skipping camera" in r.message and "TestCam" in r.message
-            for r in caplog.records
+            "Skipping camera" in r.message and "TestCam" in r.message for r in caplog.records
         )
 
     def test_add_camera_success(self, mocker):
@@ -67,13 +62,10 @@ class TestHardwareManager:
         with caplog.at_level(logging.WARNING, logger="hardware_agent.manager"):
             manager.add_beam_sensor("TestBeam", "invalid", pin_factory=mocker.Mock())
 
-        mock_report.assert_called_once_with(
-            "beam_TestBeam", False, "Invalid GPIO: invalid"
-        )
+        mock_report.assert_called_once_with("beam_TestBeam", False, "Invalid GPIO: invalid")
         assert len(manager.sensors) == 0
         assert any(
-            "Skipping beam sensor" in r.message and "TestBeam" in r.message
-            for r in caplog.records
+            "Skipping beam sensor" in r.message and "TestBeam" in r.message for r in caplog.records
         )
 
     def test_add_beam_sensor_no_gpio(self, mocker, caplog):
@@ -83,13 +75,10 @@ class TestHardwareManager:
         with caplog.at_level(logging.WARNING, logger="hardware_agent.manager"):
             manager.add_beam_sensor("TestBeam", "", pin_factory=mocker.Mock())
 
-        mock_report.assert_called_once_with(
-            "beam_TestBeam", False, "No GPIO configured"
-        )
+        mock_report.assert_called_once_with("beam_TestBeam", False, "No GPIO configured")
         assert len(manager.sensors) == 0
         assert any(
-            "Skipping beam sensor" in r.message and "TestBeam" in r.message
-            for r in caplog.records
+            "Skipping beam sensor" in r.message and "TestBeam" in r.message for r in caplog.records
         )
 
     def test_add_beam_sensor_no_pin_factory(self, mocker, caplog):
@@ -99,13 +88,10 @@ class TestHardwareManager:
         with caplog.at_level(logging.WARNING, logger="hardware_agent.manager"):
             manager.add_beam_sensor("TestBeam", "17", pin_factory=None)
 
-        mock_report.assert_called_once_with(
-            "beam_TestBeam", False, "LGPIO not available"
-        )
+        mock_report.assert_called_once_with("beam_TestBeam", False, "LGPIO not available")
         assert len(manager.sensors) == 0
         assert any(
-            "Skipping beam sensor" in r.message and "TestBeam" in r.message
-            for r in caplog.records
+            "Skipping beam sensor" in r.message and "TestBeam" in r.message for r in caplog.records
         )
 
     def test_add_beam_sensor_success(self, mocker):
@@ -158,9 +144,7 @@ class TestHardwareManager:
         sensor2_bad.stop.assert_called_once()
         sensor3.stop.assert_called_once()
         # And the failure was logged at ERROR.
-        assert any(
-            "Error stopping sensor sensor2_bad" in r.message for r in caplog.records
-        )
+        assert any("Error stopping sensor sensor2_bad" in r.message for r in caplog.records)
 
     def test_stop_all_passes_timeout_to_each_sensor(self, mocker):
         manager = HardwareManager()

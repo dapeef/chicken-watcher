@@ -112,9 +112,7 @@ def night_periods(start: datetime, end: datetime) -> list[dict]:
 
     while current <= last:
         try:
-            s_today = sun(
-                location.observer, date=current, tzinfo=timezone.get_current_timezone()
-            )
+            s_today = sun(location.observer, date=current, tzinfo=timezone.get_current_timezone())
             s_tomorrow = sun(
                 location.observer,
                 date=current + timedelta(days=1),

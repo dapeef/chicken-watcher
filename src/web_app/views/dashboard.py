@@ -47,9 +47,7 @@ def _today_start():
 def _eggs_today_ctx() -> dict:
     today_start = _today_start()
     return {
-        "eggs_today": Egg.objects.filter(
-            laid_at__range=(today_start, timezone.localtime())
-        ).count()
+        "eggs_today": Egg.objects.filter(laid_at__range=(today_start, timezone.localtime())).count()
     }
 
 
@@ -186,9 +184,7 @@ def partial_latest_image(request):
 
 
 def partial_latest_presence(request):
-    return render(
-        request, "web_app/partials/_latest_presence.html", _latest_presence_ctx()
-    )
+    return render(request, "web_app/partials/_latest_presence.html", _latest_presence_ctx())
 
 
 def partial_latest_events(request):

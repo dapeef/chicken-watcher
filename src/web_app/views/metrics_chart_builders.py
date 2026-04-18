@@ -85,10 +85,7 @@ def _sum_series(per_hen: list[list], n_cols: int) -> list:
 def _active_counts(per_hen: list[list], n_cols: int) -> list[int]:
     """Element-wise count of hens that had a non-None value at each
     index. ``n_cols`` must match what was used with :func:`_sum_series`."""
-    return [
-        sum(1 for h in range(len(per_hen)) if per_hen[h][i] is not None)
-        for i in range(n_cols)
-    ]
+    return [sum(1 for h in range(len(per_hen)) if per_hen[h][i] is not None) for i in range(n_cols)]
 
 
 def _sum_dataset(data: list, *, dashed: bool = True) -> dict:
@@ -166,9 +163,7 @@ def build_egg_prod_datasets(
         dob = hen.date_of_birth
         dod = hen.date_of_death
         counts = [
-            per_hen_counts[hen.pk].get(d, 0)
-            if dob <= d <= (dod or timezone.localdate())
-            else None
+            per_hen_counts[hen.pk].get(d, 0) if dob <= d <= (dod or timezone.localdate()) else None
             for d in data_date_labels
         ]
         raw_counts_per_hen.append(counts)
@@ -193,9 +188,7 @@ def build_egg_prod_datasets(
             .values("laid_at__date")
             .annotate(cnt=Count("id"))
         )
-        unknown_daily: dict[date, int] = {
-            row["laid_at__date"]: row["cnt"] for row in unknown_qs
-        }
+        unknown_daily: dict[date, int] = {row["laid_at__date"]: row["cnt"] for row in unknown_qs}
         unknown_counts = [unknown_daily.get(d, 0) for d in data_date_labels]
         raw_counts_per_hen.append(unknown_counts)
         rolled_unknown = rolling_average(unknown_counts, window, RIGHT)[window:]
@@ -258,9 +251,7 @@ def build_tod_egg_datasets(
 
     for idx, hen in enumerate(chosen):
         colour = PALETTE[idx % len(PALETTE)]
-        kde = egg_time_of_day_kde(
-            eggs_by_chicken.get(hen.pk, []), bandwidth=kde_bandwidth
-        )
+        kde = egg_time_of_day_kde(eggs_by_chicken.get(hen.pk, []), bandwidth=kde_bandwidth)
         kde_per_hen.append(kde)
         datasets.append(
             {
@@ -296,8 +287,7 @@ def build_tod_egg_datasets(
         # which gives a flat-line "Sum" series — matches the original
         # behaviour.
         kde_sum = [
-            sum(kde_per_hen[h][b] for h in range(len(kde_per_hen)))
-            for b in range(BUCKETS_PER_DAY)
+            sum(kde_per_hen[h][b] for h in range(len(kde_per_hen))) for b in range(BUCKETS_PER_DAY)
         ]
         if show_sum:
             datasets.append(
@@ -367,8 +357,7 @@ def build_tod_nest_datasets(
 
     if show_sum or show_mean:
         nest_sum_raw = [
-            sum(nest_per_hen[h][b] for h in range(len(chosen)))
-            for b in range(BUCKETS_PER_DAY)
+            sum(nest_per_hen[h][b] for h in range(len(chosen))) for b in range(BUCKETS_PER_DAY)
         ]
         nest_sum = gaussian_smooth_circular(nest_sum_raw, nest_sigma)
         if show_sum:
@@ -415,11 +404,7 @@ def build_flock_count_dataset(
 ) -> dict:
     """Count of chosen chickens alive per day across the date range."""
     flock_counts = [
-        sum(
-            1
-            for hen in chosen
-            if hen.date_of_birth <= d <= (hen.date_of_death or today)
-        )
+        sum(1 for hen in chosen if hen.date_of_birth <= d <= (hen.date_of_death or today))
         for d in date_labels
     ]
     return {
@@ -504,8 +489,7 @@ def build_nesting_box_preference_charts(
         .order_by("nesting_box__name")
     )
     egg_box_labels = [
-        r["nesting_box__name"].title() if r["nesting_box__name"] else "Unknown"
-        for r in egg_box_qs
+        r["nesting_box__name"].title() if r["nesting_box__name"] else "Unknown" for r in egg_box_qs
     ]
     egg_box_counts = [r["egg_count"] for r in egg_box_qs]
 
@@ -590,8 +574,7 @@ def build_age_prod_datasets(
         max_alive_age = (dod - dob).days
         age_counts = age_counts_by_chicken[hen.pk]
         counts_by_age = [
-            age_counts.get(a, 0) if 0 <= a <= max_alive_age else None
-            for a in age_data_labels
+            age_counts.get(a, 0) if 0 <= a <= max_alive_age else None for a in age_data_labels
         ]
         age_raw_counts_per_hen.append(counts_by_age)
 
@@ -623,9 +606,7 @@ def build_age_prod_datasets(
                 else None
                 for i in range(n_cols)
             ]
-            rolled_mean = rolling_average(age_mean_counts, age_window, RIGHT)[
-                age_window:
-            ]
+            rolled_mean = rolling_average(age_mean_counts, age_window, RIGHT)[age_window:]
             datasets.append(_mean_dataset(rolled_mean))
 
     return age_display_labels, datasets

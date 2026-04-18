@@ -63,11 +63,7 @@ def test_base_sensor_reconnection_loop(mocker, fast_reconnect):
     sensor.should_connect = True
 
     # Wait for connection status success
-    wait_for(
-        lambda: any(
-            call == mocker.call("test", True) for call in status_mock.call_args_list
-        )
-    )
+    wait_for(lambda: any(call == mocker.call("test", True) for call in status_mock.call_args_list))
 
     # Should be polling
     wait_for(lambda: sensor.poll_count > 0)
@@ -125,9 +121,7 @@ def test_stop_interrupts_reconnect_backoff_fast(mocker):
 
     # If the stop event works, elapsed should be well under 1 second.
     # If we had a plain time.sleep(5), it would be ~5s.
-    assert elapsed < 1.0, (
-        f"stop() took {elapsed:.2f}s — reconnect backoff was not interrupted"
-    )
+    assert elapsed < 1.0, f"stop() took {elapsed:.2f}s — reconnect backoff was not interrupted"
 
 
 def test_start_is_idempotent_while_alive(mocker, fast_reconnect):

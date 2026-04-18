@@ -125,9 +125,7 @@ def test_camera_reconnect_does_not_leak_reader_thread(mocker):
     assert len(reader_threads) == 5
     assert all(t is not None for t in reader_threads)
     for t in reader_threads:
-        assert not t.is_alive(), (
-            f"Reader thread {t} was not joined on disconnect — leak!"
-        )
+        assert not t.is_alive(), f"Reader thread {t} was not joined on disconnect — leak!"
     # All handles must be distinct — we spawned a fresh reader per cycle.
     assert len(set(id(t) for t in reader_threads)) == 5
 

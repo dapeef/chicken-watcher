@@ -18,15 +18,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="nestingboxpresenceperiod",
             name="ended_at",
-            field=models.DateTimeField(
-                db_index=True, default=django.utils.timezone.now
-            ),
+            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
         ),
         migrations.AlterField(
             model_name="nestingboxpresenceperiod",
             name="started_at",
-            field=models.DateTimeField(
-                db_index=True, default=django.utils.timezone.now
-            ),
+            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
         ),
     ]

@@ -307,9 +307,7 @@ class TestEggListQueryCount:
     list + 200 for chickens + 200 for boxes). With it, 1.
     """
 
-    def test_egg_list_is_constant_query_count(
-        self, client, django_assert_max_num_queries
-    ):
+    def test_egg_list_is_constant_query_count(self, client, django_assert_max_num_queries):
         # Create a mix of eggs so chicken and box FK lookups both fire.
         for _ in range(10):
             EggFactory()

@@ -31,7 +31,6 @@ testable but not part of the stable API.
 """
 
 import logging
-import pathlib
 import re
 from datetime import datetime, timedelta
 
@@ -174,9 +173,7 @@ def _record_tag_read(*, name: str, tag: str, box_name: str) -> None:
     # chicken will block here until we commit, guaranteeing a
     # consistent view of that chicken's presence periods for the
     # duration of this transaction.
-    chicken = Chicken.objects.select_for_update().get(
-        tag=tag_obj, date_of_death__isnull=True
-    )
+    chicken = Chicken.objects.select_for_update().get(tag=tag_obj, date_of_death__isnull=True)
 
     now = timezone.now()
 
@@ -254,17 +251,6 @@ def _find_extensible_period(chicken, nesting_box, now):
 # ---------------------------------------------------------------------------
 # Camera frames
 # ---------------------------------------------------------------------------
-
-
-def save_frame_to_file(cam_name: str, frame) -> None:
-    """Disk-only variant of :func:`save_frame_to_db` — used for local
-    debugging / manual inspection, not in production."""
-    frame_dir = pathlib.Path("frames")
-    frame_dir.mkdir(exist_ok=True)
-
-    ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
-    file_name = frame_dir / f"{cam_name}_{ts}.jpg"
-    cv2.imwrite(str(file_name), frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 
 def handle_camera_frame(name: str, frame) -> None:

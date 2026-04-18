@@ -135,9 +135,7 @@ class TestChickenListAgeColumn:
     def test_deceased_hen_age_capped(self, client):
         today = date.today()
         dob = today - date.resolution * 400
-        dod = (
-            today - date.resolution * 35
-        )  # died 35 days ago => age = 365 days = 1y 0m 0d
+        dod = today - date.resolution * 35  # died 35 days ago => age = 365 days = 1y 0m 0d
         ChickenFactory(date_of_birth=dob, date_of_death=dod)
         response = client.get(self.url)
         assert b"1y" in response.content
@@ -195,16 +193,10 @@ class TestDurationHms:
         assert duration_hms(timedelta(hours=1)) == "1 hr, 0 mins, 0 secs"
 
     def test_one_hour_one_minute_one_second(self):
-        assert (
-            duration_hms(timedelta(hours=1, minutes=1, seconds=1))
-            == "1 hr, 1 min, 1 sec"
-        )
+        assert duration_hms(timedelta(hours=1, minutes=1, seconds=1)) == "1 hr, 1 min, 1 sec"
 
     def test_plural_hours(self):
-        assert (
-            duration_hms(timedelta(hours=2, minutes=30, seconds=5))
-            == "2 hrs, 30 mins, 5 secs"
-        )
+        assert duration_hms(timedelta(hours=2, minutes=30, seconds=5)) == "2 hrs, 30 mins, 5 secs"
 
     def test_hours_with_zero_minutes(self):
         assert duration_hms(timedelta(hours=3)) == "3 hrs, 0 mins, 0 secs"

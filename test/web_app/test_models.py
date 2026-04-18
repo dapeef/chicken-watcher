@@ -65,12 +65,8 @@ class TestChickenTagUniqueness:
         """Historical data: several chickens held the same tag in
         succession, all of whom are now dead. All valid."""
         tag = TagFactory()
-        ChickenFactory(
-            name="First", tag=tag, date_of_death=date.today() - timedelta(days=30)
-        )
-        ChickenFactory(
-            name="Second", tag=tag, date_of_death=date.today() - timedelta(days=7)
-        )
+        ChickenFactory(name="First", tag=tag, date_of_death=date.today() - timedelta(days=30))
+        ChickenFactory(name="Second", tag=tag, date_of_death=date.today() - timedelta(days=7))
 
     def test_multiple_live_chickens_can_have_null_tag(self):
         """The partial constraint only applies when tag IS NOT NULL, so

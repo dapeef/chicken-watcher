@@ -41,17 +41,13 @@ class TestMetricsViewQueryCount:
                     + timedelta(minutes=5),
                 )
 
-    def test_query_count_is_bounded_at_10_hens(
-        self, client, django_assert_max_num_queries
-    ):
+    def test_query_count_is_bounded_at_10_hens(self, client, django_assert_max_num_queries):
         self._make_flock(10)
         with django_assert_max_num_queries(40):
             response = client.get(reverse("metrics"))
             assert response.status_code == 200
 
-    def test_query_count_does_not_grow_with_flock_size(
-        self, client, django_assert_max_num_queries
-    ):
+    def test_query_count_does_not_grow_with_flock_size(self, client, django_assert_max_num_queries):
         self._make_flock(20)
         with django_assert_max_num_queries(40):
             response = client.get(reverse("metrics"))

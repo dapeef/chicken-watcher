@@ -86,9 +86,7 @@ class TestMetricsParams:
 
     def test_start_after_end_clamps_to_default_span(self):
         hens = [ChickenFactory()]
-        params = MetricsParams.from_request(
-            self._qd(start="2025-06-01", end="2025-05-01"), hens
-        )
+        params = MetricsParams.from_request(self._qd(start="2025-06-01", end="2025-05-01"), hens)
         assert params.end == date(2025, 5, 1)
         assert params.start == date(2025, 5, 1) - timedelta(days=DEFAULT_SPAN - 1)
 

@@ -32,23 +32,15 @@ class TestMetricsViewNestingBoxPreference:
             NestingBoxPresencePeriodFactory(
                 chicken=hen,
                 nesting_box=box_a,
-                started_at=datetime.combine(
-                    today, datetime.min.time(), tzinfo=UTC
-                ),
-                ended_at=datetime.combine(
-                    today, datetime.min.time(), tzinfo=UTC
-                )
+                started_at=datetime.combine(today, datetime.min.time(), tzinfo=UTC),
+                ended_at=datetime.combine(today, datetime.min.time(), tzinfo=UTC)
                 + timedelta(minutes=10),
             )
         NestingBoxPresencePeriodFactory(
             chicken=hen,
             nesting_box=box_b,
-            started_at=datetime.combine(
-                today, datetime.min.time(), tzinfo=UTC
-            ),
-            ended_at=datetime.combine(
-                today, datetime.min.time(), tzinfo=UTC
-            )
+            started_at=datetime.combine(today, datetime.min.time(), tzinfo=UTC),
+            ended_at=datetime.combine(today, datetime.min.time(), tzinfo=UTC)
             + timedelta(minutes=5),
         )
 
@@ -62,9 +54,7 @@ class TestMetricsViewNestingBoxPreference:
             },
         )
         visits_data = json.loads(response.context["nesting_box_visits_json"])
-        box_visits = dict(
-            zip(visits_data["labels"], visits_data["datasets"][0]["data"])
-        )
+        box_visits = dict(zip(visits_data["labels"], visits_data["datasets"][0]["data"]))
         assert box_visits["Left"] == 3
         assert box_visits["Right"] == 1
 
@@ -139,9 +129,7 @@ class TestMetricsViewNestingBoxPreference:
             },
         )
         visits_data = json.loads(response.context["nesting_box_visits_json"])
-        box_visits = dict(
-            zip(visits_data["labels"], visits_data["datasets"][0]["data"])
-        )
+        box_visits = dict(zip(visits_data["labels"], visits_data["datasets"][0]["data"]))
         assert box_visits["Left"] == 2
 
         time_data = json.loads(response.context["nesting_box_time_json"])
@@ -155,9 +143,7 @@ class TestMetricsViewNestingBoxPreference:
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
         box = NestingBoxFactory(name="left")
-        before_range = datetime.combine(
-            start - timedelta(days=1), datetime.min.time(), tzinfo=UTC
-        )
+        before_range = datetime.combine(start - timedelta(days=1), datetime.min.time(), tzinfo=UTC)
         NestingBoxPresencePeriodFactory(
             chicken=hen,
             nesting_box=box,
@@ -288,9 +274,7 @@ class TestMetricsViewNestingBoxPreference:
         start = today - timedelta(days=6)
         hen = ChickenFactory(date_of_birth=start - timedelta(days=10))
         box = NestingBoxFactory(name="left")
-        before_range = datetime.combine(
-            start - timedelta(days=1), datetime.min.time(), tzinfo=UTC
-        )
+        before_range = datetime.combine(start - timedelta(days=1), datetime.min.time(), tzinfo=UTC)
         EggFactory(chicken=hen, nesting_box=box, laid_at=before_range)
 
         response = client.get(

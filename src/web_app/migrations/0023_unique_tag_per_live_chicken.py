@@ -29,9 +29,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="chicken",
             constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    ("date_of_death__isnull", True), ("tag__isnull", False)
-                ),
+                condition=models.Q(("date_of_death__isnull", True), ("tag__isnull", False)),
                 fields=("tag",),
                 name="unique_tag_per_live_chicken",
             ),

@@ -185,8 +185,7 @@ class TestPresenceItem:
         """All four sensors in a box get distinct CSS classes for individual colouring."""
         box = NestingBoxFactory(name="left")
         presences = [
-            NestingBoxPresenceFactory(nesting_box=box, sensor_id=f"left_{n}")
-            for n in range(1, 5)
+            NestingBoxPresenceFactory(nesting_box=box, sensor_id=f"left_{n}") for n in range(1, 5)
         ]
         items = [presence_item(p) for p in presences]
         class_names = [i["className"] for i in items]

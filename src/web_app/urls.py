@@ -27,9 +27,7 @@ urlpatterns = [
         name="partial_latest_events",
     ),
     path("chickens/", views.ChickenListView.as_view(), name="chicken_list"),
-    path(
-        "chickens/<int:pk>/", views.ChickenDetailView.as_view(), name="chicken_detail"
-    ),
+    path("chickens/<int:pk>/", views.ChickenDetailView.as_view(), name="chicken_detail"),
     path(
         "chickens/<int:pk>/timeline-data/",
         views.chicken_timeline_data,

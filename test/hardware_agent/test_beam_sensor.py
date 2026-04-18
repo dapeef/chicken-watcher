@@ -9,9 +9,7 @@ def test_beam_sensor_connect_success(mocker):
     sensor = BeamSensor("test", 17)
     assert sensor.connect() is True
     assert sensor.is_connected() is True
-    mock_dev.assert_called_once_with(
-        17, pull_up=True, bounce_time=None, pin_factory=None
-    )
+    mock_dev.assert_called_once_with(17, pull_up=True, bounce_time=None, pin_factory=None)
 
 
 def test_beam_sensor_connect_fail(mocker):
@@ -26,9 +24,7 @@ def test_beam_sensor_connect_fail(mocker):
 
 def test_beam_sensor_on_connect(mocker):
     mock_dev = mocker.Mock()
-    mocker.patch(
-        "hardware_agent.beam_break_sensor.DigitalInputDevice", return_value=mock_dev
-    )
+    mocker.patch("hardware_agent.beam_break_sensor.DigitalInputDevice", return_value=mock_dev)
     callback = mocker.Mock()
     sensor = BeamSensor("test", 17)
     sensor.callback = callback
@@ -45,9 +41,7 @@ def test_beam_sensor_on_connect(mocker):
 def test_beam_sensor_poll(mocker):
     mock_dev = mocker.Mock()
     mock_dev.value = 1
-    mocker.patch(
-        "hardware_agent.beam_break_sensor.DigitalInputDevice", return_value=mock_dev
-    )
+    mocker.patch("hardware_agent.beam_break_sensor.DigitalInputDevice", return_value=mock_dev)
     sensor = BeamSensor("test", 17)
     sensor.connect()
 
@@ -61,9 +55,7 @@ def test_beam_sensor_poll(mocker):
 def test_beam_sensor_poll_error(mocker):
     mock_dev = mocker.Mock()
     type(mock_dev).value = mocker.PropertyMock(side_effect=RuntimeError("disconnected"))
-    mocker.patch(
-        "hardware_agent.beam_break_sensor.DigitalInputDevice", return_value=mock_dev
-    )
+    mocker.patch("hardware_agent.beam_break_sensor.DigitalInputDevice", return_value=mock_dev)
     sensor = BeamSensor("test", 17)
     sensor.connect()
 

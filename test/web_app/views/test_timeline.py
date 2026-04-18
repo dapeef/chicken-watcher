@@ -138,9 +138,7 @@ class TestTimelineViews:
         response = client.get(f"{url}?start={start}&end={end}")
         assert response.json() == []
 
-    def test_timeline_data_includes_night_periods_when_window_spans_night(
-        self, client, mocker
-    ):
+    def test_timeline_data_includes_night_periods_when_window_spans_night(self, client, mocker):
         """Counterpart to ``test_timeline_data``: explicitly cover the
         case where the query window straddles sunset/sunrise, so the
         ``night_periods`` background items appear alongside the eggs
@@ -187,9 +185,7 @@ class TestTimelineViews:
         # invalid n
         response = client.get(f"{url}?start={start}&end={end}&n=abc")
         assert response.status_code == 200
-        assert (
-            len(response.json()) == 1
-        )  # Should default to 100, but we only have 1 image
+        assert len(response.json()) == 1  # Should default to 100, but we only have 1 image
 
         # n=0 should be treated as n=1
         response = client.get(f"{url}?start={start}&end={end}&n=0")
@@ -240,9 +236,7 @@ class TestTimelineViews:
         data = response.json()
 
         period_item = next(item for item in data if item["id"] == f"period_{period.id}")
-        presence_item = next(
-            item for item in data if item["id"] == f"presence_{presence.id}"
-        )
+        presence_item = next(item for item in data if item["id"] == f"presence_{presence.id}")
 
         assert "box-left" in period_item["className"]
         assert "timeline-period" in period_item["className"]
@@ -388,10 +382,7 @@ class TestTimelineViews:
         """When more images exist than n, the last image in range is always included."""
         url = reverse("timeline_images")
         now = timezone.now()
-        images = [
-            NestingBoxImageFactory(created_at=now + timedelta(minutes=i))
-            for i in range(10)
-        ]
+        images = [NestingBoxImageFactory(created_at=now + timedelta(minutes=i)) for i in range(10)]
         start = (now - timedelta(minutes=1)).isoformat()
         end = (now + timedelta(minutes=11)).isoformat()
 

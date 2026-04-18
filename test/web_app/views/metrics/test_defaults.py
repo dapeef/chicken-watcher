@@ -111,9 +111,7 @@ class TestMetricsViewChickenSelection:
     def test_invalid_chicken_id_ignored(self, client):
         c1 = ChickenFactory()
         url = reverse("metrics")
-        response = client.get(
-            url, {"chickens_sent": "1", "chickens": [str(c1.pk), "99999"]}
-        )
+        response = client.get(url, {"chickens_sent": "1", "chickens": [str(c1.pk), "99999"]})
         assert response.status_code == 200
         datasets = json.loads(response.context["egg_prod_datasets_json"])
         labels = {d["label"] for d in datasets}
@@ -139,9 +137,7 @@ class TestMetricsViewParamValidation:
         assert response.context["nest_sigma"] == DEFAULT_NEST_SIGMA
 
     def test_invalid_date_strings_fall_back_to_default_range(self, client):
-        response = client.get(
-            reverse("metrics"), {"start": "not-a-date", "end": "also-not"}
-        )
+        response = client.get(reverse("metrics"), {"start": "not-a-date", "end": "also-not"})
         end = date.fromisoformat(response.context["end"])
         start = date.fromisoformat(response.context["start"])
         assert (end - start).days == DEFAULT_SPAN - 1

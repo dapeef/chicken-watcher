@@ -47,9 +47,7 @@ def timeline_data(request):
     except (ValueError, TypeError, OverflowError):
         return empty_range_response(request)
 
-    eggs = Egg.objects.filter(laid_at__range=(start, end)).select_related(
-        "chicken", "nesting_box"
-    )
+    eggs = Egg.objects.filter(laid_at__range=(start, end)).select_related("chicken", "nesting_box")
 
     if end - start <= timedelta(minutes=3):
         presences = NestingBoxPresence.objects.filter(
@@ -103,42 +101,29 @@ def timeline_images(request):
         # Add the last one to ensure we cover the end of the range
         if all_ids[-1] not in sampled_ids:
             sampled_ids.append(all_ids[-1])
-        images = NestingBoxImage.objects.filter(id__in=sampled_ids).order_by(
-            "created_at"
-        )
+        images = NestingBoxImage.objects.filter(id__in=sampled_ids).order_by("created_at")
 
-    data = [
-        {"timestamp": img.created_at.isoformat(), "url": img.image.url}
-        for img in images
-    ]
+    data = [{"timestamp": img.created_at.isoformat(), "url": img.image.url} for img in images]
     return JsonResponse(data, safe=False)
 
 
 def partial_image_at_time(request):
     t_str = request.GET.get("t")
     if not t_str:
-        return render(
-            request, "web_app/partials/_latest_image.html", {"latest_image": None}
-        )
+        return render(request, "web_app/partials/_latest_image.html", {"latest_image": None})
 
     try:
         from datetime import datetime
 
-        target_time = datetime.fromisoformat(
-            t_str.replace("Z", "+00:00").replace(" ", "+")
-        )
+        target_time = datetime.fromisoformat(t_str.replace("Z", "+00:00").replace(" ", "+"))
         if timezone.is_naive(target_time):
             target_time = timezone.make_aware(target_time)
     except (ValueError, OverflowError):
-        return render(
-            request, "web_app/partials/_latest_image.html", {"latest_image": None}
-        )
+        return render(request, "web_app/partials/_latest_image.html", {"latest_image": None})
 
     # Find the latest image created BEFORE or AT this time
     closest_image = (
-        NestingBoxImage.objects.filter(created_at__lte=target_time)
-        .order_by("-created_at")
-        .first()
+        NestingBoxImage.objects.filter(created_at__lte=target_time).order_by("-created_at").first()
     )
 
     # If none before, maybe one just after?
@@ -149,6 +134,4 @@ def partial_image_at_time(request):
             .first()
         )
 
-    return render(
-        request, "web_app/partials/_latest_image.html", {"latest_image": closest_image}
-    )
+    return render(request, "web_app/partials/_latest_image.html", {"latest_image": closest_image})

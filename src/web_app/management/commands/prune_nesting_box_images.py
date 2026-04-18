@@ -28,9 +28,7 @@ class Command(BaseCommand):
         images_to_delete = get_images_to_delete()
         count = images_to_delete.count()
 
-        logger.info(
-            f"Pruning {count} NestingBoxImage records with no nearby presence or egg"
-        )
+        logger.info(f"Pruning {count} NestingBoxImage records with no nearby presence or egg")
 
         deleted = 0
         for image in images_to_delete.iterator():
@@ -38,9 +36,7 @@ class Command(BaseCommand):
             image.delete()
             deleted += 1
             if deleted % 100 == 0:
-                logger.info(
-                    f"Deleted {deleted} (of {count}) NestingBoxImage records so far"
-                )
+                logger.info(f"Deleted {deleted} (of {count}) NestingBoxImage records so far")
 
         after = NestingBoxImage.objects.count()
 
@@ -60,6 +56,4 @@ def get_images_to_delete():
         laid_at__gte=OuterRef("created_at") - WINDOW,
         laid_at__lte=OuterRef("created_at") + WINDOW,
     )
-    return NestingBoxImage.objects.filter(
-        ~Exists(nearby_presence) & ~Exists(nearby_egg)
-    )
+    return NestingBoxImage.objects.filter(~Exists(nearby_presence) & ~Exists(nearby_egg))

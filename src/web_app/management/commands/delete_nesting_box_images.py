@@ -41,9 +41,7 @@ class Command(BaseCommand):
             image.image.delete(save=False)
             image.delete()
             if count % 100 == 0:
-                logger.info(
-                    f"Deleted {count} (of {total}) NestingBoxImage records so far"
-                )
+                logger.info(f"Deleted {count} (of {total}) NestingBoxImage records so far")
 
         logger.info(f"Deleted {total} NestingBoxImage(s).")
 

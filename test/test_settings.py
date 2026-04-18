@@ -115,9 +115,7 @@ class TestProdSecretKeyFailFast:
         assert "DJANGO_SECRET_KEY" in result.stderr
 
     def test_prod_has_debug_false(self, isolated_repo):
-        result = _run_settings_import(
-            isolated_repo, django_env="prod", secret_key="test-key-xxxxx"
-        )
+        result = _run_settings_import(isolated_repo, django_env="prod", secret_key="test-key-xxxxx")
         assert result.returncode == 0
         assert "DEBUG= False" in result.stdout
 
@@ -132,8 +130,6 @@ class TestDevFallback:
         assert "HAS_KEY= True" in result.stdout
 
     def test_dev_respects_provided_secret_key(self, isolated_repo):
-        result = _run_settings_import(
-            isolated_repo, django_env="dev", secret_key="real-dev-key"
-        )
+        result = _run_settings_import(isolated_repo, django_env="dev", secret_key="real-dev-key")
         assert result.returncode == 0, result.stderr
         assert "HAS_KEY= True" in result.stdout

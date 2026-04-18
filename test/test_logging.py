@@ -90,9 +90,7 @@ class TestLoggingDefaults:
     def test_django_db_logger_pinned_to_info(self, isolated_repo):
         """Even when LOG_LEVEL=DEBUG, SQL echo stays quiet unless the user
         explicitly opts in."""
-        config = _probe_logging_config(
-            isolated_repo, env_overrides={"LOG_LEVEL": "DEBUG"}
-        )
+        config = _probe_logging_config(isolated_repo, env_overrides={"LOG_LEVEL": "DEBUG"})
         assert config["root_level"] == "DEBUG"
         assert config["db_backend_level"] == "INFO"
 
@@ -105,24 +103,18 @@ class TestLoggingDefaults:
 
 class TestLoggingEnvOverrides:
     def test_log_level_env_overrides_root_level(self, isolated_repo):
-        config = _probe_logging_config(
-            isolated_repo, env_overrides={"LOG_LEVEL": "WARNING"}
-        )
+        config = _probe_logging_config(isolated_repo, env_overrides={"LOG_LEVEL": "WARNING"})
         assert config["root_level"] == "WARNING"
 
     def test_log_dir_env_overrides_default(self, isolated_repo, tmp_path):
         custom_dir = tmp_path / "custom_logs"
-        config = _probe_logging_config(
-            isolated_repo, env_overrides={"LOG_DIR": str(custom_dir)}
-        )
+        config = _probe_logging_config(isolated_repo, env_overrides={"LOG_DIR": str(custom_dir)})
         assert config["logs_dir"] == str(custom_dir)
         assert custom_dir.exists(), "LOG_DIR should be created on settings import"
 
 
 class TestLoggingReadonlyFallback:
-    def test_unwritable_log_dir_falls_back_to_console_only(
-        self, isolated_repo, tmp_path
-    ):
+    def test_unwritable_log_dir_falls_back_to_console_only(self, isolated_repo, tmp_path):
         """If LOG_DIR cannot be created or isn't writable, settings must not
         crash — instead, silently drop the file handler and keep console.
         This matters for tests / containers with read-only root FS."""
@@ -132,9 +124,7 @@ class TestLoggingReadonlyFallback:
         not_a_dir = tmp_path / "iam_a_file"
         not_a_dir.write_text("nope")
 
-        config = _probe_logging_config(
-            isolated_repo, env_overrides={"LOG_DIR": str(not_a_dir)}
-        )
+        config = _probe_logging_config(isolated_repo, env_overrides={"LOG_DIR": str(not_a_dir)})
         # Only the console handler should be configured.
         assert config["root_handlers"] == ["console"]
         assert "file" not in config["handler_names"]

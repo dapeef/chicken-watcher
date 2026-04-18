@@ -38,9 +38,7 @@ class TestMetricsViewUnknownChicken:
         assert response.context["include_unknown"] is False
 
     def test_include_unknown_explicit_on(self, client):
-        response = client.get(
-            reverse("metrics"), {"chickens_sent": "1", "include_unknown": "1"}
-        )
+        response = client.get(reverse("metrics"), {"chickens_sent": "1", "include_unknown": "1"})
         assert response.context["include_unknown"] is True
 
     def test_unknown_series_present_in_egg_prod_when_enabled(self, client):
@@ -107,9 +105,7 @@ class TestMetricsViewUnknownChicken:
 
         today = timezone.localdate()
         start = today - timedelta(days=6)
-        before_range = datetime.combine(
-            start - timedelta(days=1), datetime.min.time(), tzinfo=UTC
-        )
+        before_range = datetime.combine(start - timedelta(days=1), datetime.min.time(), tzinfo=UTC)
         EggFactory.create_batch(3, chicken=None, laid_at=before_range)
 
         params = {**self._base_params(start, today), "include_unknown": "1"}
@@ -189,9 +185,7 @@ class TestMetricsViewUnknownChicken:
         r_without = client.get(reverse("metrics"), base_params)
         r_with = client.get(reverse("metrics"), {**base_params, "include_unknown": "1"})
         EggFactory.create_batch(5, chicken=None, laid_at=today_dt)
-        r_with_eggs = client.get(
-            reverse("metrics"), {**base_params, "include_unknown": "1"}
-        )
+        r_with_eggs = client.get(reverse("metrics"), {**base_params, "include_unknown": "1"})
 
         def hen_kde(response):
             datasets = json.loads(response.context["tod_egg_datasets_json"])

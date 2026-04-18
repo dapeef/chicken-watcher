@@ -51,10 +51,7 @@ class TestChickenQuerySet:
         ChickenFactory(date_of_death=None)
 
         total = Chicken.objects.count()
-        assert (
-            Chicken.objects.alive().count() + Chicken.objects.deceased().count()
-            == total
-        )
+        assert Chicken.objects.alive().count() + Chicken.objects.deceased().count() == total
 
 
 @pytest.mark.django_db
@@ -119,9 +116,7 @@ class TestEggQuerySet:
         three_days_ago = today - timedelta(days=3)
 
         def _at(d):
-            return timezone.make_aware(
-                timezone.datetime.combine(d, timezone.datetime.min.time())
-            )
+            return timezone.make_aware(timezone.datetime.combine(d, timezone.datetime.min.time()))
 
         inside_start = EggFactory(laid_at=_at(two_days_ago))
         inside_end = EggFactory(laid_at=_at(today))
@@ -274,9 +269,7 @@ class TestNestingBoxImageQuerySet:
         # Image near an egg: kept
         near_egg_ts = anchor + timedelta(days=1)
         EggFactory(laid_at=near_egg_ts)
-        near_egg_image = NestingBoxImageFactory(
-            created_at=near_egg_ts + timedelta(seconds=5)
-        )
+        near_egg_image = NestingBoxImageFactory(created_at=near_egg_ts + timedelta(seconds=5))
 
         # Image near a period: kept
         near_period_ts = anchor + timedelta(days=2)
