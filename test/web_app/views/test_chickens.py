@@ -52,6 +52,40 @@ class TestChickenListView:
         assert f'href="{expected_href}"' in content
         assert "Henrietta" in content
 
+    def test_whole_row_is_clickable_via_stretched_link(self, client):
+        """The entire table row should be clickable, not just the chicken
+        name. Bootstrap's stretched-link expands a positioned <a> to cover
+        its nearest positioned ancestor.
+
+        Requirements:
+        - The <tr> must have ``position: relative`` (or Bootstrap's
+          ``position-relative`` class) so stretched-link has a containing
+          block to fill.
+        - The <a> must carry the ``stretched-link`` class.
+        - The ``href`` must point to the chicken detail URL.
+
+        This test was added after a regression where the Wave 4 onclick
+        removal left only the name cell clickable.
+        """
+        hen = ChickenFactory(name="Henrietta")
+        response = client.get(self.url)
+        content = response.content.decode()
+
+        expected_href = reverse("chicken_detail", kwargs={"pk": hen.pk})
+
+        # The link must have stretched-link so its click area fills the row.
+        assert "stretched-link" in content, (
+            "stretched-link class not found — clicking outside the name "
+            "cell will not navigate to the chicken detail page."
+        )
+        # The <tr> containing the link must be a positioning context.
+        assert "position: relative" in content or "position-relative" in content, (
+            "The <tr> needs position:relative (or the Bootstrap "
+            "position-relative class) for stretched-link to work."
+        )
+        # The href is still present and correct.
+        assert f'href="{expected_href}"' in content
+
     def test_table_has_scope_col_on_headers(self, client):
         """Accessibility: <th>s in a table header should have
         ``scope='col'`` so screen readers announce the header for each

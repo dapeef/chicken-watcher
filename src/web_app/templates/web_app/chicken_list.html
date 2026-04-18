@@ -19,8 +19,11 @@
 
       <tbody>
       {% for hen in object_list %}
-        <tr>
-          <td><a href="{% url 'chicken_detail' hen.id %}" class="text-body text-decoration-none fw-semibold">{{ hen.name }}</a></td>
+        <tr style="position: relative;">
+          <td class="fw-semibold">
+            <a href="{% url 'chicken_detail' hen.id %}"
+               class="text-body text-decoration-none stretched-link">{{ hen.name }}</a>
+          </td>
           <td>{{ hen.age_duration|duration_ymd }}</td>
           <td>{{ hen.tag.number|default:'—' }}</td>
           <td class="d-none d-md-table-cell">{{ hen.eggs_total }}</td>
