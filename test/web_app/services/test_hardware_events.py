@@ -2,7 +2,7 @@ import logging
 
 import pytest
 import numpy as np
-from hardware_agent.handlers import (
+from web_app.services.hardware_events import (
     handle_tag_read,
     handle_beam_break,
     save_frame_to_db,
@@ -19,6 +19,10 @@ from web_app.models import (
     NestingBoxPresencePeriod,
 )
 from test.web_app.factories import TagFactory, ChickenFactory, NestingBoxFactory
+
+# The tests below use caplog with this logger name; centralised so it's
+# easy to change if the module ever moves again.
+LOGGER_NAME = "web_app.services.hardware_events"
 
 
 @pytest.mark.django_db
@@ -126,7 +130,7 @@ class TestHardwareHandlers:
 
     def test_handle_tag_read_unknown_rfid(self, mocker, caplog):
         NestingBoxFactory(name="Box1")
-        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             handle_tag_read("Box1", "unknown")
         assert NestingBoxPresence.objects.count() == 0
         assert any(
@@ -139,7 +143,7 @@ class TestHardwareHandlers:
         # Tag exists but has no live chicken assigned (e.g. previous chicken has died)
         TagFactory(rfid_string="12345", number=1)
         NestingBoxFactory(name="Box1")
-        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             handle_tag_read("Box1", "12345")
         assert NestingBoxPresence.objects.count() == 0
         assert any(
@@ -150,7 +154,7 @@ class TestHardwareHandlers:
 
     def test_handle_tag_read_unknown_box(self, mocker, caplog):
         ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
-        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             handle_tag_read("UnknownBox", "12345")
         assert NestingBoxPresence.objects.count() == 0
         assert any(
@@ -177,7 +181,7 @@ class TestHardwareHandlers:
 
     def test_handle_beam_break_no_presence(self, mocker, caplog):
         NestingBoxFactory(name="Box1")
-        with caplog.at_level(logging.WARNING, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
             handle_beam_break("Box1")
         assert Egg.objects.count() == 0
         assert any(
@@ -187,7 +191,7 @@ class TestHardwareHandlers:
         )
 
     def test_handle_beam_break_unknown_box(self, caplog):
-        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             handle_beam_break("UnknownBox")
         assert Egg.objects.count() == 0
         assert any(
@@ -231,7 +235,9 @@ class TestHardwareHandlers:
 
     def test_save_frame_to_file(self, tmp_path, mocker):
         # Mock pathlib.Path("frames") to use tmp_path
-        mocker.patch("hardware_agent.handlers.pathlib.Path", return_value=tmp_path)
+        mocker.patch(
+            "web_app.services.hardware_events.pathlib.Path", return_value=tmp_path
+        )
 
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
         save_frame_to_file("CamTest", frame)
@@ -242,7 +248,7 @@ class TestHardwareHandlers:
 
     def test_save_frame_to_db_logs_debug(self, caplog):
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        with caplog.at_level(logging.DEBUG, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.DEBUG, logger=LOGGER_NAME):
             save_frame_to_db("Cam1", frame)
         assert any(
             "frame saved to db as" in r.message and r.levelno == logging.DEBUG
@@ -251,10 +257,10 @@ class TestHardwareHandlers:
 
     def test_report_status_logs_error_on_db_failure(self, mocker, caplog):
         mocker.patch(
-            "hardware_agent.handlers.HardwareSensor.objects.update_or_create",
+            "web_app.services.hardware_events.HardwareSensor.objects.update_or_create",
             side_effect=Exception("DB unavailable"),
         )
-        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             report_status("test_sensor", True)
         assert any(
             "Error reporting status for test_sensor" in r.message
@@ -264,10 +270,10 @@ class TestHardwareHandlers:
 
     def test_report_event_logs_error_on_db_failure(self, mocker, caplog):
         mocker.patch(
-            "hardware_agent.handlers.HardwareSensor.objects.filter",
+            "web_app.services.hardware_events.HardwareSensor.objects.filter",
             side_effect=Exception("DB unavailable"),
         )
-        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             report_event("test_sensor")
         assert any(
             "Error reporting event for test_sensor" in r.message
@@ -470,7 +476,7 @@ class TestMultiSensorTagRead:
         """When the nesting box is not found, the error log uses the derived box name."""
         ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
         # No nesting box created — lookup should fail for "left" (derived from "left_1")
-        with caplog.at_level(logging.ERROR, logger="hardware_agent.handlers"):
+        with caplog.at_level(logging.ERROR, logger=LOGGER_NAME):
             handle_tag_read("left_1", "12345")
         assert NestingBoxPresence.objects.count() == 0
         assert any(

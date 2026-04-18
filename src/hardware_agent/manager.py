@@ -3,7 +3,7 @@ import logging
 from hardware_agent.beam_break_sensor import BeamSensor
 from hardware_agent.camera import USBCamera
 from hardware_agent.rfid_reader import RFIDReader
-from hardware_agent.handlers import (
+from web_app.services.hardware_events import (
     report_status,
     handle_tag_read,
     handle_camera_frame,
