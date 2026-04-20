@@ -59,12 +59,21 @@
   }
 
   /** Initialise a chart the first time its Bootstrap collapse panel is
-   * opened. Used to keep out-of-view charts off the initial render path. */
+   * fully open.
+   *
+   * We listen for ``shown.bs.collapse`` (past tense, fires after the CSS
+   * transition completes) rather than ``show.bs.collapse`` (present tense,
+   * fires at the start of the transition). At the start of the transition
+   * the panel is still ``display: none`` or mid-animation, so Chart.js
+   * measures a zero clientWidth and produces a zero-height canvas — most
+   * visible on mobile where the viewport is narrow. After the transition the
+   * canvas has its full dimensions and Chart.js renders correctly.
+   */
   function lazyChart(collapseId, factory) {
     const el = document.getElementById(collapseId);
     if (!el) return;
     let initialised = false;
-    el.addEventListener("show.bs.collapse", () => {
+    el.addEventListener("shown.bs.collapse", () => {
       if (!initialised) {
         initialised = true;
         factory();
@@ -143,6 +152,12 @@
           },
           options: {
             ...noAnimation,
+            // maintainAspectRatio: false lets the canvas honour the
+            // explicit height="60" attribute rather than computing a
+            // height from the width via a fixed ratio. This is what
+            // prevents the zero-height bug on mobile when combined with
+            // initialising on shown.bs.collapse (not show.bs.collapse).
+            maintainAspectRatio: false,
             scales: {
               y: {
                 beginAtZero: true,
@@ -169,6 +184,7 @@
         },
         options: {
           ...noAnimation,
+          maintainAspectRatio: false,
           scales: {
             y: {
               beginAtZero: true,
@@ -282,6 +298,7 @@
         },
         options: {
           ...noAnimation,
+          maintainAspectRatio: false,
           scales: {
             y: {
               beginAtZero: true,
