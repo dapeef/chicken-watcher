@@ -110,6 +110,7 @@
       },
       options: {
         ...noAnimation,
+        maintainAspectRatio: false,
         scales: {
           y: {
             beginAtZero: true,
@@ -205,6 +206,7 @@
       },
       options: {
         ...noAnimation,
+        maintainAspectRatio: false,
         scales: {
           x: todXScale,
           y: { beginAtZero: true, ticks: { display: false } },
@@ -225,6 +227,7 @@
       },
       options: {
         ...noAnimation,
+        maintainAspectRatio: false,
         scales: {
           x: todXScale,
           y: {
