@@ -189,8 +189,12 @@ uv run manage.py migrate
 # Seed with fake data for development
 uv run manage.py seed --mode=spawn_test_data --yes
 
-# Start the web server
+# Start the web server (localhost only)
 uv run manage.py runserver
+
+# Start the web server accessible from other devices on your LAN
+# Find your IP first: ipconfig getifaddr en0  (macOS)  or  hostname -I  (Linux)
+uv run manage.py runserver 0.0.0.0:8000
 
 # Start the hardware agent (only useful if sensors are physically connected)
 uv run manage.py run_hardware_agent
