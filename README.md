@@ -75,7 +75,7 @@ ls -l /dev/v4l/by-id/       # cameras
 ### 4. Start the containers
 
 ```shell
-docker compose up -d --build
+docker compose -f docker-compose.yml up -d --build
 ```
 
 Migrations and static-file collection run automatically inside `web-app` on first start.
@@ -102,15 +102,9 @@ The CSV files live at `src/web_app/management/commands/chickens.csv` and `tags.c
 ### Start / stop
 
 ```shell
-docker compose up -d          # start all services in the background
-docker compose down           # stop everything cleanly (data is preserved in volumes)
-docker compose restart web-app  # restart a single service
-```
-
-### Update after a code change
-
-```shell
-docker compose up -d --build
+docker compose -f docker-compose.yml up -d --build  # start all services in the background
+docker compose down                                 # stop everything cleanly (data is preserved in volumes)
+docker compose restart web-app                      # restart a single service
 ```
 
 Migrations run automatically on startup — no separate step needed.
