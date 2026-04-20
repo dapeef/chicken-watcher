@@ -424,9 +424,47 @@ def build_flock_count_dataset(
 # Nesting-box preference pies (visits / time / eggs)
 # ---------------------------------------------------------------------------
 
+# Stable, name-keyed colour map for the nesting-box pie slices.
+# Keys are the *display* labels (after .title() / "Unknown" normalisation).
+# Any box name not listed here falls back through PALETTE by sorted position
+# among the unlisted boxes, ensuring at least some consistency.
+# Slice order in the rendered pie is: named boxes alphabetically, with
+# "Unknown" inserted after "Left" and before "Right" (i.e. in the middle).
+_BOX_COLOUR: dict[str, str] = {
+    "Left": PALETTE[0],  # blue
+    "Right": PALETTE[2],  # green — index 1 deliberately skipped so adding
+    #                        a third real box later doesn't clash with Unknown
+    "Unknown": UNKNOWN_COLOUR,
+}
 
-def _pie_colour(label: str, idx: int) -> str:
-    return UNKNOWN_COLOUR if label == "Unknown" else PALETTE[idx % len(PALETTE)]
+
+# The canonical slice order: real boxes alphabetically, Unknown in the middle.
+# This keeps Left/Right visually consistent and Unknown visually distinct,
+# regardless of whether Unknown is present in a given query.
+def _pie_colour_for(label: str, fallback_idx: int) -> str:
+    """Return the stable colour for a pie slice label."""
+    return _BOX_COLOUR.get(label, PALETTE[fallback_idx % len(PALETTE)])
+
+
+def _sort_pie_slices(labels: list[str], values: list) -> tuple[list[str], list]:
+    """Sort pie slices so that real boxes come first (alphabetically), with
+    "Unknown" inserted after the first half of the named boxes.
+
+    With two boxes ("Left", "Right") the order becomes: Left → Unknown → Right.
+    With one box the order is: Box → Unknown (or just Box if no Unknown).
+    """
+    unknown_label = "Unknown"
+    named = [(lbl, v) for lbl, v in zip(labels, values, strict=True) if lbl != unknown_label]
+    unknown = [(lbl, v) for lbl, v in zip(labels, values, strict=True) if lbl == unknown_label]
+
+    named_sorted = sorted(named, key=lambda x: x[0])
+    mid = len(named_sorted) // 2
+    ordered = named_sorted[:mid] + unknown + named_sorted[mid:]
+
+    if not ordered:
+        return labels, values
+    out_labels, out_values = zip(*ordered, strict=True)
+    return list(out_labels), list(out_values)
 
 
 def build_nesting_box_preference_charts(
@@ -445,6 +483,10 @@ def build_nesting_box_preference_charts(
     ``visits`` counts :class:`NestingBoxPresencePeriod` rows per box;
     ``time`` sums their durations in seconds; ``eggs`` counts eggs per
     box (widened by ``include_unknown`` if set).
+
+    Slice colours are stable per box name (Left is always blue, Right
+    always green, Unknown always grey) and Unknown is always positioned
+    between Left and Right regardless of DB query order.
     """
     box_qs = (
         NestingBoxPresencePeriod.objects.filter(
@@ -465,16 +507,21 @@ def build_nesting_box_preference_charts(
         .order_by("nesting_box__name")
     )
 
-    box_labels_raw: list = []
-    box_visits: list[int] = []
-    box_seconds: list[int] = []
+    raw_box: dict[str, dict] = {}
     for row in box_qs:
-        box_labels_raw.append(row["nesting_box__name"])
-        box_visits.append(row["visits"])
+        label = row["nesting_box__name"].title() if row["nesting_box__name"] else "Unknown"
         duration = row["total_duration"]
-        box_seconds.append(int(duration.total_seconds()) if duration is not None else 0)
+        raw_box[label] = {
+            "visits": row["visits"],
+            "seconds": int(duration.total_seconds()) if duration is not None else 0,
+        }
 
-    box_labels = [name.title() if name else "Unknown" for name in box_labels_raw]
+    box_labels_unsorted = list(raw_box.keys())
+    box_visits_unsorted = [raw_box[lbl]["visits"] for lbl in box_labels_unsorted]
+    box_seconds_unsorted = [raw_box[lbl]["seconds"] for lbl in box_labels_unsorted]
+
+    box_labels, box_visits = _sort_pie_slices(box_labels_unsorted, box_visits_unsorted)
+    _, box_seconds = _sort_pie_slices(box_labels_unsorted, box_seconds_unsorted)
 
     # Eggs per nesting box
     egg_box_filter = Q(chicken__in=chosen) & normal_egg_filter
@@ -489,13 +536,26 @@ def build_nesting_box_preference_charts(
         .annotate(egg_count=Count("id"))
         .order_by("nesting_box__name")
     )
-    egg_box_labels = [
+    egg_labels_unsorted = [
         r["nesting_box__name"].title() if r["nesting_box__name"] else "Unknown" for r in egg_box_qs
     ]
-    egg_box_counts = [r["egg_count"] for r in egg_box_qs]
+    egg_counts_unsorted = [r["egg_count"] for r in egg_box_qs]
+    egg_box_labels, egg_box_counts = _sort_pie_slices(egg_labels_unsorted, egg_counts_unsorted)
 
-    pie_colours = [_pie_colour(label, i) for i, label in enumerate(box_labels)]
-    egg_pie_colours = [_pie_colour(label, i) for i, label in enumerate(egg_box_labels)]
+    # Assign colours by name, not position, so Left/Right stay consistent
+    # whether or not Unknown is present.
+    fallback_counters: dict[str, int] = {}
+
+    def _colour(label: str) -> str:
+        if label in _BOX_COLOUR:
+            return _BOX_COLOUR[label]
+        idx = fallback_counters.get(label, len(fallback_counters))
+        fallback_counters[label] = idx
+        return PALETTE[idx % len(PALETTE)]
+
+    pie_colours = [_colour(lbl) for lbl in box_labels]
+    fallback_counters.clear()
+    egg_pie_colours = [_colour(lbl) for lbl in egg_box_labels]
 
     return {
         "visits": {
