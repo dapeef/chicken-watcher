@@ -31,8 +31,8 @@ SECRET_KEY: str | None = os.getenv("DJANGO_SECRET_KEY")
 
 # Coop location — used for sunrise/sunset shading on the timeline.
 # Defaults to London if not set.
-COOP_LATITUDE = float(os.getenv("COOP_LATITUDE", "51.5"))
-COOP_LONGITUDE = float(os.getenv("COOP_LONGITUDE", "-0.1"))
+COOP_LATITUDE = float(os.getenv("COOP_LATITUDE") or "51.5")
+COOP_LONGITUDE = float(os.getenv("COOP_LONGITUDE") or "-0.1")
 
 
 # The app is deployed behind a LAN + VPN boundary, so ALLOWED_HOSTS = ["*"]
