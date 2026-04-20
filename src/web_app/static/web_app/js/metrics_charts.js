@@ -152,11 +152,6 @@
           },
           options: {
             ...noAnimation,
-            // maintainAspectRatio: false lets the canvas honour the
-            // explicit height="60" attribute rather than computing a
-            // height from the width via a fixed ratio. This is what
-            // prevents the zero-height bug on mobile when combined with
-            // initialising on shown.bs.collapse (not show.bs.collapse).
             maintainAspectRatio: false,
             scales: {
               y: {
