@@ -310,7 +310,7 @@ class MetricsView(TemplateView):
 
         # ── Remaining charts ─────────────────────────────────────────────────
         flock_count_dataset = build_flock_count_dataset(
-            chosen=params.chosen, date_labels=date_labels, today=today
+            all_chickens=all_chickens, date_labels=date_labels, today=today
         )
 
         pies = build_nesting_box_preference_charts(

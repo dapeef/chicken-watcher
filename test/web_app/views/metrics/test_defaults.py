@@ -101,12 +101,15 @@ class TestMetricsViewChickenSelection:
         datasets = json.loads(response.context["egg_prod_datasets_json"])
         assert datasets == []
 
-    def test_chickens_sent_empty_selection_no_flock_counts(self, client):
+    def test_chickens_sent_empty_selection_still_shows_full_flock_count(self, client):
+        """The flock size chart is always scoped to all chickens, not the
+        current selection — even when no chickens are selected it shows
+        the real headcount, not zeros."""
         ChickenFactory()
         url = reverse("metrics")
         response = client.get(url, {"chickens_sent": "1"})
         flock = json.loads(response.context["flock_count_dataset_json"])
-        assert all(v == 0 for v in flock["data"])
+        assert any(v > 0 for v in flock["data"])
 
     def test_invalid_chicken_id_ignored(self, client):
         c1 = ChickenFactory()

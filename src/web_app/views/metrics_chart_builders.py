@@ -399,13 +399,19 @@ def build_tod_nest_datasets(
 
 
 def build_flock_count_dataset(
-    chosen: list,
+    all_chickens: list,
     date_labels: list,
     today: date,
 ) -> dict:
-    """Count of chosen chickens alive per day across the date range."""
+    """Count of all chickens (regardless of the current selection) alive
+    per day across the date range.
+
+    The flock size chart is intentionally not scoped to the chicken
+    selection — it shows the real flock headcount so you can compare
+    an individual hen's production against the actual population trend.
+    """
     flock_counts = [
-        sum(1 for hen in chosen if hen.date_of_birth <= d <= (hen.date_of_death or today))
+        sum(1 for hen in all_chickens if hen.date_of_birth <= d <= (hen.date_of_death or today))
         for d in date_labels
     ]
     return {
