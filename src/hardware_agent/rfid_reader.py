@@ -19,7 +19,7 @@ class RFIDReader(BaseSensor):
         port: str,
         baudrate: int = 9600,
         timeout: int = 1,
-        reset_interval: float = 0.1,
+        reset_interval: float = 0.2,
     ):
         super().__init__(name)
         self.port = port
@@ -75,11 +75,24 @@ class RFIDReader(BaseSensor):
             # Reset reader so that it can read the same tag repeatedly.
             # Pulse both RTS and DTR — whichever one is wired to RST will
             # trigger the reset; the other is a harmless no-op.
+            #
+            # The two lines are toggled with a small gap rather than
+            # simultaneously: each assignment fires a USB control transfer
+            # to the USB-serial chip, and on marginal hubs issuing them
+            # back-to-back can collide with the in-flight bulk-IN read and
+            # surface as EPROTO (errno 71). Spacing them out — and
+            # bracketing the pulse with a buffer flush — keeps the bus
+            # well-behaved and stops a stale frame queued during the
+            # reset from re-firing the callback as a duplicate read.
             self.serial_conn.rts = True
+            time.sleep(self.reset_interval / 2)
             self.serial_conn.dtr = True
             time.sleep(self.reset_interval)
             self.serial_conn.rts = False
+            time.sleep(self.reset_interval / 2)
             self.serial_conn.dtr = False
+            with contextlib.suppress(Exception):
+                self.serial_conn.reset_input_buffer()
 
     def read_tag(self) -> str | None:
         if not self.serial_conn or not self.serial_conn.is_open:

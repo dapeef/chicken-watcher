@@ -10,6 +10,7 @@ class MockSerial:
         self.rts = False
         self.dtr = False
         self.close_called = False
+        self.reset_input_buffer_calls = 0
 
     def read(self, size=1):
         if not self.data_to_read:
@@ -27,6 +28,10 @@ class MockSerial:
         res = self.data_to_read[:idx]
         self.data_to_read = self.data_to_read[idx:]
         return res
+
+    def reset_input_buffer(self):
+        self.reset_input_buffer_calls += 1
+        self.data_to_read = b""
 
     def close(self):
         self.is_open = False
@@ -92,3 +97,6 @@ def test_rfid_reader_poll(mocker):
     # whichever one is wired to the RFID PCB's RST pin triggers a reset.
     assert reader.serial_conn.rts is False
     assert reader.serial_conn.dtr is False
+    # And the input buffer should have been flushed so any frame queued
+    # during the reset pulse can't be re-read as a duplicate tag.
+    assert reader.serial_conn.reset_input_buffer_calls == 1
