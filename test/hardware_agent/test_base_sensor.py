@@ -124,6 +124,49 @@ def test_stop_interrupts_reconnect_backoff_fast(mocker):
     assert elapsed < 1.0, f"stop() took {elapsed:.2f}s — reconnect backoff was not interrupted"
 
 
+def test_on_connect_failure_does_not_kill_thread(mocker, fast_reconnect):
+    """A raising ``on_connect()`` (e.g. EPROTO when setting modem-control
+    lines on a flaky USB hub at startup) must be caught by the loop, route
+    through ``handle_error()`` (which disconnects), and let the next
+    iteration reconnect — rather than killing the sensor thread."""
+
+    class FlakyOnConnectSensor(MockSensor):
+        def __init__(self, name):
+            super().__init__(name)
+            self.on_connect_calls = 0
+
+        def on_connect(self):
+            self.on_connect_calls += 1
+            # Fail the first call only; subsequent calls succeed so the
+            # loop can stabilise after the disconnect/reconnect cycle.
+            if self.on_connect_calls == 1:
+                raise OSError(71, "Protocol error")
+
+        def poll(self):
+            # Do not auto-terminate after N polls (parent class does that)
+            # — we want to inspect a live thread after recovery.
+            self.poll_count += 1
+            self._stop_event.wait(0.01)
+
+    sensor = FlakyOnConnectSensor("test")
+    sensor.should_connect = True
+    status_mock = mocker.Mock()
+
+    sensor.start(callback=mocker.Mock(), status_callback=status_mock)
+
+    # The first on_connect call raised; the loop must have caught it,
+    # disconnected, reconnected, and started polling.
+    wait_for(lambda: sensor.on_connect_calls >= 2)
+    wait_for(lambda: sensor.poll_count > 0)
+    # The thread should still be alive — i.e. the exception didn't escape
+    # to the threading machinery.
+    assert sensor.thread is not None and sensor.thread.is_alive()
+    # The error must have been reported via the status callback.
+    assert any("Protocol error" in str(args) for args in status_mock.call_args_list)
+
+    sensor.stop()
+
+
 def test_start_is_idempotent_while_alive(mocker, fast_reconnect):
     """Calling start() on a live running sensor must not spawn a second
     thread — the second call is a no-op."""

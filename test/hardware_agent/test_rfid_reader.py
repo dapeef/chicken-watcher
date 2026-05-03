@@ -7,10 +7,42 @@ class MockSerial:
     def __init__(self, data_to_read=None):
         self.data_to_read = data_to_read or b""
         self.is_open = True
-        self.rts = False
-        self.dtr = False
+        self._rts = False
+        self._dtr = False
         self.close_called = False
         self.reset_input_buffer_calls = 0
+        # Test hook: a list of exceptions to raise on each successive
+        # rts/dtr setattr. ``None`` entries mean "this assignment
+        # succeeds". Empty list means assignments always succeed.
+        self.modem_failures: list[Exception | None] = []
+        self.modem_writes: list[tuple[str, bool]] = []
+
+    def _maybe_fail(self) -> None:
+        if not self.modem_failures:
+            return
+        exc = self.modem_failures.pop(0)
+        if exc is not None:
+            raise exc
+
+    @property
+    def rts(self) -> bool:
+        return self._rts
+
+    @rts.setter
+    def rts(self, value: bool) -> None:
+        self._maybe_fail()
+        self._rts = value
+        self.modem_writes.append(("rts", value))
+
+    @property
+    def dtr(self) -> bool:
+        return self._dtr
+
+    @dtr.setter
+    def dtr(self, value: bool) -> None:
+        self._maybe_fail()
+        self._dtr = value
+        self.modem_writes.append(("dtr", value))
 
     def read(self, size=1):
         if not self.data_to_read:
@@ -100,3 +132,67 @@ def test_rfid_reader_poll(mocker):
     # And the input buffer should have been flushed so any frame queued
     # during the reset pulse can't be re-read as a duplicate tag.
     assert reader.serial_conn.reset_input_buffer_calls == 1
+
+
+def test_on_connect_idles_modem_lines_low(mocker):
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial()
+    # Pretend the lines were left high somehow.
+    reader.serial_conn._rts = True
+    reader.serial_conn._dtr = True
+    mocker.patch("time.sleep")
+
+    reader.on_connect()
+
+    assert reader.serial_conn.rts is False
+    assert reader.serial_conn.dtr is False
+
+
+def test_set_modem_line_retries_on_transient_eproto(mocker):
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial()
+    # First attempt fails with EPROTO, second attempt succeeds.
+    reader.serial_conn.modem_failures = [OSError(71, "Protocol error")]
+    sleep_mock = mocker.patch("time.sleep")
+
+    reader._set_modem_line("rts", True)
+
+    # Eventually succeeded.
+    assert reader.serial_conn.rts is True
+    # Backoff slept exactly once between the failed attempt and the retry.
+    sleep_mock.assert_called_once_with(reader._MODEM_RETRY_BACKOFF)
+
+
+def test_set_modem_line_raises_after_persistent_failure(mocker):
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial()
+    # All retry attempts fail.
+    reader.serial_conn.modem_failures = [
+        OSError(71, "Protocol error") for _ in range(reader._MODEM_RETRY_ATTEMPTS)
+    ]
+    mocker.patch("time.sleep")
+
+    try:
+        reader._set_modem_line("rts", True)
+    except OSError as e:
+        assert e.errno == 71
+    else:
+        raise AssertionError("Expected OSError to be raised after exhausting retries")
+
+
+def test_on_connect_propagates_persistent_eproto(mocker):
+    """A persistent EPROTO must escape on_connect so the loop disconnects
+    and reconnects rather than continuing on a bad serial port."""
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial()
+    reader.serial_conn.modem_failures = [
+        OSError(71, "Protocol error") for _ in range(reader._MODEM_RETRY_ATTEMPTS)
+    ]
+    mocker.patch("time.sleep")
+
+    try:
+        reader.on_connect()
+    except OSError as e:
+        assert e.errno == 71
+    else:
+        raise AssertionError("Expected OSError to propagate out of on_connect")

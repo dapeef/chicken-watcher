@@ -117,7 +117,24 @@ class BaseSensor(ABC):
                 if self.connect():
                     if self.status_callback:
                         self.status_callback(self.name, True)
-                    self.on_connect()
+                    # on_connect() can talk to the hardware (e.g. setting
+                    # modem-control lines on a USB-serial port), and that
+                    # can fail transiently — particularly at startup on a
+                    # marginal USB hub when several devices are being
+                    # initialised at once. Treat a failure here the same
+                    # as a poll-time failure: log, signal status, hand off
+                    # to handle_error() (which disconnects), back off, and
+                    # let the next loop iteration reconnect.
+                    try:
+                        self.on_connect()
+                    except Exception as e:
+                        logger.error("[%s] Error in on_connect: %s", self.name, e)
+                        if self.status_callback:
+                            self.status_callback(self.name, False, str(e))
+                        self.handle_error(e)
+                        if self._stop_event.wait(RECONNECT_INTERVAL_SECONDS):
+                            break
+                        continue
                 else:
                     if self.status_callback:
                         self.status_callback(self.name, False, "Disconnected")
