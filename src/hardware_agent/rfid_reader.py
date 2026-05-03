@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 START_BYTE, END_BYTE = 0x02, 0x03
 
+VALID_RESET_LINES = ("rts", "dtr")
+
 
 class RFIDReader(BaseSensor):
     def __init__(
@@ -20,12 +22,18 @@ class RFIDReader(BaseSensor):
         baudrate: int = 9600,
         timeout: int = 1,
         reset_interval: float = 0.2,
+        reset_line: str = "dtr",
     ):
+        if reset_line not in VALID_RESET_LINES:
+            raise ValueError(
+                f"Invalid reset_line {reset_line!r}; must be one of {VALID_RESET_LINES}"
+            )
         super().__init__(name)
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
         self.reset_interval = reset_interval
+        self.reset_line = reset_line
         self.serial_conn = None
 
     def connect(self) -> bool:
@@ -95,13 +103,10 @@ class RFIDReader(BaseSensor):
         raise last_exc
 
     def on_connect(self):
-        # Hold both modem-control lines low at idle. We drive both because
-        # different USB-serial adapters expose either RTS# or DTR# (sometimes
-        # silk-screened "DTE") on the breakout header, and the RFID PCB's RST
-        # pin may be wired to whichever one is available.
+        # Hold the configured reset line low at idle so it does not
+        # accidentally hold the RFID PCB in reset when no tag is present.
         if self.serial_conn:
-            self._set_modem_line("rts", False)
-            self._set_modem_line("dtr", False)
+            self._set_modem_line(self.reset_line, False)
 
     def poll(self):
         if not self.serial_conn:
@@ -112,25 +117,17 @@ class RFIDReader(BaseSensor):
             if self.callback:
                 self.callback(self.name, tag)
 
-            # Reset reader so that it can read the same tag repeatedly.
-            # Pulse both RTS and DTR — whichever one is wired to RST will
-            # trigger the reset; the other is a harmless no-op.
-            #
-            # The two lines are toggled with a small gap rather than
-            # simultaneously: each assignment fires a USB control transfer
-            # to the USB-serial chip, and on marginal hubs issuing them
-            # back-to-back can collide with the in-flight bulk-IN read and
-            # surface as EPROTO (errno 71). Spacing them out — and
-            # bracketing the pulse with a buffer flush — keeps the bus
-            # well-behaved and stops a stale frame queued during the
-            # reset from re-firing the callback as a duplicate read.
-            self._set_modem_line("rts", True)
-            time.sleep(self.reset_interval / 2)
-            self._set_modem_line("dtr", True)
+            # Pulse the reset line so the reader can re-read the same tag.
+            # A single modem-control line is used (configured via
+            # reset_line) rather than both RTS and DTR: each assignment
+            # fires a USB control transfer to the USB-serial chip, and
+            # unnecessary transfers stress marginal hubs and can cause
+            # EPROTO (errno 71). Bracketing with a buffer flush stops any
+            # frame queued during the pulse from re-firing the callback as
+            # a duplicate read.
+            self._set_modem_line(self.reset_line, True)
             time.sleep(self.reset_interval)
-            self._set_modem_line("rts", False)
-            time.sleep(self.reset_interval / 2)
-            self._set_modem_line("dtr", False)
+            self._set_modem_line(self.reset_line, False)
             with contextlib.suppress(Exception):
                 self.serial_conn.reset_input_buffer()
 

@@ -27,10 +27,15 @@ def run_agent() -> None:
     # Each nesting box supports up to 4 RFID readers, identified by
     # RFID_PORT_LEFT_1 … RFID_PORT_LEFT_4 and RFID_PORT_RIGHT_1 … RFID_PORT_RIGHT_4.
     # Missing or empty variables are skipped gracefully.
+    # RFID_RESET_LINE selects which modem-control output on the USB-serial
+    # adapter is wired to the RFID PCB's RST pin.  "dtr" and "rts" are the
+    # only valid values.  Defaults to "dtr" because newer USB-serial adapters
+    # (which label the second output "DTE") expose DTR rather than RTS.
+    reset_line = os.environ.get("RFID_RESET_LINE", "dtr").lower().strip()
     for box in ("left", "right"):
         for n in range(1, 5):
             port = os.environ.get(f"RFID_PORT_{box.upper()}_{n}")
-            manager.add_rfid_reader(f"{box}_{n}", port)
+            manager.add_rfid_reader(f"{box}_{n}", port, reset_line=reset_line)
 
     manager.add_camera("cam", os.environ.get("CAMERA_DEVICE"))
 

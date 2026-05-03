@@ -13,6 +13,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - MEDIA_ROOT=/app/media
       - LOG_FILENAME=hardware_agent.log
+      - RFID_RESET_LINE=${RFID_RESET_LINE:-dtr}
       - RFID_PORT_LEFT_1=${RFID_PORT_LEFT_1}
       - RFID_PORT_LEFT_2=${RFID_PORT_LEFT_2}
       - RFID_PORT_LEFT_3=${RFID_PORT_LEFT_3}

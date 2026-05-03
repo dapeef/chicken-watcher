@@ -29,7 +29,7 @@ class TestHardwareManager:
         manager.add_rfid_reader("TestReader", "/dev/ttyUSB0")
 
         assert len(manager.sensors) == 1
-        mock_reader.assert_called_once_with("TestReader", "/dev/ttyUSB0")
+        mock_reader.assert_called_once_with("TestReader", "/dev/ttyUSB0", reset_line="dtr")
         mock_reader.return_value.start.assert_called_once()
 
     def test_add_camera_no_device(self, mocker, caplog):

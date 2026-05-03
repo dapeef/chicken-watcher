@@ -1,3 +1,4 @@
+import pytest
 import serial
 
 from hardware_agent.rfid_reader import RFIDReader
@@ -112,40 +113,49 @@ def test_rfid_reader_read_tag(mocker):
     assert tag == "TAG123"
 
 
-def test_rfid_reader_poll(mocker):
+@pytest.mark.parametrize("reset_line", ["dtr", "rts"])
+def test_rfid_reader_poll(mocker, reset_line):
     data = b"\x02TAG123X\x03"
-    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line=reset_line)
     reader.serial_conn = MockSerial(data)
     callback = mocker.Mock()
     reader.callback = callback
 
-    # Mock time.sleep to avoid waiting
     mocker.patch("time.sleep")
 
     reader.poll()
 
     callback.assert_called_once_with("test", "TAG123")
-    # Both lines should have been pulsed True then back to False so that
-    # whichever one is wired to the RFID PCB's RST pin triggers a reset.
-    assert reader.serial_conn.rts is False
-    assert reader.serial_conn.dtr is False
-    # And the input buffer should have been flushed so any frame queued
-    # during the reset pulse can't be re-read as a duplicate tag.
+    # Only the configured reset line should have been pulsed; the other
+    # must remain untouched (no unnecessary USB control transfers).
+    other_line = "rts" if reset_line == "dtr" else "dtr"
+    assert getattr(reader.serial_conn, reset_line) is False
+    assert not any(name == other_line for name, _ in reader.serial_conn.modem_writes)
+    # Input buffer flushed after the pulse.
     assert reader.serial_conn.reset_input_buffer_calls == 1
 
 
-def test_on_connect_idles_modem_lines_low(mocker):
-    reader = RFIDReader("test", "/dev/ttyUSB0")
+def test_rfid_reader_invalid_reset_line():
+    with pytest.raises(ValueError, match="reset_line"):
+        RFIDReader("test", "/dev/ttyUSB0", reset_line="cts")
+
+
+@pytest.mark.parametrize("reset_line", ["dtr", "rts"])
+def test_on_connect_idles_reset_line_low(mocker, reset_line):
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line=reset_line)
     reader.serial_conn = MockSerial()
-    # Pretend the lines were left high somehow.
+    # Pre-set both high so we can confirm only the configured line is driven.
     reader.serial_conn._rts = True
     reader.serial_conn._dtr = True
     mocker.patch("time.sleep")
 
     reader.on_connect()
 
-    assert reader.serial_conn.rts is False
-    assert reader.serial_conn.dtr is False
+    # Configured line driven low.
+    assert getattr(reader.serial_conn, reset_line) is False
+    # Other line not touched.
+    other_line = "rts" if reset_line == "dtr" else "dtr"
+    assert not any(name == other_line for name, _ in reader.serial_conn.modem_writes)
 
 
 def test_set_modem_line_retries_on_transient_eproto(mocker):
