@@ -8,6 +8,7 @@ class MockSerial:
         self.data_to_read = data_to_read or b""
         self.is_open = True
         self.rts = False
+        self.dtr = False
         self.close_called = False
 
     def read(self, size=1):
@@ -87,4 +88,7 @@ def test_rfid_reader_poll(mocker):
     reader.poll()
 
     callback.assert_called_once_with("test", "TAG123")
-    assert reader.serial_conn.rts is False  # Should have been set to True then False
+    # Both lines should have been pulsed True then back to False so that
+    # whichever one is wired to the RFID PCB's RST pin triggers a reset.
+    assert reader.serial_conn.rts is False
+    assert reader.serial_conn.dtr is False

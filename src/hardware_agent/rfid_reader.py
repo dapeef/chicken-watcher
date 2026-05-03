@@ -55,8 +55,13 @@ class RFIDReader(BaseSensor):
         return self.serial_conn is not None and self.serial_conn.is_open
 
     def on_connect(self):
+        # Hold both modem-control lines low at idle. We drive both because
+        # different USB-serial adapters expose either RTS# or DTR# (sometimes
+        # silk-screened "DTE") on the breakout header, and the RFID PCB's RST
+        # pin may be wired to whichever one is available.
         if self.serial_conn:
             self.serial_conn.rts = False
+            self.serial_conn.dtr = False
 
     def poll(self):
         if not self.serial_conn:
@@ -67,10 +72,14 @@ class RFIDReader(BaseSensor):
             if self.callback:
                 self.callback(self.name, tag)
 
-            # Reset reader so that it can read the same tag repeatedly
+            # Reset reader so that it can read the same tag repeatedly.
+            # Pulse both RTS and DTR — whichever one is wired to RST will
+            # trigger the reset; the other is a harmless no-op.
             self.serial_conn.rts = True
+            self.serial_conn.dtr = True
             time.sleep(self.reset_interval)
             self.serial_conn.rts = False
+            self.serial_conn.dtr = False
 
     def read_tag(self) -> str | None:
         if not self.serial_conn or not self.serial_conn.is_open:
