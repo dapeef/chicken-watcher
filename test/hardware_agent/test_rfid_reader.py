@@ -12,6 +12,8 @@ class MockSerial:
         self._dtr = False
         self.close_called = False
         self.reset_input_buffer_calls = 0
+        # Set to an exception instance to make reset_input_buffer() raise.
+        self.reset_input_buffer_failure: Exception | None = None
         # Test hook: a list of exceptions to raise on each successive
         # rts/dtr setattr. ``None`` entries mean "this assignment
         # succeeds". Empty list means assignments always succeed.
@@ -65,6 +67,8 @@ class MockSerial:
     def reset_input_buffer(self):
         self.reset_input_buffer_calls += 1
         self.data_to_read = b""
+        if self.reset_input_buffer_failure is not None:
+            raise self.reset_input_buffer_failure
 
     def close(self):
         self.is_open = False
@@ -206,3 +210,63 @@ def test_on_connect_propagates_persistent_eproto(mocker):
         assert e.errno == 71
     else:
         raise AssertionError("Expected OSError to propagate out of on_connect")
+
+
+def test_recv_frame_raises_on_corrupt_stream():
+    """If the STX hunt consumes more than _MAX_SYNC_BYTES without finding
+    a frame start, the stream is considered corrupt and RuntimeError is
+    raised so BaseSensor can disconnect and reconnect."""
+    # Fill the buffer with more garbage bytes than the limit, none of which
+    # is STX (0x02).
+    garbage = bytes([0xFF] * (RFIDReader._MAX_SYNC_BYTES + 1))
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial(garbage)
+
+    with pytest.raises(RuntimeError, match="stream corrupt"):
+        reader.recv_frame()
+
+
+def test_recv_frame_tolerates_garbage_before_stx():
+    """Garbage bytes before STX within the limit should be silently
+    discarded and the valid frame still returned."""
+    # A few garbage bytes, then a valid frame.
+    data = b"\xff\xfe\xfd\x02TAG123X\x03"
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial(data)
+
+    frame = reader.recv_frame()
+    assert frame == b"TAG123X"
+
+
+def test_poll_reset_line_deasserted_if_flush_fails(mocker):
+    """If reset_input_buffer() raises, the reset line must already have
+    been driven low (via try/finally) before the exception propagates.
+    Without this guarantee the reader is held in reset across the full
+    reconnect backoff wait."""
+    data = b"\x02TAG123X\x03"
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line="dtr")
+    reader.serial_conn = MockSerial(data)
+    reader.serial_conn.reset_input_buffer_failure = OSError("flush failed")
+    reader.callback = mocker.Mock()
+    mocker.patch("time.sleep")
+
+    with pytest.raises(OSError, match="flush failed"):
+        reader.poll()
+
+    # The line must be low despite the exception — reader is not stuck in reset.
+    assert reader.serial_conn.dtr is False
+
+
+def test_poll_reset_input_buffer_failure_propagates(mocker):
+    """A reset_input_buffer() failure must escape poll() so BaseSensor
+    triggers a disconnect/reconnect rather than continuing with a dirty
+    buffer that would corrupt subsequent reads."""
+    data = b"\x02TAG123X\x03"
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial(data)
+    reader.serial_conn.reset_input_buffer_failure = OSError(71, "Protocol error")
+    reader.callback = mocker.Mock()
+    mocker.patch("time.sleep")
+
+    with pytest.raises(OSError):
+        reader.poll()

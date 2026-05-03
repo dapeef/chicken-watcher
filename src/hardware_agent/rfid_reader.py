@@ -108,6 +108,13 @@ class RFIDReader(BaseSensor):
         if self.serial_conn:
             self._set_modem_line(self.reset_line, False)
 
+    # Maximum number of bytes to discard while hunting for STX before
+    # giving up and treating the stream as corrupt. A valid tag frame is
+    # at most ~20 bytes (STX + 12 tag chars + 1 checksum + ETX), so
+    # anything beyond a couple of frames' worth of garbage indicates the
+    # reader's firmware or the OS buffer is in a bad state.
+    _MAX_SYNC_BYTES = 64
+
     def poll(self):
         if not self.serial_conn:
             return
@@ -122,14 +129,25 @@ class RFIDReader(BaseSensor):
             # reset_line) rather than both RTS and DTR: each assignment
             # fires a USB control transfer to the USB-serial chip, and
             # unnecessary transfers stress marginal hubs and can cause
-            # EPROTO (errno 71). Bracketing with a buffer flush stops any
-            # frame queued during the pulse from re-firing the callback as
-            # a duplicate read.
+            # EPROTO (errno 71).
+            #
+            # try/finally guarantees the line is deasserted even if the
+            # trailing _set_modem_line call fails: without this the reader
+            # would be held in reset across the full reconnect backoff,
+            # silently blocking all reads until the next on_connect.
             self._set_modem_line(self.reset_line, True)
-            time.sleep(self.reset_interval)
-            self._set_modem_line(self.reset_line, False)
-            with contextlib.suppress(Exception):
-                self.serial_conn.reset_input_buffer()
+            try:
+                time.sleep(self.reset_interval)
+            finally:
+                self._set_modem_line(self.reset_line, False)
+
+            # Flush any bytes queued during the reset pulse so they can't
+            # be mistaken for the start of the next tag frame. This is
+            # intentionally outside the try/finally: if flush fails we
+            # want the exception to propagate so BaseSensor triggers a
+            # clean disconnect/reconnect rather than leaving a dirty
+            # buffer that silently corrupts subsequent reads.
+            self.serial_conn.reset_input_buffer()
 
     def read_tag(self) -> str | None:
         if not self.serial_conn or not self.serial_conn.is_open:
@@ -143,14 +161,29 @@ class RFIDReader(BaseSensor):
         return tag
 
     def recv_frame(self):
-        """read one STX … ETX frame, return payload (bytes) or None on timeout"""
-        # throw away bytes until we see STX
-        while True:
+        """Read one STX…ETX frame; return payload bytes or None on timeout.
+
+        Discards bytes until STX (0x02) is found, then reads until ETX
+        (0x03).  If more than _MAX_SYNC_BYTES are consumed before an STX
+        appears the stream is considered corrupt and RuntimeError is raised
+        so that BaseSensor's error handler can disconnect and reconnect,
+        clearing both the OS buffer and the reader's firmware state.
+        """
+        # Discard bytes until we see STX, but give up after too many: a
+        # garbage-filled buffer (e.g. from a partial reset) would otherwise
+        # spin silently, consuming stale bytes one at a time while the
+        # reader transmits valid frames that pile up behind them.
+        for _ in range(self._MAX_SYNC_BYTES):
             b = self.serial_conn.read(1)
-            if not b:  # timeout
+            if not b:  # timeout — no data, nothing to do
                 return None
             if b[0] == START_BYTE:
                 break
+        else:
+            raise RuntimeError(
+                f"[{self.name}] stream corrupt: no STX in {self._MAX_SYNC_BYTES} bytes; "
+                "reconnecting to clear buffer"
+            )
 
         payload = self.serial_conn.read_until(bytes([END_BYTE]))
         if not payload or payload[-1] != END_BYTE:
