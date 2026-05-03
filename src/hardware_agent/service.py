@@ -28,10 +28,16 @@ def run_agent() -> None:
     # RFID_PORT_LEFT_1 … RFID_PORT_LEFT_4 and RFID_PORT_RIGHT_1 … RFID_PORT_RIGHT_4.
     # Missing or empty variables are skipped gracefully.
     # RFID_RESET_LINE selects which modem-control output on the USB-serial
-    # adapter is wired to the RFID PCB's RST pin.  "dtr" and "rts" are the
-    # only valid values.  Defaults to "dtr" because newer USB-serial adapters
-    # (which label the second output "DTE") expose DTR rather than RTS.
-    reset_line = os.environ.get("RFID_RESET_LINE", "dtr").lower().strip()
+    # adapter is wired to the RFID PCB's RST pin, and therefore controls
+    # the reset behaviour:
+    #   "dtr"  — pulse DTR after each read (default; suits adapters labelled
+    #             "DTE" on the breakout header)
+    #   "rts"  — pulse RTS after each read (older adapters)
+    #   "none" — hold the line permanently low; no pulse is ever sent.
+    #             Eliminates modem-control USB transfers at the cost of not
+    #             being able to re-read a stationary tag.
+    _reset_line_raw = os.environ.get("RFID_RESET_LINE", "dtr").lower().strip()
+    reset_line: str | None = None if _reset_line_raw == "none" else _reset_line_raw
     for box in ("left", "right"):
         for n in range(1, 5):
             port = os.environ.get(f"RFID_PORT_{box.upper()}_{n}")

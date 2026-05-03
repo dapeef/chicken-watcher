@@ -55,7 +55,7 @@ class HardwareManager:
     # duplicated "append + start + status lambda" tail.
     # ------------------------------------------------------------------
 
-    def add_rfid_reader(self, name: str, port: str, reset_line: str = "dtr") -> None:
+    def add_rfid_reader(self, name: str, port: str, reset_line: str | None = "dtr") -> None:
         if not port:
             self._skip(RFID_PREFIX, name, "No port provided", "No port configured")
             return

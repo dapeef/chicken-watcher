@@ -270,3 +270,36 @@ def test_poll_reset_input_buffer_failure_propagates(mocker):
 
     with pytest.raises(OSError):
         reader.poll()
+
+
+def test_poll_no_reset_pulse_when_reset_line_none(mocker):
+    """When reset_line=None, poll() must fire the callback but make no
+    modem-control writes and no reset_input_buffer call — the line stays
+    low as set by on_connect."""
+    data = b"\x02TAG123X\x03"
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line=None)
+    reader.serial_conn = MockSerial(data)
+    reader.callback = mocker.Mock()
+    mocker.patch("time.sleep")
+
+    reader.poll()
+
+    reader.callback.assert_called_once_with("test", "TAG123")
+    assert reader.serial_conn.modem_writes == []
+    assert reader.serial_conn.reset_input_buffer_calls == 0
+
+
+def test_on_connect_pins_both_lines_low_when_reset_line_none(mocker):
+    """When reset_line=None both RTS and DTR must be driven low on connect.
+    The kernel/pyserial does not guarantee an initial state, so whichever
+    line is wired to RST on the adapter must be explicitly held low to
+    prevent the reader being stuck in reset."""
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line=None)
+    reader.serial_conn = MockSerial()
+    reader.serial_conn._dtr = True
+    reader.serial_conn._rts = True
+
+    reader.on_connect()
+
+    assert reader.serial_conn.rts is False
+    assert reader.serial_conn.dtr is False

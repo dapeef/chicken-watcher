@@ -22,11 +22,11 @@ class RFIDReader(BaseSensor):
         baudrate: int = 9600,
         timeout: int = 1,
         reset_interval: float = 0.2,
-        reset_line: str = "dtr",
+        reset_line: str | None = "dtr",
     ):
-        if reset_line not in VALID_RESET_LINES:
+        if reset_line is not None and reset_line not in VALID_RESET_LINES:
             raise ValueError(
-                f"Invalid reset_line {reset_line!r}; must be one of {VALID_RESET_LINES}"
+                f"Invalid reset_line {reset_line!r}; must be one of {VALID_RESET_LINES} or None"
             )
         super().__init__(name)
         self.port = port
@@ -103,10 +103,18 @@ class RFIDReader(BaseSensor):
         raise last_exc
 
     def on_connect(self):
-        # Hold the configured reset line low at idle so it does not
-        # accidentally hold the RFID PCB in reset when no tag is present.
-        if self.serial_conn:
+        if not self.serial_conn:
+            return
+        if self.reset_line is not None:
+            # Pulse mode: hold the active line low at idle so it does not
+            # accidentally hold the RFID PCB in reset between reads.
             self._set_modem_line(self.reset_line, False)
+        else:
+            # No-reset mode: pin *both* lines low. We don't know which one
+            # is wired to RST on this adapter, and the kernel/pyserial does
+            # not guarantee an initial state, so drive both to be safe.
+            self._set_modem_line("rts", False)
+            self._set_modem_line("dtr", False)
 
     # Maximum number of bytes to discard while hunting for STX before
     # giving up and treating the stream as corrupt. A valid tag frame is
@@ -124,30 +132,31 @@ class RFIDReader(BaseSensor):
             if self.callback:
                 self.callback(self.name, tag)
 
-            # Pulse the reset line so the reader can re-read the same tag.
-            # A single modem-control line is used (configured via
-            # reset_line) rather than both RTS and DTR: each assignment
-            # fires a USB control transfer to the USB-serial chip, and
-            # unnecessary transfers stress marginal hubs and can cause
-            # EPROTO (errno 71).
-            #
-            # try/finally guarantees the line is deasserted even if the
-            # trailing _set_modem_line call fails: without this the reader
-            # would be held in reset across the full reconnect backoff,
-            # silently blocking all reads until the next on_connect.
-            self._set_modem_line(self.reset_line, True)
-            try:
-                time.sleep(self.reset_interval)
-            finally:
-                self._set_modem_line(self.reset_line, False)
+            if self.reset_line is not None:
+                # Pulse the reset line so the reader can re-read the same tag.
+                # A single modem-control line is used (configured via
+                # reset_line) rather than both RTS and DTR: each assignment
+                # fires a USB control transfer to the USB-serial chip, and
+                # unnecessary transfers stress marginal hubs and can cause
+                # EPROTO (errno 71).
+                #
+                # try/finally guarantees the line is deasserted even if the
+                # trailing _set_modem_line call fails: without this the reader
+                # would be held in reset across the full reconnect backoff,
+                # silently blocking all reads until the next on_connect.
+                self._set_modem_line(self.reset_line, True)
+                try:
+                    time.sleep(self.reset_interval)
+                finally:
+                    self._set_modem_line(self.reset_line, False)
 
-            # Flush any bytes queued during the reset pulse so they can't
-            # be mistaken for the start of the next tag frame. This is
-            # intentionally outside the try/finally: if flush fails we
-            # want the exception to propagate so BaseSensor triggers a
-            # clean disconnect/reconnect rather than leaving a dirty
-            # buffer that silently corrupts subsequent reads.
-            self.serial_conn.reset_input_buffer()
+                # Flush any bytes queued during the reset pulse so they can't
+                # be mistaken for the start of the next tag frame. This is
+                # intentionally outside the try/finally: if flush fails we
+                # want the exception to propagate so BaseSensor triggers a
+                # clean disconnect/reconnect rather than leaving a dirty
+                # buffer that silently corrupts subsequent reads.
+                self.serial_conn.reset_input_buffer()
 
     def read_tag(self) -> str | None:
         if not self.serial_conn or not self.serial_conn.is_open:
