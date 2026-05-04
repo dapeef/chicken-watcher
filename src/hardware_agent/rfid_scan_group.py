@@ -152,11 +152,12 @@ class RFIDScanGroupCoordinator:
             for reader in to_resume:
                 reader.resume()
 
-            logger.debug(
-                "RFID scan group slot %d/%d active — readers: %s",
+            logger.info(
+                "RFID scan group slot %d/%d active — readers: %s; paused: %s",
                 group_idx + 1,
                 len(self._groups),
                 [r.name for r in to_resume],
+                [r.name for r in to_pause],
             )
 
             self._stop_event.wait(self._dwell)
