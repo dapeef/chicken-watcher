@@ -14,6 +14,8 @@ services:
       - MEDIA_ROOT=/app/media
       - LOG_FILENAME=hardware_agent.log
       - RFID_RESET_LINE=${RFID_RESET_LINE:-dtr}
+      - RFID_SCAN_GROUPS=${RFID_SCAN_GROUPS:-}
+      - RFID_SCAN_DWELL=${RFID_SCAN_DWELL:-2.0}
       - RFID_PORT_LEFT_1=${RFID_PORT_LEFT_1}
       - RFID_PORT_LEFT_2=${RFID_PORT_LEFT_2}
       - RFID_PORT_LEFT_3=${RFID_PORT_LEFT_3}

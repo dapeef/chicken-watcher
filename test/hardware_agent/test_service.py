@@ -16,13 +16,18 @@ import pytest
 from hardware_agent import service
 
 
+def _common_patches(mocker, mock_manager):
+    mocker.patch.object(service, "HardwareManager", return_value=mock_manager)
+    mocker.patch.object(service, "LGPIOFactory", None)
+    # Prevent the scan-group coordinator from spawning real threads.
+    mocker.patch.object(service, "RFIDScanGroupCoordinator")
+
+
 def test_run_agent_registers_signal_handlers(mocker):
     """run_agent must install handlers for SIGTERM and SIGINT so a
     ``docker stop`` or Ctrl-C unwinds cleanly."""
     mock_manager = mocker.Mock()
-    mocker.patch.object(service, "HardwareManager", return_value=mock_manager)
-    # Also patch LGPIOFactory to avoid platform-specific init paths.
-    mocker.patch.object(service, "LGPIOFactory", None)
+    _common_patches(mocker, mock_manager)
 
     mock_signal = mocker.patch.object(service.signal, "signal")
 
@@ -65,8 +70,7 @@ def test_run_agent_registers_signal_handlers(mocker):
 def test_run_agent_sigint_handler_also_triggers_shutdown(mocker):
     """Mirror of the SIGTERM test but for SIGINT (Ctrl-C)."""
     mock_manager = mocker.Mock()
-    mocker.patch.object(service, "HardwareManager", return_value=mock_manager)
-    mocker.patch.object(service, "LGPIOFactory", None)
+    _common_patches(mocker, mock_manager)
 
     mock_signal = mocker.patch.object(service.signal, "signal")
 
@@ -99,8 +103,7 @@ def test_run_agent_stop_all_runs_even_if_event_wait_interrupted(mocker):
     normal return), manager.stop_all must still run because it's in a
     ``finally`` block."""
     mock_manager = mocker.Mock()
-    mocker.patch.object(service, "HardwareManager", return_value=mock_manager)
-    mocker.patch.object(service, "LGPIOFactory", None)
+    _common_patches(mocker, mock_manager)
 
     # Make threading.Event.wait raise KeyboardInterrupt the first time
     # it's called inside run_agent.

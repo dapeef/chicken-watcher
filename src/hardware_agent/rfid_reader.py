@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import threading
 import time
 
 import serial
@@ -35,6 +36,10 @@ class RFIDReader(BaseSensor):
         self.reset_interval = reset_interval
         self.reset_line = reset_line
         self.serial_conn = None
+        # Pausing holds the reader in hardware reset between scan-group
+        # slots. When _paused is set, poll() returns immediately without
+        # reading; the coordinator calls pause()/resume() to transition.
+        self._paused = threading.Event()
 
     def connect(self) -> bool:
         try:
@@ -107,6 +112,30 @@ class RFIDReader(BaseSensor):
         assert last_exc is not None
         raise last_exc
 
+    def pause(self) -> None:
+        """Hold the reader in hardware reset until resume() is called.
+
+        Asserts the reset line (if configured) so the PCB is physically
+        held in reset, then sets the paused flag so poll() becomes a
+        no-op for the duration. Safe to call from any thread.
+        """
+        self._paused.set()
+        if self.serial_conn and self.reset_line is not None:
+            with contextlib.suppress(OSError):
+                self._set_modem_line(self.reset_line, True)
+
+    def resume(self) -> None:
+        """Release the reader from hardware reset and re-enable polling.
+
+        Deasserts the reset line (if configured) then clears the paused
+        flag so the next poll() call reads normally. Safe to call from
+        any thread.
+        """
+        if self.serial_conn and self.reset_line is not None:
+            with contextlib.suppress(OSError):
+                self._set_modem_line(self.reset_line, False)
+        self._paused.clear()
+
     # Exception raised when on_connect detects an unstable USB init.
     # Caught by BaseSensor._run_loop and triggers a clean reconnect.
     class UnstableInitError(OSError):
@@ -148,6 +177,8 @@ class RFIDReader(BaseSensor):
 
     def poll(self):
         if not self.serial_conn:
+            return
+        if self._paused.is_set():
             return
 
         tag = self.read_tag()
@@ -226,3 +257,56 @@ class RFIDReader(BaseSensor):
     def list_ports() -> None:
         for p in list_ports.comports():
             logger.info("Port: %s %s", p.device, p.description)
+
+
+class RFIDResetHolder(BaseSensor):
+    """Holds an RFID reader permanently in reset via DTR.
+
+    Opens the serial port and immediately asserts DTR high, keeping the
+    reader's RST pin active for as long as the process runs.  poll() is
+    a no-op — the reader never transmits while held in reset.
+
+    This is a debugging aid for isolating RF interference between adjacent
+    readers.  Use RFIDReader for normal operation.
+    """
+
+    def __init__(self, name: str, port: str):
+        super().__init__(name)
+        self.port = port
+        self.serial_conn = None
+
+    def connect(self) -> bool:
+        try:
+            self.serial_conn = serial.Serial(
+                port=self.port,
+                baudrate=9600,
+                timeout=1,
+                bytesize=serial.EIGHTBITS,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+            )
+            logger.info("[%s] Opened port %s (held in reset)", self.name, self.port)
+            return True
+        except serial.SerialException as e:
+            logger.error("[%s] Error opening %s: %s", self.name, self.port, e)
+            return False
+
+    def disconnect(self):
+        if self.serial_conn and self.serial_conn.is_open:
+            with contextlib.suppress(Exception):
+                self.serial_conn.close()
+            logger.info("[%s] Closed port %s", self.name, self.port)
+        self.serial_conn = None
+
+    def is_connected(self) -> bool:
+        return self.serial_conn is not None and self.serial_conn.is_open
+
+    def on_connect(self):
+        # Assert DTR high to hold the reader's RST pin active.
+        if self.serial_conn:
+            with contextlib.suppress(OSError):
+                self.serial_conn.dtr = True
+
+    def poll(self):
+        # Nothing to do — reader is held in reset and will not transmit.
+        pass

@@ -9,6 +9,8 @@ except ImportError:
     LGPIOFactory = None
 
 from hardware_agent.manager import HardwareManager
+from hardware_agent.rfid_reader import RFIDReader
+from hardware_agent.rfid_scan_group import RFIDScanGroupCoordinator, parse_scan_groups
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +40,28 @@ def run_agent() -> None:
     #             being able to re-read a stationary tag.
     _reset_line_raw = os.environ.get("RFID_RESET_LINE", "dtr").lower().strip()
     reset_line: str | None = None if _reset_line_raw == "none" else _reset_line_raw
+
     for box in ("left", "right"):
         for n in range(1, 5):
             port = os.environ.get(f"RFID_PORT_{box.upper()}_{n}")
             manager.add_rfid_reader(f"{box}_{n}", port, reset_line=reset_line)
+
+    # RFID_SCAN_GROUPS optionally puts readers into time-sliced rotation
+    # groups to reduce RF interference between adjacent scanners. Format:
+    #   "1,4|2,3"  — slot 1 activates readers 1 & 4, slot 2 activates 2 & 3
+    # Groups are applied identically to every nesting box. Readers not
+    # mentioned in any group stay permanently active.
+    # RFID_SCAN_DWELL sets how many seconds each slot is active (default 2.0).
+    scan_coordinator: RFIDScanGroupCoordinator | None = None
+    _scan_groups_raw = os.environ.get("RFID_SCAN_GROUPS", "").strip()
+    if _scan_groups_raw:
+        try:
+            groups = parse_scan_groups(_scan_groups_raw)
+            dwell = float(os.environ.get("RFID_SCAN_DWELL", "2.0"))
+            rfid_readers = [s for s in manager.sensors if isinstance(s, RFIDReader)]
+            scan_coordinator = RFIDScanGroupCoordinator(rfid_readers, groups, dwell)
+        except (ValueError, TypeError) as e:
+            logger.error("Invalid RFID_SCAN_GROUPS configuration, rotation disabled: %s", e)
 
     manager.add_camera("cam", os.environ.get("CAMERA_DEVICE"))
 
@@ -57,6 +77,9 @@ def run_agent() -> None:
 
     manager.add_beam_sensor("left", os.environ.get("BEAM_BREAK_GPIO_LEFT"), pin_factory)
     manager.add_beam_sensor("right", os.environ.get("BEAM_BREAK_GPIO_RIGHT"), pin_factory)
+
+    if scan_coordinator is not None:
+        scan_coordinator.start()
 
     logger.info("Hardware Manager started. Sensors are connecting in background.")
 
@@ -78,6 +101,8 @@ def run_agent() -> None:
     try:
         shutdown_event.wait()
     finally:
+        if scan_coordinator is not None:
+            scan_coordinator.stop()
         manager.stop_all()
 
 
