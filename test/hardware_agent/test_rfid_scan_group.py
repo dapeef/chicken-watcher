@@ -82,6 +82,42 @@ def test_poll_returns_early_when_paused(mocker):
     reader.serial_conn.read.assert_not_called()
 
 
+def test_pause_drains_buffered_tag_before_asserting_reset(mocker):
+    """pause() must deliver any tag already buffered in the serial port
+    before asserting the reset line. Without this drain the read would
+    wait until the next resume(), introducing unnecessary latency."""
+    from test.hardware_agent.test_rfid_reader import MockSerial
+
+    data = b"\x02TAG123X\x03"
+    reader = make_reader("left_1")
+    reader.serial_conn = MockSerial(data)
+    callback = mocker.Mock()
+    reader.callback = callback
+
+    reader.pause()
+
+    # The buffered tag must have been delivered immediately.
+    callback.assert_called_once_with("left_1", "TAG123")
+    # And the reader must now be paused.
+    assert reader._paused.is_set()
+
+
+def test_pause_does_not_drain_when_already_paused(mocker):
+    """Calling pause() on an already-paused reader must not attempt
+    another drain — it is already gated and the buffer should be empty."""
+    from test.hardware_agent.test_rfid_reader import MockSerial
+
+    reader = make_reader("left_1")
+    reader.serial_conn = MockSerial(b"\x02TAG123X\x03")
+    reader._paused.set()  # already paused
+    callback = mocker.Mock()
+    reader.callback = callback
+
+    reader.pause()
+
+    callback.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # RFIDScanGroupCoordinator — rotation behaviour
 # ---------------------------------------------------------------------------

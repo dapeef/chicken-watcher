@@ -115,10 +115,28 @@ class RFIDReader(BaseSensor):
     def pause(self) -> None:
         """Hold the reader in hardware reset until resume() is called.
 
-        Asserts the reset line (if configured) so the PCB is physically
-        held in reset, then sets the paused flag so poll() becomes a
-        no-op for the duration. Safe to call from any thread.
+        Before asserting the reset line, drains and delivers any tag frame
+        already sitting in the OS receive buffer. A frame can arrive there
+        in the window between the coordinator deciding to pause this reader
+        and the reset line actually being asserted — without this drain it
+        would sit in the buffer until the next resume() and only be
+        delivered then, introducing unnecessary latency.
+
+        After draining, asserts the reset line (if configured) and sets the
+        paused flag so poll() becomes a no-op for the duration.
+
+        Safe to call from any thread.
         """
+        # Drain any complete frame already buffered before we lock the reader
+        # out. read_tag() is non-blocking when there is nothing in the buffer
+        # (recv_frame times out immediately and returns None), so this adds
+        # negligible overhead in the common case.
+        if self.serial_conn and not self._paused.is_set():
+            with contextlib.suppress(Exception):
+                tag = self.read_tag()
+                if tag and self.callback:
+                    self.callback(self.name, tag)
+
         self._paused.set()
         if self.serial_conn and self.reset_line is not None:
             with contextlib.suppress(OSError):
