@@ -303,3 +303,69 @@ def test_on_connect_pins_both_lines_low_when_reset_line_none(mocker):
 
     assert reader.serial_conn.rts is False
     assert reader.serial_conn.dtr is False
+
+
+def test_set_modem_line_returns_true_on_first_attempt():
+    """_set_modem_line returns True when the assignment succeeds first try."""
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial()
+
+    result = reader._set_modem_line("rts", True)
+
+    assert result is True
+
+
+def test_set_modem_line_returns_false_when_retry_needed(mocker):
+    """_set_modem_line returns False when it needed one or more retries to
+    succeed.  Callers (on_connect) use this signal to trigger a clean
+    reconnect rather than continuing with a potentially half-init reader."""
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial()
+    # First attempt fails, second succeeds.
+    reader.serial_conn.modem_failures = [OSError(71, "Protocol error")]
+    mocker.patch("time.sleep")
+
+    result = reader._set_modem_line("rts", True)
+
+    assert result is False
+    assert reader.serial_conn.rts is True  # did eventually succeed
+
+
+@pytest.mark.parametrize("reset_line", ["dtr", "rts"])
+def test_on_connect_raises_unstable_init_error_when_retry_needed(mocker, reset_line):
+    """on_connect must raise UnstableInitError when any modem-control
+    assignment required retries.  An RFID reader that experienced a troubled
+    USB init often ends up silently unable to read tags, so we force a full
+    reconnect to get a clean USB state."""
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line=reset_line)
+    reader.serial_conn = MockSerial()
+    # Make the configured line's first attempt fail (retries succeed).
+    reader.serial_conn.modem_failures = [OSError(71, "Protocol error")]
+    mocker.patch("time.sleep")
+
+    with pytest.raises(RFIDReader.UnstableInitError, match="modem-control lines required retries"):
+        reader.on_connect()
+
+
+def test_on_connect_raises_unstable_init_error_when_retry_needed_none_mode(mocker):
+    """Same as above but with reset_line=None (both lines driven low)."""
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line=None)
+    reader.serial_conn = MockSerial()
+    # Make the first line (rts) fail on its first attempt.
+    reader.serial_conn.modem_failures = [OSError(71, "Protocol error")]
+    mocker.patch("time.sleep")
+
+    with pytest.raises(RFIDReader.UnstableInitError, match="modem-control lines required retries"):
+        reader.on_connect()
+
+
+def test_on_connect_does_not_raise_when_no_retry_needed():
+    """on_connect must NOT raise UnstableInitError when all modem-control
+    assignments succeed on the first attempt."""
+    reader = RFIDReader("test", "/dev/ttyUSB0", reset_line="dtr")
+    reader.serial_conn = MockSerial()
+
+    # Should not raise
+    reader.on_connect()
+
+    assert reader.serial_conn.dtr is False

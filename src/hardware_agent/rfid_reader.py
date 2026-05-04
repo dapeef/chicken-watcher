@@ -68,7 +68,7 @@ class RFIDReader(BaseSensor):
     _MODEM_RETRY_BACKOFF = 0.05
     _MODEM_RETRY_ATTEMPTS = 3
 
-    def _set_modem_line(self, line: str, value: bool) -> None:
+    def _set_modem_line(self, line: str, value: bool) -> bool:
         """Set RTS or DTR with a small retry on transient OSError.
 
         Each modem-control assignment fires a USB control transfer to the
@@ -79,12 +79,17 @@ class RFIDReader(BaseSensor):
         these without escalating to a full disconnect/reconnect cycle.
         Persistent failures still raise so that BaseSensor can hand off
         to handle_error() and reconnect cleanly.
+
+        Returns True if the assignment succeeded on the first attempt,
+        False if it eventually succeeded after one or more retries.
+        Callers that need a clean USB init (e.g. on_connect) can treat
+        a False return as a signal to force a fresh connect cycle.
         """
         last_exc: Exception | None = None
         for attempt in range(self._MODEM_RETRY_ATTEMPTS):
             try:
                 setattr(self.serial_conn, line, value)
-                return
+                return attempt == 0
             except OSError as e:
                 last_exc = e
                 logger.warning(
@@ -102,19 +107,37 @@ class RFIDReader(BaseSensor):
         assert last_exc is not None
         raise last_exc
 
+    # Exception raised when on_connect detects an unstable USB init.
+    # Caught by BaseSensor._run_loop and triggers a clean reconnect.
+    class UnstableInitError(OSError):
+        """Raised when modem-control lines needed retries during on_connect.
+
+        Even though the retries eventually succeeded, an RFID reader that
+        experienced a troubled USB init often ends up in a firmware state
+        where it silently fails to report tags.  Raising here causes
+        BaseSensor to disconnect and reconnect, giving the USB stack and
+        the reader firmware a clean slate.
+        """
+
     def on_connect(self):
         if not self.serial_conn:
             return
+        clean = True
         if self.reset_line is not None:
             # Pulse mode: hold the active line low at idle so it does not
             # accidentally hold the RFID PCB in reset between reads.
-            self._set_modem_line(self.reset_line, False)
+            clean &= self._set_modem_line(self.reset_line, False)
         else:
             # No-reset mode: pin *both* lines low. We don't know which one
             # is wired to RST on this adapter, and the kernel/pyserial does
             # not guarantee an initial state, so drive both to be safe.
-            self._set_modem_line("rts", False)
-            self._set_modem_line("dtr", False)
+            clean &= self._set_modem_line("rts", False)
+            clean &= self._set_modem_line("dtr", False)
+        if not clean:
+            raise self.UnstableInitError(
+                f"[{self.name}] modem-control lines required retries during init; "
+                "reconnecting for a clean USB state"
+            )
 
     # Maximum number of bytes to discard while hunting for STX before
     # giving up and treating the stream as corrupt. A valid tag frame is
