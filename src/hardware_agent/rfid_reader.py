@@ -51,17 +51,17 @@ class RFIDReader(BaseSensor):
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
             )
-            logger.info("Connected to RFID reader on %s", self.port)
+            logger.info("[%s] Connected to %s", self.name, self.port)
             return True
         except serial.SerialException as e:
-            logger.error("Error connecting to %s: %s", self.port, e)
+            logger.error("[%s] Error connecting to %s: %s", self.name, self.port, e)
             return False
 
     def disconnect(self):
         if self.serial_conn and self.serial_conn.is_open:
             with contextlib.suppress(Exception):
                 self.serial_conn.close()
-            logger.info("Disconnected from %s", self.port)
+            logger.info("[%s] Disconnected from %s", self.name, self.port)
         self.serial_conn = None
 
     def is_connected(self) -> bool:
