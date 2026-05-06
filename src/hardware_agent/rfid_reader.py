@@ -197,6 +197,13 @@ class RFIDReader(BaseSensor):
         if not self.serial_conn:
             return
         if self._paused.is_set():
+            # Block until unpaused or the stop event fires, whichever comes
+            # first. Without this the run loop spins at full CPU speed for
+            # every paused reader — one tight loop per thread with no
+            # blocking I/O to yield on.
+            # Use _stop_event.wait so that stop() wakes this immediately
+            # rather than waiting up to reset_interval to notice.
+            self._stop_event.wait(timeout=self.reset_interval)
             return
 
         tag = self.read_tag()

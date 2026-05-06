@@ -76,6 +76,7 @@ def test_poll_returns_early_when_paused(mocker):
     reader.serial_conn = mocker.Mock()
     reader.serial_conn.is_open = True
     reader._paused.set()
+    mocker.patch.object(reader._stop_event, "wait")  # don't actually sleep
 
     reader.poll()
 
