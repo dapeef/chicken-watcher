@@ -93,9 +93,20 @@ class RFIDReader(BaseSensor):
         last_exc: Exception | None = None
         for attempt in range(self._MODEM_RETRY_ATTEMPTS):
             try:
-                setattr(self.serial_conn, line, value)
+                # Re-read serial_conn on every attempt: disconnect() running
+                # in the reader's thread can set it to None at any point,
+                # including between the caller's guard and this setattr.
+                conn = self.serial_conn
+                if conn is None:
+                    return True  # nothing to do; treat as a clean success
+                setattr(conn, line, value)
                 return attempt == 0
-            except OSError as e:
+            except (OSError, AttributeError) as e:
+                # AttributeError covers the TOCTOU race where serial_conn
+                # is set to None by disconnect() between our snapshot and
+                # the setattr completing.
+                if isinstance(e, AttributeError):
+                    return True  # port gone; nothing to assert, treat as clean
                 last_exc = e
                 logger.warning(
                     "[%s] %s=%s failed (attempt %d/%d): %s",

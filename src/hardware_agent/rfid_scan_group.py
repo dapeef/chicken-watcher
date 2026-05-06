@@ -146,11 +146,21 @@ class RFIDScanGroupCoordinator:
 
             # Pause first so there is never a moment where two overlapping
             # groups are simultaneously active (which would defeat the
-            # purpose of the rotation).
+            # purpose of the rotation). Each call is wrapped individually
+            # so a failure on one reader (e.g. a TOCTOU race on serial_conn,
+            # or an unexpected exception) does not abort the rest of the
+            # rotation — the cycle must continue regardless.
             for reader in to_pause:
-                reader.pause()
+                try:
+                    reader.pause()
+                except Exception as e:
+                    logger.warning("[%s] pause() failed during rotation: %s", reader.name, e)
+
             for reader in to_resume:
-                reader.resume()
+                try:
+                    reader.resume()
+                except Exception as e:
+                    logger.warning("[%s] resume() failed during rotation: %s", reader.name, e)
 
             logger.info(
                 "RFID scan group slot %d/%d active — readers: %s; paused: %s",

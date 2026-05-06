@@ -98,6 +98,60 @@ def test_poll_raises_when_paused_and_port_closed(mocker):
         reader.poll()
 
 
+def test_pause_tolerates_serial_conn_becoming_none_mid_call(mocker):
+    """serial_conn can be set to None by disconnect() in the reader's
+    thread between the guard in pause() and the setattr in
+    _set_modem_line. This must not raise AttributeError."""
+    reader = make_reader("left_1")
+    # Give it a serial_conn that disappears the moment dtr is written.
+    mock_conn = mocker.Mock()
+
+    def vanish(_value):
+        reader.serial_conn = None
+        raise AttributeError("'NoneType' object has no attribute 'dtr'")
+
+    type(mock_conn).dtr = mocker.PropertyMock(side_effect=vanish)
+    reader.serial_conn = mock_conn
+
+    # Must not raise — the coordinator thread must survive this.
+    reader.pause()
+
+    assert reader._paused.is_set()
+
+
+def test_coordinator_continues_rotation_after_pause_error(mocker):
+    """An exception from pause() on one reader must not kill the
+    coordinator thread — rotation must continue for all other readers."""
+    import time
+
+    readers = [make_reader("left_1"), make_reader("left_2")]
+    original_pause = readers[0].pause
+
+    call_counts = {"pause_left_2": 0}
+
+    def exploding_pause():
+        raise RuntimeError("simulated pause failure")
+
+    def counting_pause():
+        call_counts["pause_left_2"] += 1
+        original_pause()
+
+    readers[0].pause = exploding_pause
+    readers[1].pause = counting_pause
+
+    groups = parse_scan_groups("1|2")
+    dwell = 0.05
+    coordinator = RFIDScanGroupCoordinator(readers, groups, dwell=dwell)
+    coordinator.start()
+    time.sleep(dwell * 2.5)  # allow at least two full rotations
+    coordinator.stop()
+
+    # left_2's pause was called successfully despite left_1's failure.
+    assert call_counts["pause_left_2"] >= 1
+    # The coordinator thread must have kept running through the error.
+    assert coordinator._thread is None  # stopped cleanly by stop()
+
+
 def test_pause_drains_buffered_tag_before_asserting_reset(mocker):
     """pause() must deliver any tag already buffered in the serial port
     before asserting the reset line. Without this drain the read would
