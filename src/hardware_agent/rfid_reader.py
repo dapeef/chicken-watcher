@@ -40,8 +40,16 @@ class RFIDReader(BaseSensor):
         # slots. When _paused is set, poll() returns immediately without
         # reading; the coordinator calls pause()/resume() to transition.
         self._paused = threading.Event()
+        # Set to True whenever _set_modem_line had to retry. Even when the
+        # retry succeeds, the CH340 chip has shown signs of distress that
+        # don't surface as kernel USB errors but commonly leave the chip
+        # in a state where bulk-IN reads return empty forever. Scheduling
+        # a reconnect at the next poll opportunity unsticks it.
+        self._needs_reconnect = False
 
     def connect(self) -> bool:
+        # Clear the wedge flag — a fresh connection starts in a clean state.
+        self._needs_reconnect = False
         try:
             self.serial_conn = serial.Serial(
                 port=self.port,
@@ -119,6 +127,12 @@ class RFIDReader(BaseSensor):
                 )
                 if self.status_callback:
                     self.status_callback(self.name, "degraded", str(e))
+                # Mark for reconnect: even if a later attempt succeeds,
+                # the CH340 chip has shown signs of distress and bulk-IN
+                # reads commonly return empty forever after this state.
+                # poll() will see this flag at its next active iteration
+                # and force a clean disconnect/reconnect cycle.
+                self._needs_reconnect = True
                 time.sleep(self._MODEM_RETRY_BACKOFF)
         # Exhausted retries — re-raise the last exception so the loop can
         # disconnect + reconnect.
@@ -228,6 +242,17 @@ class RFIDReader(BaseSensor):
             if self.serial_conn and not self.serial_conn.is_open:
                 raise OSError(f"[{self.name}] serial port closed while paused")
             return
+
+        # If a previous _set_modem_line had to retry, the CH340 chip is in a
+        # suspect state and bulk-IN reads frequently return empty forever
+        # without surfacing any error. Force a reconnect now that the reader
+        # is active and we have the chance.
+        if self._needs_reconnect:
+            self._needs_reconnect = False
+            raise OSError(
+                f"[{self.name}] forcing reconnect after modem-control retry "
+                "to recover from possible CH340 wedge"
+            )
 
         tag = self.read_tag()
         if tag:

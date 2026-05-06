@@ -175,6 +175,39 @@ def test_set_modem_line_retries_on_transient_eproto(mocker):
     assert reader.serial_conn.rts is True
     # Backoff slept exactly once between the failed attempt and the retry.
     sleep_mock.assert_called_once_with(reader._MODEM_RETRY_BACKOFF)
+    # Reader is flagged for reconnect because the chip showed signs of
+    # distress, even though the retry eventually succeeded.
+    assert reader._needs_reconnect is True
+
+
+def test_set_modem_line_does_not_flag_reconnect_on_first_attempt_success():
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial()
+    # No failures — first attempt succeeds.
+    reader._set_modem_line("rts", True)
+    assert reader._needs_reconnect is False
+
+
+def test_poll_raises_when_reconnect_flag_is_set(mocker):
+    """A reader flagged for reconnect (because _set_modem_line had to retry)
+    must raise OSError on its next active poll() so _run_loop performs a
+    clean disconnect/reconnect — unsticking a possibly-wedged CH340."""
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader.serial_conn = MockSerial(b"\x02TAG123X\x03")
+    reader._needs_reconnect = True
+
+    with pytest.raises(OSError, match="forcing reconnect"):
+        reader.poll()
+
+
+def test_connect_clears_reconnect_flag(mocker):
+    """A fresh connection must start with the reconnect flag clear."""
+    reader = RFIDReader("test", "/dev/ttyUSB0")
+    reader._needs_reconnect = True
+    mocker.patch("serial.Serial", return_value=MockSerial())
+
+    assert reader.connect() is True
+    assert reader._needs_reconnect is False
 
 
 def test_set_modem_line_raises_after_persistent_failure(mocker):
