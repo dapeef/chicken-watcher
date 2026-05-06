@@ -42,7 +42,7 @@ class TestHardwareHandlers:
 
         # Check if sensor status was updated
         sensor = HardwareSensor.objects.get(name="rfid_Box1")
-        assert sensor.is_connected is True
+        assert sensor.status == HardwareSensor.Status.ONLINE
 
     def test_handle_tag_read_extend_period(self, mocker):
         from datetime import timedelta
@@ -174,7 +174,7 @@ class TestHardwareHandlers:
 
         # Check sensor status
         sensor = HardwareSensor.objects.get(name="beam_Box1")
-        assert sensor.is_connected is True
+        assert sensor.status == HardwareSensor.Status.ONLINE
 
     def test_handle_beam_break_no_presence(self, mocker, caplog):
         NestingBoxFactory(name="Box1")
@@ -216,17 +216,31 @@ class TestHardwareHandlers:
         with pytest.raises(RuntimeError, match="Could not encode frame"):
             save_frame_to_db("Cam1", frame)
 
-    def test_report_status(self):
+    def test_report_status_online_bool(self):
         report_status("test_sensor", True, "All good")
         sensor = HardwareSensor.objects.get(name="test_sensor")
-        assert sensor.is_connected is True
+        assert sensor.status == HardwareSensor.Status.ONLINE
         assert sensor.status_message == "All good"
 
+    def test_report_status_offline_bool(self):
+        report_status("test_sensor", False, "Something went wrong")
+        sensor = HardwareSensor.objects.get(name="test_sensor")
+        assert sensor.status == HardwareSensor.Status.OFFLINE
+        assert sensor.status_message == "Something went wrong"
+
+    def test_report_status_degraded(self):
+        report_status(
+            "test_sensor", HardwareSensor.Status.DEGRADED, "[Errno 110] Connection timed out"
+        )
+        sensor = HardwareSensor.objects.get(name="test_sensor")
+        assert sensor.status == HardwareSensor.Status.DEGRADED
+        assert sensor.status_message == "[Errno 110] Connection timed out"
+
     def test_report_event(self):
-        HardwareSensor.objects.create(name="test_sensor", is_connected=False)
+        HardwareSensor.objects.create(name="test_sensor")
         report_event("test_sensor")
         sensor = HardwareSensor.objects.get(name="test_sensor")
-        assert sensor.is_connected is True
+        assert sensor.status == HardwareSensor.Status.ONLINE
         assert sensor.last_event_at is not None
 
     def test_save_frame_to_db_logs_debug(self, caplog):

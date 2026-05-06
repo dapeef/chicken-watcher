@@ -20,7 +20,7 @@ class TestE2E:
         """
         # Set up some data to ensure things are rendered
         chicken = ChickenFactory(name="Bertha")
-        HardwareSensorFactory(name="rfid_left", is_connected=True)
+        HardwareSensorFactory(name="rfid_left")
 
         # 1. Dashboard
         response = client.get(reverse("dashboard"))

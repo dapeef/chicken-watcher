@@ -59,19 +59,29 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def report_status(full_name: str, connected: bool, message: str = "") -> None:
-    """Upsert a :class:`HardwareSensor` row with the current connection
-    state and a bumped ``last_seen_at`` timestamp. Called by the
-    hardware agent on every connect/disconnect cycle.
+def report_status(
+    full_name: str,
+    status: "str | bool",
+    message: str = "",
+) -> None:
+    """Upsert a :class:`HardwareSensor` row with the current status and
+    a bumped ``last_seen_at`` timestamp. Called by the hardware agent on
+    every connect/disconnect/degrade event.
+
+    ``status`` accepts either a :class:`HardwareSensor.Status` value
+    (``"online"``, ``"degraded"``, ``"offline"``) or a legacy boolean
+    (``True`` → ``"online"``, ``False`` → ``"offline"``).
 
     Errors are swallowed and logged: status reporting must never take
     the sensor loop down.
     """
+    if isinstance(status, bool):
+        status = HardwareSensor.Status.ONLINE if status else HardwareSensor.Status.OFFLINE
     try:
         HardwareSensor.objects.update_or_create(
             name=full_name,
             defaults={
-                "is_connected": connected,
+                "status": status,
                 "status_message": message,
                 "last_seen_at": timezone.now(),
             },
@@ -82,14 +92,14 @@ def report_status(full_name: str, connected: bool, message: str = "") -> None:
 
 def report_event(full_name: str) -> None:
     """Mark a sensor as "just produced an event" by bumping
-    ``last_event_at`` and setting ``is_connected=True``. Called by the
+    ``last_event_at`` and setting status to online. Called by the
     event-handling functions below on every incoming signal.
 
     Errors are swallowed and logged.
     """
     try:
         HardwareSensor.objects.filter(name=full_name).update(
-            last_event_at=timezone.now(), is_connected=True
+            last_event_at=timezone.now(), status=HardwareSensor.Status.ONLINE
         )
     except Exception as e:
         logger.error("Error reporting event for %s: %s", full_name, e)

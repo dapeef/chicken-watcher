@@ -8,9 +8,13 @@
         {% for sensor in sensors %}
           <li class="mb-2">
             <div class="d-flex align-items-center gap-2">
-              <span class="badge {% if sensor.is_connected %}bg-success{% else %}bg-danger{% endif %}">
-                {{ sensor.is_connected|yesno:"Online,Offline" }}
-              </span>
+              {% if sensor.status == "online" %}
+                <span class="badge bg-success">Online</span>
+              {% elif sensor.status == "degraded" %}
+                <span class="badge bg-warning text-dark">Temporarily offline</span>
+              {% else %}
+                <span class="badge bg-danger">Offline</span>
+              {% endif %}
               <strong>{{ sensor.name }}</strong>
             </div>
             <div class="text-muted ps-1" style="font-size: 0.8em">
@@ -20,8 +24,8 @@
                 No activity yet
               {% endif %}
             </div>
-            {% if not sensor.is_connected and sensor.status_message %}
-              <div class="text-danger ps-1" style="font-size: 0.8em">{{ sensor.status_message }}</div>
+            {% if sensor.status != "online" and sensor.status_message %}
+              <div class="{% if sensor.status == "degraded" %}text-warning{% else %}text-danger{% endif %} ps-1" style="font-size: 0.8em">{{ sensor.status_message }}</div>
             {% endif %}
           </li>
         {% endfor %}

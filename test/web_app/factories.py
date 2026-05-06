@@ -97,10 +97,11 @@ class HardwareSensorFactory(factory.django.DjangoModelFactory):
         model = HardwareSensor
 
     name = factory.Sequence(lambda n: f"sensor_{n}")
-    is_connected = True
+    status = HardwareSensor.Status.ONLINE
 
     class Params:
-        offline = factory.Trait(is_connected=False)
+        offline = factory.Trait(status=HardwareSensor.Status.OFFLINE)
+        degraded = factory.Trait(status=HardwareSensor.Status.DEGRADED)
 
 
 class NestingBoxImageFactory(factory.django.DjangoModelFactory):

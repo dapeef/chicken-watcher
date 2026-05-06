@@ -235,18 +235,28 @@ class TestHardwareSensorQuerySet:
     def test_online(self):
         from web_app.models import HardwareSensor
 
-        online = HardwareSensorFactory(is_connected=True)
-        HardwareSensorFactory(is_connected=False)
+        online = HardwareSensorFactory()
+        HardwareSensorFactory(offline=True)
+        HardwareSensorFactory(degraded=True)
 
         assert list(HardwareSensor.objects.online()) == [online]
 
     def test_offline(self):
         from web_app.models import HardwareSensor
 
-        HardwareSensorFactory(is_connected=True)
-        offline = HardwareSensorFactory(is_connected=False)
+        HardwareSensorFactory()
+        offline = HardwareSensorFactory(offline=True)
 
         assert list(HardwareSensor.objects.offline()) == [offline]
+
+    def test_degraded(self):
+        from web_app.models import HardwareSensor
+
+        HardwareSensorFactory()
+        HardwareSensorFactory(offline=True)
+        degraded = HardwareSensorFactory(degraded=True)
+
+        assert list(HardwareSensor.objects.degraded()) == [degraded]
 
 
 # ---------------------------------------------------------------------------

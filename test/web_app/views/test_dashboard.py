@@ -144,7 +144,7 @@ class TestDashboardViews:
         assert "Departed" in content
 
     def test_partial_sensors(self, client):
-        HardwareSensorFactory(name="rfid_test", is_connected=True)
+        HardwareSensorFactory(name="rfid_test")
         url = reverse("partial_sensors")
         response = client.get(url)
         assert response.status_code == 200
@@ -241,8 +241,8 @@ class TestDashboardPartialQueryCount:
             started_at=timezone.now() - timedelta(minutes=5),
             ended_at=timezone.now(),
         )
-        HardwareSensorFactory(name="rfid_left_1", is_connected=True)
-        HardwareSensorFactory(name="camera_cam", is_connected=False)
+        HardwareSensorFactory(name="rfid_left_1")
+        HardwareSensorFactory(name="camera_cam", offline=True)
 
     def test_partial_eggs_today_is_cheap(self, client, django_assert_max_num_queries):
         self._populate()

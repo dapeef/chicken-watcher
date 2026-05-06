@@ -196,12 +196,16 @@ class TestNestingBoxPresenceModel:
 @pytest.mark.django_db
 class TestHardwareSensorModel:
     def test_str_online(self):
-        sensor = HardwareSensorFactory(name="rfid_1", is_connected=True)
+        sensor = HardwareSensorFactory(name="rfid_1")
         assert str(sensor) == "rfid_1 (Online)"
 
     def test_str_offline(self):
-        sensor = HardwareSensorFactory(name="rfid_1", is_connected=False)
+        sensor = HardwareSensorFactory(name="rfid_1", offline=True)
         assert str(sensor) == "rfid_1 (Offline)"
+
+    def test_str_degraded(self):
+        sensor = HardwareSensorFactory(name="rfid_1", degraded=True)
+        assert str(sensor) == "rfid_1 (Temporarily offline)"
 
 
 @pytest.mark.django_db
@@ -237,8 +241,16 @@ class TestFactoryTraits:
         assert egg.quality == Egg.Quality.MESSY
 
     def test_hardware_sensor_offline_trait(self):
+        from web_app.models import HardwareSensor
+
         sensor = HardwareSensorFactory(offline=True)
-        assert not sensor.is_connected
+        assert sensor.status == HardwareSensor.Status.OFFLINE
+
+    def test_hardware_sensor_degraded_trait(self):
+        from web_app.models import HardwareSensor
+
+        sensor = HardwareSensorFactory(degraded=True)
+        assert sensor.status == HardwareSensor.Status.DEGRADED
 
     def test_presence_period_default_is_non_zero_duration(self):
         period = NestingBoxPresencePeriodFactory()

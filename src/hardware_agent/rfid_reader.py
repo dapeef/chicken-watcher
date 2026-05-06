@@ -117,6 +117,8 @@ class RFIDReader(BaseSensor):
                     self._MODEM_RETRY_ATTEMPTS,
                     e,
                 )
+                if self.status_callback:
+                    self.status_callback(self.name, "degraded", str(e))
                 time.sleep(self._MODEM_RETRY_BACKOFF)
         # Exhausted retries — re-raise the last exception so the loop can
         # disconnect + reconnect.

@@ -106,8 +106,8 @@ class NestingBoxImageAdmin(admin.ModelAdmin):
 
 @admin.register(HardwareSensor)
 class HardwareSensorAdmin(admin.ModelAdmin):
-    list_display = ("name", "is_connected", "last_event_at", "last_seen_at", "status_message")
-    list_filter = ("is_connected",)
+    list_display = ("name", "status", "last_event_at", "last_seen_at", "status_message")
+    list_filter = ("status",)
     search_fields = ("name",)
     readonly_fields = ("last_seen_at",)
     ordering = ("name",)

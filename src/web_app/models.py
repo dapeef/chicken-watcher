@@ -76,10 +76,13 @@ class HardwareSensorQuerySet(models.QuerySet):
     """Common filters on :class:`HardwareSensor`."""
 
     def online(self) -> "HardwareSensorQuerySet":
-        return self.filter(is_connected=True)
+        return self.filter(status=HardwareSensor.Status.ONLINE)
 
     def offline(self) -> "HardwareSensorQuerySet":
-        return self.filter(is_connected=False)
+        return self.filter(status=HardwareSensor.Status.OFFLINE)
+
+    def degraded(self) -> "HardwareSensorQuerySet":
+        return self.filter(status=HardwareSensor.Status.DEGRADED)
 
 
 class NestingBoxImageQuerySet(models.QuerySet):
@@ -277,8 +280,17 @@ class NestingBoxImage(models.Model):
 
 
 class HardwareSensor(models.Model):
-    name = models.CharField(max_length=100, unique=True)  # e.g., "left_rfid", "main_camera"
-    is_connected = models.BooleanField(default=False)
+    class Status(models.TextChoices):
+        ONLINE = "online", "Online"
+        DEGRADED = "degraded", "Temporarily offline"
+        OFFLINE = "offline", "Offline"
+
+    name = models.CharField(max_length=100, unique=True)  # e.g., "rfid_left_1", "camera_cam"
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.OFFLINE,
+    )
     last_event_at = models.DateTimeField(null=True, blank=True)  # Last time a tag/beam was detected
     last_seen_at = models.DateTimeField(auto_now=True)  # Last heartbeat from the agent
     status_message = models.TextField(blank=True)  # Error messages (e.g., "Permission Denied")
@@ -288,6 +300,10 @@ class HardwareSensor(models.Model):
     class Meta:
         ordering = ["name"]
 
+    @property
+    def is_connected(self) -> bool:
+        """Backward-compatible shim — True only when fully online."""
+        return self.status == self.Status.ONLINE
+
     def __str__(self):
-        status = "Online" if self.is_connected else "Offline"
-        return f"{self.name} ({status})"
+        return f"{self.name} ({self.get_status_display()})"
