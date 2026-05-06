@@ -95,7 +95,56 @@ class TestHardwareHandlers:
         presences = list(NestingBoxPresence.objects.order_by("present_at"))
         assert presences[0].presence_period != presences[1].presence_period
 
-    def test_handle_tag_read_do_not_extend_if_seen_elsewhere(self, mocker):
+    def test_handle_tag_read_brief_visit_elsewhere_extends_original_period(self, mocker):
+        """A brief visit to another box does not prevent the original box period
+        from being extended when the chicken returns.
+
+        Box periods are independent: each box only considers its own recent
+        period when deciding whether to extend.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        ChickenFactory(tag=TagFactory(rfid_string="12345", number=1))
+        box1 = NestingBoxFactory(name="Box1")
+        box2 = NestingBoxFactory(name="Box2")
+        HardwareSensor.objects.create(name="rfid_Box1")
+        HardwareSensor.objects.create(name="rfid_Box2")
+
+        t0 = timezone.now()
+
+        # 1. Spotted in Box 1
+        mocker.patch("django.utils.timezone.now", return_value=t0)
+        handle_tag_read("Box1", "12345")
+
+        # 2. Briefly steps into Box 2 after 10 seconds
+        t1 = t0 + timedelta(seconds=10)
+        mocker.patch("django.utils.timezone.now", return_value=t1)
+        handle_tag_read("Box2", "12345")
+
+        # 3. Returns to Box 1 after another 10 seconds (total 20s — still within timeout)
+        t2 = t1 + timedelta(seconds=10)
+        mocker.patch("django.utils.timezone.now", return_value=t2)
+        handle_tag_read("Box1", "12345")
+
+        # Box 1 should have a single period, extended to t2
+        box1_periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by(
+            "started_at"
+        )
+        assert box1_periods.count() == 1
+        assert box1_periods[0].started_at == t0
+        assert box1_periods[0].ended_at == t2
+
+        # Box 2 should have its own independent period
+        box2_periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box2)
+        assert box2_periods.count() == 1
+        assert box2_periods[0].started_at == t1
+
+    def test_handle_tag_read_new_period_in_original_box_after_timeout(self, mocker):
+        """A new period is created in box 1 if the chicken returns after the
+        timeout has elapsed, regardless of any intermediate box 2 visit.
+        """
         from datetime import timedelta
 
         from django.utils import timezone
@@ -117,15 +166,18 @@ class TestHardwareHandlers:
         mocker.patch("django.utils.timezone.now", return_value=t1)
         handle_tag_read("Box2", "12345")
 
-        # 3. Spotted in Box 1 again after another 10 seconds (total 20s from first Box 1 read)
-        t2 = t1 + timedelta(seconds=10)
+        # 3. Returns to Box 1 after the timeout has expired from the first Box 1 read
+        t2 = t0 + timedelta(seconds=90)
         mocker.patch("django.utils.timezone.now", return_value=t2)
         handle_tag_read("Box1", "12345")
 
-        periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by("started_at")
-        assert periods.count() == 2
-        assert periods[0].ended_at == t0
-        assert periods[1].started_at == t2
+        # Box 1 should have two periods: the original one ending at t0 and a new one at t2
+        box1_periods = NestingBoxPresencePeriod.objects.filter(nesting_box=box1).order_by(
+            "started_at"
+        )
+        assert box1_periods.count() == 2
+        assert box1_periods[0].ended_at == t0
+        assert box1_periods[1].started_at == t2
 
     def test_handle_tag_read_unknown_rfid(self, mocker, caplog):
         NestingBoxFactory(name="Box1")

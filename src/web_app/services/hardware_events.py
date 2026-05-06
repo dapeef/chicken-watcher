@@ -226,17 +226,16 @@ def _find_extensible_period(chicken, nesting_box, now):
     ``chicken``+``nesting_box`` that can be extended to ``now``, or
     ``None`` if a new period should be created.
 
-    A period is extensible when:
+    A period is extensible when it ended within
+    :data:`NESTING_BOX_PRESENCE_TIMEOUT` seconds of ``now``.
 
-    * it ended within :data:`NESTING_BOX_PRESENCE_TIMEOUT` seconds of
-      ``now``, and
-    * no later period exists for the same chicken in a different box
-      (which would indicate the chicken left this box after that
-      period ended).
+    Periods for different boxes are tracked independently: a chicken
+    briefly visiting another box does not prevent this box's period from
+    being extended when the chicken returns.
 
     Must be called inside a transaction with the chicken row locked.
     """
-    recent_period = (
+    return (
         NestingBoxPresencePeriod.objects.filter(
             chicken=chicken,
             nesting_box=nesting_box,
@@ -245,20 +244,6 @@ def _find_extensible_period(chicken, nesting_box, now):
         .order_by("ended_at")
         .last()
     )
-
-    if recent_period is None:
-        return None
-
-    seen_elsewhere_since = (
-        NestingBoxPresencePeriod.objects.filter(
-            chicken=chicken, ended_at__gt=recent_period.ended_at
-        )
-        .exclude(nesting_box=nesting_box)
-        .exists()
-    )
-    if seen_elsewhere_since:
-        return None
-    return recent_period
 
 
 # ---------------------------------------------------------------------------
