@@ -83,6 +83,21 @@ def test_poll_returns_early_when_paused(mocker):
     reader.serial_conn.read.assert_not_called()
 
 
+def test_poll_raises_when_paused_and_port_closed(mocker):
+    """If the serial port closes while the reader is paused (e.g. hub
+    unplugged), poll() must raise OSError so _run_loop's error handler
+    triggers a reconnect immediately — not silently wait for the next
+    rotation cycle."""
+    reader = make_reader("left_1")
+    reader.serial_conn = mocker.Mock()
+    reader.serial_conn.is_open = False  # port died while paused
+    reader._paused.set()
+    mocker.patch.object(reader._stop_event, "wait")
+
+    with pytest.raises(OSError, match="serial port closed while paused"):
+        reader.poll()
+
+
 def test_pause_drains_buffered_tag_before_asserting_reset(mocker):
     """pause() must deliver any tag already buffered in the serial port
     before asserting the reset line. Without this drain the read would

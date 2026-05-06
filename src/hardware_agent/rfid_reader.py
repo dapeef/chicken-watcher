@@ -204,6 +204,16 @@ class RFIDReader(BaseSensor):
             # Use _stop_event.wait so that stop() wakes this immediately
             # rather than waiting up to reset_interval to notice.
             self._stop_event.wait(timeout=self.reset_interval)
+            # Check the port is still alive after the wait. A paused reader
+            # never calls read(), so without this check a disconnection
+            # (e.g. hub unplugged) would go unnoticed until the next
+            # rotation cycle — every other reader surfaces the error
+            # immediately through a failed read, but paused readers would
+            # silently appear connected. Raising here lets _run_loop's
+            # error handler trigger a clean disconnect/reconnect on the
+            # same schedule as the active readers.
+            if self.serial_conn and not self.serial_conn.is_open:
+                raise OSError(f"[{self.name}] serial port closed while paused")
             return
 
         tag = self.read_tag()
