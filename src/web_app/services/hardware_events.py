@@ -35,6 +35,7 @@ import re
 from datetime import datetime, timedelta
 
 import cv2
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
@@ -102,7 +103,9 @@ def report_event(full_name: str) -> None:
 # prior period ended within this many seconds of "now". Beyond that, a
 # new period is started (the chicken has been away long enough that
 # it's a fresh visit).
-NESTING_BOX_PRESENCE_TIMEOUT = 60
+# Configurable via NESTING_BOX_PRESENCE_TIMEOUT_SECONDS in the environment
+# (see django_project/settings/base.py); defaults to 60 s.
+NESTING_BOX_PRESENCE_TIMEOUT = settings.NESTING_BOX_PRESENCE_TIMEOUT_SECONDS
 
 
 def _nesting_box_name_for_sensor(sensor_name: str) -> str:

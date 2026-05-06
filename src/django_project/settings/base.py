@@ -34,6 +34,13 @@ SECRET_KEY: str | None = os.getenv("DJANGO_SECRET_KEY")
 COOP_LATITUDE = float(os.getenv("COOP_LATITUDE") or "51.5")
 COOP_LONGITUDE = float(os.getenv("COOP_LONGITUDE") or "-0.1")
 
+# How long (in seconds) a gap between RFID reads for the same chicken+box
+# can be before a new presence period is started instead of extending the
+# existing one.  Defaults to 60 s if not set in the environment.
+NESTING_BOX_PRESENCE_TIMEOUT_SECONDS = int(
+    os.getenv("NESTING_BOX_PRESENCE_TIMEOUT_SECONDS") or "60"
+)
+
 
 # The app is deployed behind a LAN + VPN boundary, so ALLOWED_HOSTS = ["*"]
 # in base is acceptable. prod.py may tighten this if desired.
